@@ -162,6 +162,7 @@ struct QuickProfileView: View {
                 size: .lg,
                 isDisabled: !viewModel.canProceedFromProfile
             ) {
+                Analytics.Onboarding.profileCompleted()
                 viewModel.next()
             }
             .padding(.horizontal, M)
@@ -170,6 +171,10 @@ struct QuickProfileView: View {
         .background(DSColor.Background.primary)
         .onAppear {
             viewModel.applyPrefill()
+            Analytics.Onboarding.profileViewed()
+            let prefilled = [viewModel.prefilledAge, viewModel.prefilledHeightInches].compactMap { $0 }.count
+                + (viewModel.prefilledWeightLbs != nil ? 1 : 0)
+            Analytics.Onboarding.profilePrefilledFields(count: prefilled)
         }
     }
 

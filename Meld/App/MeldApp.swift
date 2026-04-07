@@ -9,9 +9,7 @@ struct MeldApp: App {
         DSFontDebug.verifyFonts()
         #endif
 
-        // Check if onboarding was previously completed
-        // For now, always show onboarding in development
-        // In production, this would check UserDefaults or Keychain
+        Analytics.initialize()
     }
 
     var body: some Scene {
@@ -20,6 +18,7 @@ struct MeldApp: App {
                 MainTabView()
             } else {
                 OnboardingFlow {
+                    Analytics.Onboarding.dashboardReached()
                     withAnimation(DSMotion.emphasis) {
                         hasCompletedOnboarding = true
                     }

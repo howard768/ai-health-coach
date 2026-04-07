@@ -71,7 +71,9 @@ struct WelcomeView: View {
             // CTA anchored at bottom
             VStack(spacing: DSSpacing.sm) {
                 Button(action: {
-                    // Apple Sign In would go here
+                    Analytics.Onboarding.appleSignInTapped()
+                    // Apple Sign In would go here — for now skip to goals
+                    Analytics.Onboarding.appleSignInCompleted()
                     viewModel.next()
                 }) {
                     Text("Sign in with Apple")
@@ -92,6 +94,7 @@ struct WelcomeView: View {
             .padding(.bottom, DSSpacing.lg)
         }
         .background(DSColor.Background.primary)
+        .onAppear { Analytics.Onboarding.welcomeViewed() }
     }
 
     // MARK: - Insight Card

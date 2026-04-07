@@ -80,11 +80,19 @@ final class OnboardingViewModel {
     func connectSource(_ source: DataSourceType) {
         assessment.connectedSources.insert(source)
         DSHaptic.success()
+
+        // Analytics
+        switch source {
+        case .oura: Analytics.Onboarding.ouraConnected()
+        case .appleHealth: Analytics.Onboarding.healthKitGranted()
+        default: break
+        }
     }
 
     func startSync() async {
         isSyncing = true
         syncProgress = 0
+        Analytics.Onboarding.syncStarted()
 
         // Simulate sync steps
         let steps = [
@@ -103,6 +111,7 @@ final class OnboardingViewModel {
 
         try? await Task.sleep(for: .seconds(0.5))
         isSyncing = false
+        Analytics.Onboarding.syncCompleted()
 
         withAnimation(DSMotion.emphasis) {
             isComplete = true

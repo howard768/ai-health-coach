@@ -71,12 +71,14 @@ struct ConnectDataView: View {
                 size: .lg,
                 isDisabled: !viewModel.canProceedFromConnect
             ) {
+                Analytics.Onboarding.connectContinued()
                 viewModel.next()
             }
             .padding(.horizontal, M)
             .padding(.bottom, DSSpacing.lg)
         }
         .background(DSColor.Background.primary)
+        .onAppear { Analytics.Onboarding.connectViewed() }
     }
 
     // MARK: - Source Card

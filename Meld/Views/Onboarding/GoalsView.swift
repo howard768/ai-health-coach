@@ -96,12 +96,15 @@ struct GoalsView: View {
                 size: .lg,
                 isDisabled: !viewModel.canProceedFromGoals
             ) {
+                Analytics.Onboarding.goalsSelected(goals: viewModel.assessment.goals.map(\.rawValue))
+                Analytics.Onboarding.goalsContinued()
                 viewModel.next()
             }
             .padding(.horizontal, M)
             .padding(.bottom, DSSpacing.lg)
         }
         .background(DSColor.Background.primary)
+        .onAppear { Analytics.Onboarding.goalsViewed() }
     }
 }
 
