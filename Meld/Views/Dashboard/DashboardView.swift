@@ -18,32 +18,51 @@ struct DashboardView: View {
     var switchToTab: ((Tab) -> Void)? = nil
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: DSSpacing.xxl) {
+        Group {
+            switch viewModel.viewState {
+            case .loading:
+                ScrollView {
+                    DashboardSkeleton()
+                }
 
-                // MARK: Header
-                headerSection
+            case .empty:
+                DashboardEmptyState {
+                    // Navigate to profile/connect
+                }
 
-                // MARK: Coach Insight (tappable → Coach tab)
-                CoachInsightCard(
-                    insight: viewModel.dashboardData.coachInsight,
-                    onContinueInChat: {
-                        switchToTab?(.coach)
-                    }
+            case .error(let error):
+                FullScreenError(
+                    title: "Can't load your data",
+                    message: error.localizedDescription,
+                    onRetry: { Task { await viewModel.refresh() } }
                 )
 
-                // MARK: Today's Metrics
-                todaySection
+            case .loaded:
+                ScrollView {
+                    VStack(alignment: .leading, spacing: DSSpacing.xxl) {
+                        headerSection
+
+                        CoachInsightCard(
+                            insight: viewModel.dashboardData.coachInsight,
+                            onContinueInChat: {
+                                switchToTab?(.coach)
+                            }
+                        )
+
+                        todaySection
+                    }
+                    .padding(.horizontal, DSSpacing.lg)
+                    .padding(.top, DSSpacing.md)
+                    .padding(.bottom, DSSpacing.lg)
+                }
+                .refreshable {
+                    await viewModel.refresh()
+                }
             }
-            .padding(.horizontal, DSSpacing.lg)
-            .padding(.top, DSSpacing.md)
-            .padding(.bottom, DSSpacing.lg)
-        }
-        .refreshable {
-            await viewModel.refresh()
         }
         .background(DSColor.Background.primary)
         .navigationBarHidden(true)
+        .onAppear { Analytics.Dashboard.viewed() }
     }
 
     // MARK: - Header

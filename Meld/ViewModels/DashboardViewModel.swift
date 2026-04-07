@@ -9,6 +9,14 @@ final class DashboardViewModel {
 
     // MARK: - State
 
+    enum ViewState {
+        case loading
+        case loaded
+        case empty
+        case error(DashboardError)
+    }
+
+    var viewState: ViewState = .loaded
     var dashboardData: DashboardData
     var isLoading: Bool = false
     var error: DashboardError? = nil
