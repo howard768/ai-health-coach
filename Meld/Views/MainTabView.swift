@@ -29,7 +29,7 @@ struct MainTabView: View {
                     }
                 case .profile:
                     NavigationStack {
-                        ComponentShowcase()
+                        ProfileSettingsView()
                     }
                 }
             }

@@ -20,7 +20,7 @@ struct MeldApp: App {
                 OnboardingFlow {
                     Analytics.Onboarding.dashboardReached()
                     withAnimation(DSMotion.emphasis) {
-                        hasCompletedOnboarding = true
+                        hasCompletedOnboarding = false
                     }
                 }
             }
