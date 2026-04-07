@@ -1,0 +1,217 @@
+import SwiftUI
+
+// MARK: - Coach Chat Screen
+// Full chat interface with embedded data cards, workout plans,
+// quick action chips, and streaming response indicator.
+// Inspired by Exyte Chat but built from DS components for full design control.
+//
+// Features recreated from Exyte Chat:
+// - Message bubbles (left coach, right user) with avatar
+// - Message grouping with timestamps
+// - Quick action chips above input
+// - Typing indicator with animated mascot
+// - Embedded rich content (data cards, workouts, citations)
+// - Keyboard-aware input bar fixed at bottom
+//
+// Grid: 20pt margins, 8pt vertical rhythm.
+
+struct CoachChatView: View {
+    @State private var viewModel = CoachViewModel()
+    private let M: CGFloat = 20
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // Navigation title
+            Text("Coach")
+                .font(DSTypography.h2)
+                .foregroundStyle(DSColor.Text.primary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, DSSpacing.md)
+                .background(DSColor.Background.primary)
+
+            // Message list
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: DSSpacing.lg) {
+                        ForEach(viewModel.messages) { message in
+                            MessageView(message: message)
+                                .id(message.id)
+                        }
+
+                        // Typing indicator
+                        if viewModel.isTyping {
+                            TypingIndicator()
+                                .padding(.horizontal, M)
+                                .id("typing")
+                        }
+                    }
+                    .padding(.vertical, DSSpacing.md)
+                }
+                .onChange(of: viewModel.messages.count) { _, _ in
+                    withAnimation(DSMotion.standard) {
+                        if viewModel.isTyping {
+                            proxy.scrollTo("typing", anchor: .bottom)
+                        } else if let last = viewModel.messages.last {
+                            proxy.scrollTo(last.id, anchor: .bottom)
+                        }
+                    }
+                }
+            }
+
+            // Quick action chips
+            if !viewModel.isTyping {
+                DSChipRow(chips: viewModel.quickActions.map(\.title)) { title in
+                    if let action = viewModel.quickActions.first(where: { $0.title == title }) {
+                        viewModel.sendQuickAction(action)
+                    }
+                }
+                .padding(.vertical, DSSpacing.sm)
+            }
+
+            // Input bar
+            chatInputBar
+        }
+        .background(DSColor.Background.primary)
+        .onAppear { Analytics.Coach.chatOpened() }
+    }
+
+    // MARK: - Input Bar
+
+    private var chatInputBar: some View {
+        HStack(spacing: DSSpacing.sm) {
+            TextField("Ask anything about your health", text: $viewModel.inputText)
+                .font(DSTypography.body)
+                .foregroundStyle(DSColor.Text.primary)
+                .padding(.vertical, DSSpacing.md)
+                .padding(.horizontal, DSSpacing.lg)
+                .background(DSColor.Surface.secondary)
+                .clipShape(Capsule())
+                .onSubmit {
+                    viewModel.sendMessage()
+                }
+
+            if !viewModel.inputText.isEmpty {
+                Button(action: { viewModel.sendMessage() }) {
+                    SquatBlobIcon(isActive: true, size: 36)
+                        .frame(width: 44, height: 44)
+                        .background(Color.hex(0xFAF0DA))
+                        .clipShape(Circle())
+                }
+                .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .padding(.horizontal, M)
+        .padding(.vertical, DSSpacing.sm)
+        .background(DSColor.Background.primary)
+        .animation(DSMotion.snappy, value: viewModel.inputText.isEmpty)
+    }
+}
+
+// MARK: - Message View (coach or user)
+
+private struct MessageView: View {
+    let message: ChatMessage
+    private let M: CGFloat = 20
+
+    var body: some View {
+        HStack(alignment: .top, spacing: DSSpacing.sm) {
+            if message.role == .coach {
+                coachBubble
+            } else {
+                userBubble
+            }
+        }
+        .padding(.horizontal, M)
+    }
+
+    // MARK: - Coach Bubble (left-aligned with avatar)
+
+    private var coachBubble: some View {
+        HStack(alignment: .top, spacing: DSSpacing.sm) {
+            AnimatedMascot(state: .idle, size: 28)
+                .padding(.top, DSSpacing.xs)
+
+            VStack(alignment: .leading, spacing: DSSpacing.sm) {
+                // Timestamp
+                Text(timeString)
+                    .font(DSTypography.caption)
+                    .foregroundStyle(DSColor.Text.tertiary)
+
+                // Content blocks
+                ForEach(message.content) { block in
+                    contentView(for: block)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Spacer(minLength: 40) // Right margin for coach messages
+        }
+    }
+
+    // MARK: - User Bubble (right-aligned, purple)
+
+    private var userBubble: some View {
+        HStack {
+            Spacer(minLength: 80) // Left margin for user messages
+
+            VStack(alignment: .trailing, spacing: DSSpacing.xs) {
+                Text(timeString)
+                    .font(DSTypography.caption)
+                    .foregroundStyle(DSColor.Text.tertiary)
+
+                // User messages are always text
+                if case .text(let text) = message.content.first {
+                    Text(text)
+                        .font(DSTypography.body)
+                        .foregroundStyle(DSColor.Text.onPurple)
+                        .padding(.horizontal, DSSpacing.lg)
+                        .padding(.vertical, DSSpacing.md)
+                        .background(DSColor.Purple.purple500)
+                        .dsCornerRadius(DSRadius.xl)
+                }
+            }
+        }
+    }
+
+    // MARK: - Content Block Rendering
+
+    @ViewBuilder
+    private func contentView(for block: ChatContent) -> some View {
+        switch block {
+        case .text(let text):
+            Text(text)
+                .font(DSTypography.body)
+                .foregroundStyle(DSColor.Text.primary)
+                .lineSpacing(4)
+
+        case .dataCard(let card):
+            DSSummaryDataCard(
+                title: card.title,
+                value: card.value,
+                unit: card.unit,
+                subtitle: card.subtitle,
+                onTap: { /* Navigate to metric detail */ }
+            )
+
+        case .workoutPlan(let exercises):
+            DSWorkoutCard(exercises: exercises)
+
+        case .citation(let text, let source):
+            DSCitationCard(text: text, source: source)
+        }
+    }
+
+    // MARK: - Time Formatting
+
+    private var timeString: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        return formatter.string(from: message.timestamp)
+    }
+}
+
+// MARK: - Previews
+
+#Preview {
+    CoachChatView()
+}

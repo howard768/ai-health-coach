@@ -18,9 +18,7 @@ struct MainTabView: View {
                         DashboardView(switchToTab: switchToTab)
                     }
                 case .coach:
-                    NavigationStack {
-                        PlaceholderTab(title: "Coach", subtitle: "Cycle 2")
-                    }
+                    CoachChatView()
                 case .trends:
                     NavigationStack {
                         PlaceholderTab(title: "Trends", subtitle: "Cycle 3")
