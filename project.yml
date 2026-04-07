@@ -31,6 +31,14 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     dependencies:
       - package: PhosphorSwift
+      - package: SwiftUI-Shimmer
+        product: Shimmer
+      - package: Popups
+        product: MijickPopups
+      - package: SwiftGlass
+      - package: SwiftUIX
+      - package: swiftui-introspect
+        product: SwiftUIIntrospect
     info:
       path: Meld/Info.plist
       properties:
@@ -66,6 +74,21 @@ packages:
   PhosphorSwift:
     url: https://github.com/phosphor-icons/swift
     branch: main
+  SwiftUI-Shimmer:
+    url: https://github.com/markiv/SwiftUI-Shimmer
+    from: "1.5.1"
+  Popups:
+    url: https://github.com/Mijick/Popups
+    from: "4.0.5"
+  SwiftGlass:
+    url: https://github.com/1998code/SwiftGlass
+    from: "26.0.1"
+  SwiftUIX:
+    url: https://github.com/SwiftUIX/SwiftUIX
+    branch: master
+  swiftui-introspect:
+    url: https://github.com/siteline/swiftui-introspect
+    from: "26.0.1"
 
 schemes:
   Meld:

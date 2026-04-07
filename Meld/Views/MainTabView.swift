@@ -30,9 +30,7 @@ struct MainTabView: View {
                         PlaceholderTab(title: "Meals", subtitle: "Future")
                     }
                 case .profile:
-                    NavigationStack {
-                        PlaceholderTab(title: "Profile", subtitle: "Future")
-                    }
+                    ComponentShowcase() // Temporary: DS component showcase
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
