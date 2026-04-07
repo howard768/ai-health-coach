@@ -63,6 +63,8 @@ struct SquatBlobIcon: View {
             }
         }
         .frame(width: size, height: size)
+        .accessibilityLabel("Meld coach mascot")
+        .accessibilityHidden(!isActive) // Only announce when active
     }
 }
 

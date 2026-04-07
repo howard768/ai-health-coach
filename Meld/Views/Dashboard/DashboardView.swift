@@ -3,9 +3,19 @@ import SwiftUI
 // MARK: - Dashboard Screen (Home Tab)
 // Matches Figma "Dashboard v3" spec.
 // Greeting → Coach Insight → Today's Metrics → Recovery Readiness
+//
+// All cards are tappable:
+// - Coach insight → Coach tab
+// - Metric cards → MetricDetailView
+// - Recovery → MetricDetailView (recovery variant)
+// Pull-to-refresh reloads all data.
 
 struct DashboardView: View {
     @State private var viewModel = DashboardViewModel()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Closure to switch tabs (injected from MainTabView)
+    var switchToTab: ((Tab) -> Void)? = nil
 
     var body: some View {
         ScrollView {
@@ -14,32 +24,52 @@ struct DashboardView: View {
                 // MARK: Header
                 headerSection
 
-                // MARK: Coach Insight
-                CoachInsightCard(insight: viewModel.dashboardData.coachInsight)
+                // MARK: Coach Insight (tappable → Coach tab)
+                CoachInsightCard(
+                    insight: viewModel.dashboardData.coachInsight,
+                    onContinueInChat: {
+                        switchToTab?(.coach)
+                    }
+                )
 
                 // MARK: Today's Metrics
                 todaySection
-
-                // Bottom padding for tab bar
-                Spacer().frame(height: DSSpacing.huge)
             }
             .padding(.horizontal, DSSpacing.lg)
             .padding(.top, DSSpacing.md)
+            .padding(.bottom, DSSpacing.lg)
+        }
+        .refreshable {
+            await viewModel.refresh()
         }
         .background(DSColor.Background.primary)
+        .navigationBarHidden(true)
     }
 
     // MARK: - Header
 
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: DSSpacing.xs) {
-            Text(viewModel.dateString)
-                .font(DSTypography.caption)
-                .foregroundStyle(DSColor.Text.tertiary)
+            // Date + last synced
+            HStack {
+                Text(viewModel.dateString)
+                    .font(DSTypography.caption)
+                    .foregroundStyle(DSColor.Text.tertiary)
+
+                Spacer()
+
+                if let syncedString = viewModel.lastSyncedString {
+                    Text(syncedString)
+                        .font(DSTypography.caption)
+                        .foregroundStyle(DSColor.Text.disabled)
+                        .accessibilityLabel("Data \(syncedString)")
+                }
+            }
 
             Text(viewModel.greeting)
                 .font(DSTypography.h1)
                 .foregroundStyle(DSColor.Text.primary)
+                .accessibilityAddTraits(.isHeader)
         }
     }
 
@@ -50,8 +80,9 @@ struct DashboardView: View {
             Text("Today")
                 .font(DSTypography.h2)
                 .foregroundStyle(DSColor.Text.primary)
+                .accessibilityAddTraits(.isHeader)
 
-            // 2x2 Metric Grid
+            // 2x2 Metric Grid — each card tappable
             LazyVGrid(
                 columns: [
                     GridItem(.flexible(), spacing: DSSpacing.md),
@@ -60,26 +91,38 @@ struct DashboardView: View {
                 spacing: DSSpacing.md
             ) {
                 ForEach(viewModel.dashboardData.metrics) { metric in
-                    MetricCardView(metric: metric)
+                    NavigationLink(value: metric) {
+                        MetricCardView(metric: metric)
+                    }
+                    .buttonStyle(.plain)
                 }
             }
 
-            // Full-width Recovery Readiness
-            RecoveryReadinessCard(
-                readiness: viewModel.dashboardData.recoveryReadiness
-            )
+            // Full-width Recovery Readiness — tappable
+            NavigationLink(value: viewModel.dashboardData.recoveryReadiness) {
+                RecoveryReadinessCard(
+                    readiness: viewModel.dashboardData.recoveryReadiness
+                )
+            }
+            .buttonStyle(.plain)
+        }
+        .navigationDestination(for: HealthMetric.self) { metric in
+            MetricDetailView(metric: metric)
+        }
+        .navigationDestination(for: RecoveryReadiness.self) { readiness in
+            RecoveryDetailView(readiness: readiness)
         }
     }
 }
 
 // MARK: - Recovery Readiness Card (full-width)
 
-private struct RecoveryReadinessCard: View {
+struct RecoveryReadinessCard: View {
     let readiness: RecoveryReadiness
 
     private var levelColor: Color {
         switch readiness.level {
-        case .high: DSColor.Status.success
+        case .high: DSColor.Green.green500
         case .moderate: DSColor.Status.warning
         case .low: DSColor.Status.error
         }
@@ -104,17 +147,26 @@ private struct RecoveryReadinessCard: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        // MARK: Accessibility
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Recovery Readiness: \(readiness.level.rawValue). \(readiness.description).")
+        .accessibilityHint("Double-tap for details")
+        .accessibilityAddTraits(.isButton)
     }
 }
 
 // MARK: - Previews
 
 #Preview("Light") {
-    DashboardView()
-        .preferredColorScheme(.light)
+    NavigationStack {
+        DashboardView()
+    }
+    .preferredColorScheme(.light)
 }
 
 #Preview("Dark") {
-    DashboardView()
-        .preferredColorScheme(.dark)
+    NavigationStack {
+        DashboardView()
+    }
+    .preferredColorScheme(.dark)
 }

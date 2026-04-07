@@ -1,0 +1,825 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		01675907A16E699FA0279F46 /* DSHaptic.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC4991B3D708F7A206210514 /* DSHaptic.swift */; };
+		0C3D73E975E24D01954FB2B3 /* Roboto-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 59BA876ED8BDBC90DBE0E3CA /* Roboto-Light.ttf */; };
+		0C50F126F62B310FCC7F7AEC /* DSRadius.swift in Sources */ = {isa = PBXBuildFile; fileRef = 092B821EC0B9E234F3D75CE3 /* DSRadius.swift */; };
+		12003053E2EC75F0E1861891 /* DesignSystemPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12CA06FB8897D4CE836BC60F /* DesignSystemPreview.swift */; };
+		18432C67A644D4C59BEE778D /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C489492FE8BCEB0F999CDC53 /* APIClient.swift */; };
+		21BBC242D75BEDC60F80A295 /* Roboto-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 9A472D250C42F3714DE0AFD3 /* Roboto-Medium.ttf */; };
+		27C3A3E61776B0552EFD331E /* TabIcons.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C237B3745CA79E10538D385 /* TabIcons.swift */; };
+		325FBF88091588ACDB060B17 /* DSMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6D49A37406D396DF7E8703A /* DSMotion.swift */; };
+		34CC3E9AB4066F319295B8C2 /* Roboto-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 0232FED9B4A5A7D443085BBB /* Roboto-Bold.ttf */; };
+		34D438FA2F8EEF10980CF3C2 /* DashboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7748E20FA46205B6AB29B61D /* DashboardViewModel.swift */; };
+		38D294C1034AD62B844EDD60 /* HealthMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B3EE9302595D9942517977 /* HealthMetrics.swift */; };
+		38D623D3C6522A051D2C06ED /* RecoveryDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A3FF7FE563CB668058C480C /* RecoveryDetailView.swift */; };
+		40D4B6BBE99087CC15287B90 /* DSIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DE7816BF15DF52F36973AF4 /* DSIcon.swift */; };
+		457B8A3447097FC4BF85E7A4 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 073E4AA91D6E3F6E31B3BBB4 /* Assets.xcassets */; };
+		4BB7955934D431C4EB50E3A0 /* DSColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC2A9C55CA8275B2988F6D47 /* DSColor.swift */; };
+		5985241318596586B90E4E4B /* GlassMorphism.swift in Sources */ = {isa = PBXBuildFile; fileRef = D05C43BC5FD23C2C609BE3D8 /* GlassMorphism.swift */; };
+		62BDCDD99193465D13B41A74 /* DSSpacing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59BE8D3ED588E9A7B23A5637 /* DSSpacing.swift */; };
+		6549AA04CC32EBEA73782E61 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 691E16DB577A17EABDC27B9B /* MainTabView.swift */; };
+		6B6C31C57013A4A257A2A531 /* MeldApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C7BC2CBDD65CD305335E2ED /* MeldApp.swift */; };
+		73443018808E803686B210FC /* PhosphorSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 909B22674938CED539216C4B /* PhosphorSwift */; };
+		763D11C0C419CD5B1A5A8F2B /* DSCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79861931BF73309D6E2BC8C8 /* DSCard.swift */; };
+		837343980B2924BF5D31E199 /* DSTypography.swift in Sources */ = {isa = PBXBuildFile; fileRef = D651CB7A7ACF2B9130B932AB /* DSTypography.swift */; };
+		8B6EA651AC579F8BC176ED9F /* Roboto-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 8EC5E74368D8943CC20618E8 /* Roboto-Regular.ttf */; };
+		8DB37BAA49E705577EDCB0ED /* MeldUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E12DC792DDDAD20690A6F32B /* MeldUITests.swift */; };
+		94F43E876767471E5FF7C0DF /* MetricDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F0A72624EDD299915C5C9FB /* MetricDetailView.swift */; };
+		961090D396931216EDCFCD44 /* CoachInsightCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EC150E18358CA4F8CDDBC9A /* CoachInsightCard.swift */; };
+		A177988A131646C49B36E74B /* MeldTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 564DE43B9822F20152459D00 /* MeldTabBar.swift */; };
+		B28092A66F2124B884F747C1 /* Roboto-Thin.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3871F1222DEADF374EF98834 /* Roboto-Thin.ttf */; };
+		B283DB7953B0B6BD39135396 /* MeldTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 181E32CFA113690995D3E26C /* MeldTests.swift */; };
+		B430ECE2FAF53AD130FA5622 /* DSButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FDDE276F06D4154BC999F63 /* DSButton.swift */; };
+		BD6B2325892F7FA7324DED7A /* PlaceholderTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9756CFF2A582F160C1A0C853 /* PlaceholderTab.swift */; };
+		BDFE1F05C8F7CBA4CCA12061 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68B1288BD1975E823F830847 /* DashboardView.swift */; };
+		BEEF9F17DC1D4A6389F5C0C3 /* Insight.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7E4EE5F20D1F63592AAC907 /* Insight.swift */; };
+		C19AE17FFB4B978910912454 /* DSTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD2F6E93116C0DD784DA442E /* DSTextField.swift */; };
+		D4BC2320AEC17E40261EFCFD /* MetricCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 082F2E21560C0B593CD24568 /* MetricCardView.swift */; };
+		E7064A094486FBAD2FF7247C /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 24E040389C083F1B18CF39D3 /* Preview Assets.xcassets */; };
+		EC77FA137F91B81A689F1CB6 /* DSChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 622F2F1CD0061860642B56C2 /* DSChip.swift */; };
+		F09B00C1994CDF1BF09C04C0 /* DSElevation.swift in Sources */ = {isa = PBXBuildFile; fileRef = D457F5559E0064C14652CEA5 /* DSElevation.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		0E806B9E024E81E9EECD871C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 21FDA16C998EB9C8770A1650 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6708B8A2908FCF03B350FD07;
+			remoteInfo = Meld;
+		};
+		996A84AC7AB45620D932951B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 21FDA16C998EB9C8770A1650 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 6708B8A2908FCF03B350FD07;
+			remoteInfo = Meld;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		0232FED9B4A5A7D443085BBB /* Roboto-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Roboto-Bold.ttf"; sourceTree = "<group>"; };
+		073E4AA91D6E3F6E31B3BBB4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		082F2E21560C0B593CD24568 /* MetricCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricCardView.swift; sourceTree = "<group>"; };
+		092B821EC0B9E234F3D75CE3 /* DSRadius.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSRadius.swift; sourceTree = "<group>"; };
+		0A3FF7FE563CB668058C480C /* RecoveryDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryDetailView.swift; sourceTree = "<group>"; };
+		12CA06FB8897D4CE836BC60F /* DesignSystemPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystemPreview.swift; sourceTree = "<group>"; };
+		181E32CFA113690995D3E26C /* MeldTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeldTests.swift; sourceTree = "<group>"; };
+		24E040389C083F1B18CF39D3 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
+		2FDDE276F06D4154BC999F63 /* DSButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSButton.swift; sourceTree = "<group>"; };
+		3871F1222DEADF374EF98834 /* Roboto-Thin.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Roboto-Thin.ttf"; sourceTree = "<group>"; };
+		4C237B3745CA79E10538D385 /* TabIcons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabIcons.swift; sourceTree = "<group>"; };
+		4EC150E18358CA4F8CDDBC9A /* CoachInsightCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachInsightCard.swift; sourceTree = "<group>"; };
+		564DE43B9822F20152459D00 /* MeldTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeldTabBar.swift; sourceTree = "<group>"; };
+		59BA876ED8BDBC90DBE0E3CA /* Roboto-Light.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Roboto-Light.ttf"; sourceTree = "<group>"; };
+		59BE8D3ED588E9A7B23A5637 /* DSSpacing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSSpacing.swift; sourceTree = "<group>"; };
+		5E0C37A57943BFD8B0F4BF5B /* MeldUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = MeldUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		622F2F1CD0061860642B56C2 /* DSChip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSChip.swift; sourceTree = "<group>"; };
+		68B1288BD1975E823F830847 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+		691E16DB577A17EABDC27B9B /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
+		6F0A72624EDD299915C5C9FB /* MetricDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricDetailView.swift; sourceTree = "<group>"; };
+		7748E20FA46205B6AB29B61D /* DashboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardViewModel.swift; sourceTree = "<group>"; };
+		79861931BF73309D6E2BC8C8 /* DSCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSCard.swift; sourceTree = "<group>"; };
+		7BAB2F2D4E6D31C7F0E899AA /* MeldTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = MeldTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		7C7BC2CBDD65CD305335E2ED /* MeldApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeldApp.swift; sourceTree = "<group>"; };
+		7DE7816BF15DF52F36973AF4 /* DSIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSIcon.swift; sourceTree = "<group>"; };
+		87A36DDF41CC0337701027D5 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		8EC5E74368D8943CC20618E8 /* Roboto-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Roboto-Regular.ttf"; sourceTree = "<group>"; };
+		9756CFF2A582F160C1A0C853 /* PlaceholderTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceholderTab.swift; sourceTree = "<group>"; };
+		9A472D250C42F3714DE0AFD3 /* Roboto-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Roboto-Medium.ttf"; sourceTree = "<group>"; };
+		B6D531E605140D227604EF41 /* Meld.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Meld.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		BC2A9C55CA8275B2988F6D47 /* DSColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSColor.swift; sourceTree = "<group>"; };
+		C489492FE8BCEB0F999CDC53 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		C4B3EE9302595D9942517977 /* HealthMetrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthMetrics.swift; sourceTree = "<group>"; };
+		C7E4EE5F20D1F63592AAC907 /* Insight.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Insight.swift; sourceTree = "<group>"; };
+		D05C43BC5FD23C2C609BE3D8 /* GlassMorphism.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassMorphism.swift; sourceTree = "<group>"; };
+		D457F5559E0064C14652CEA5 /* DSElevation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSElevation.swift; sourceTree = "<group>"; };
+		D651CB7A7ACF2B9130B932AB /* DSTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSTypography.swift; sourceTree = "<group>"; };
+		DD2F6E93116C0DD784DA442E /* DSTextField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSTextField.swift; sourceTree = "<group>"; };
+		E12DC792DDDAD20690A6F32B /* MeldUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeldUITests.swift; sourceTree = "<group>"; };
+		E6D49A37406D396DF7E8703A /* DSMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSMotion.swift; sourceTree = "<group>"; };
+		EC4991B3D708F7A206210514 /* DSHaptic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSHaptic.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		43E345734D4994D2D7003C84 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				73443018808E803686B210FC /* PhosphorSwift in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		02DA4AF961DCF2AB0C5EA9F3 /* MeldUITests */ = {
+			isa = PBXGroup;
+			children = (
+				E12DC792DDDAD20690A6F32B /* MeldUITests.swift */,
+			);
+			path = MeldUITests;
+			sourceTree = "<group>";
+		};
+		079CE054C0969E30BBFEBF81 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				7748E20FA46205B6AB29B61D /* DashboardViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		0E2D76F96883454A27B9BC41 /* Meals */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Meals;
+			sourceTree = "<group>";
+		};
+		13FD5A1869F8912F152C1314 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				7C7BC2CBDD65CD305335E2ED /* MeldApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		2635BD7AA06B08D4EBBDE912 /* Effects */ = {
+			isa = PBXGroup;
+			children = (
+				EC4991B3D708F7A206210514 /* DSHaptic.swift */,
+				D05C43BC5FD23C2C609BE3D8 /* GlassMorphism.swift */,
+			);
+			path = Effects;
+			sourceTree = "<group>";
+		};
+		26E319A1A2D3FC0C85C238F7 /* MeldTests */ = {
+			isa = PBXGroup;
+			children = (
+				181E32CFA113690995D3E26C /* MeldTests.swift */,
+			);
+			path = MeldTests;
+			sourceTree = "<group>";
+		};
+		2BA2F8763D49661ED6191FC4 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				2FDDE276F06D4154BC999F63 /* DSButton.swift */,
+				79861931BF73309D6E2BC8C8 /* DSCard.swift */,
+				622F2F1CD0061860642B56C2 /* DSChip.swift */,
+				7DE7816BF15DF52F36973AF4 /* DSIcon.swift */,
+				DD2F6E93116C0DD784DA442E /* DSTextField.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		2BBA22C5071503EFBA2BA142 /* Dashboard */ = {
+			isa = PBXGroup;
+			children = (
+				4EC150E18358CA4F8CDDBC9A /* CoachInsightCard.swift */,
+				68B1288BD1975E823F830847 /* DashboardView.swift */,
+				082F2E21560C0B593CD24568 /* MetricCardView.swift */,
+				6F0A72624EDD299915C5C9FB /* MetricDetailView.swift */,
+				0A3FF7FE563CB668058C480C /* RecoveryDetailView.swift */,
+			);
+			path = Dashboard;
+			sourceTree = "<group>";
+		};
+		47B6C7EB83101127D40382EE /* Tokens */ = {
+			isa = PBXGroup;
+			children = (
+				BC2A9C55CA8275B2988F6D47 /* DSColor.swift */,
+				D457F5559E0064C14652CEA5 /* DSElevation.swift */,
+				E6D49A37406D396DF7E8703A /* DSMotion.swift */,
+				092B821EC0B9E234F3D75CE3 /* DSRadius.swift */,
+				59BE8D3ED588E9A7B23A5637 /* DSSpacing.swift */,
+				D651CB7A7ACF2B9130B932AB /* DSTypography.swift */,
+			);
+			path = Tokens;
+			sourceTree = "<group>";
+		};
+		4E0F0E90D3F88E3457482A89 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				C489492FE8BCEB0F999CDC53 /* APIClient.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		54CEDA4088AB1E7E51567626 /* Trends */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Trends;
+			sourceTree = "<group>";
+		};
+		5EE0D34B2020B080C2D4114B /* Preview Content */ = {
+			isa = PBXGroup;
+			children = (
+				24E040389C083F1B18CF39D3 /* Preview Assets.xcassets */,
+			);
+			path = "Preview Content";
+			sourceTree = "<group>";
+		};
+		736A5AA7247F6E496E6FCF4B /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				691E16DB577A17EABDC27B9B /* MainTabView.swift */,
+				F6055F47BDBFB2DBA0CC3EA5 /* Coach */,
+				FDFE6DEC248457BC5AF85EF7 /* Components */,
+				2BBA22C5071503EFBA2BA142 /* Dashboard */,
+				0E2D76F96883454A27B9BC41 /* Meals */,
+				E9E131C2431E824BBA6E43D1 /* Profile */,
+				54CEDA4088AB1E7E51567626 /* Trends */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		782FA55E46FAE8E8BE18AF2F /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				C4B3EE9302595D9942517977 /* HealthMetrics.swift */,
+				C7E4EE5F20D1F63592AAC907 /* Insight.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		8F2276B2A0E0437A7C538682 = {
+			isa = PBXGroup;
+			children = (
+				CA16A1539874A1A99AFDF0F1 /* Meld */,
+				26E319A1A2D3FC0C85C238F7 /* MeldTests */,
+				02DA4AF961DCF2AB0C5EA9F3 /* MeldUITests */,
+				F762023F101187702AB60DB4 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		CA16A1539874A1A99AFDF0F1 /* Meld */ = {
+			isa = PBXGroup;
+			children = (
+				87A36DDF41CC0337701027D5 /* Info.plist */,
+				13FD5A1869F8912F152C1314 /* App */,
+				FBB1439287B4395C64983D89 /* DesignSystem */,
+				782FA55E46FAE8E8BE18AF2F /* Models */,
+				5EE0D34B2020B080C2D4114B /* Preview Content */,
+				CF75C71F907737DC855264D1 /* Resources */,
+				4E0F0E90D3F88E3457482A89 /* Services */,
+				079CE054C0969E30BBFEBF81 /* ViewModels */,
+				736A5AA7247F6E496E6FCF4B /* Views */,
+			);
+			path = Meld;
+			sourceTree = "<group>";
+		};
+		CF75C71F907737DC855264D1 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				073E4AA91D6E3F6E31B3BBB4 /* Assets.xcassets */,
+				E2F590FCDC8A6AE252FDDBEE /* Fonts */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		E2F590FCDC8A6AE252FDDBEE /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				0232FED9B4A5A7D443085BBB /* Roboto-Bold.ttf */,
+				59BA876ED8BDBC90DBE0E3CA /* Roboto-Light.ttf */,
+				9A472D250C42F3714DE0AFD3 /* Roboto-Medium.ttf */,
+				8EC5E74368D8943CC20618E8 /* Roboto-Regular.ttf */,
+				3871F1222DEADF374EF98834 /* Roboto-Thin.ttf */,
+			);
+			path = Fonts;
+			sourceTree = "<group>";
+		};
+		E9E131C2431E824BBA6E43D1 /* Profile */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Profile;
+			sourceTree = "<group>";
+		};
+		EA60F26B92175BE4251D62B2 /* Preview */ = {
+			isa = PBXGroup;
+			children = (
+				12CA06FB8897D4CE836BC60F /* DesignSystemPreview.swift */,
+			);
+			path = Preview;
+			sourceTree = "<group>";
+		};
+		F6055F47BDBFB2DBA0CC3EA5 /* Coach */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Coach;
+			sourceTree = "<group>";
+		};
+		F762023F101187702AB60DB4 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				B6D531E605140D227604EF41 /* Meld.app */,
+				7BAB2F2D4E6D31C7F0E899AA /* MeldTests.xctest */,
+				5E0C37A57943BFD8B0F4BF5B /* MeldUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		FBB1439287B4395C64983D89 /* DesignSystem */ = {
+			isa = PBXGroup;
+			children = (
+				2BA2F8763D49661ED6191FC4 /* Components */,
+				2635BD7AA06B08D4EBBDE912 /* Effects */,
+				EA60F26B92175BE4251D62B2 /* Preview */,
+				47B6C7EB83101127D40382EE /* Tokens */,
+			);
+			path = DesignSystem;
+			sourceTree = "<group>";
+		};
+		FDFE6DEC248457BC5AF85EF7 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				564DE43B9822F20152459D00 /* MeldTabBar.swift */,
+				9756CFF2A582F160C1A0C853 /* PlaceholderTab.swift */,
+				4C237B3745CA79E10538D385 /* TabIcons.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		6708B8A2908FCF03B350FD07 /* Meld */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 02EC38D66E1CF9B1281AA5A5 /* Build configuration list for PBXNativeTarget "Meld" */;
+			buildPhases = (
+				85519F7A1ECDF7E362DD7BC3 /* Sources */,
+				DA2D935A4CE432C29866C84F /* Resources */,
+				43E345734D4994D2D7003C84 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Meld;
+			packageProductDependencies = (
+				909B22674938CED539216C4B /* PhosphorSwift */,
+			);
+			productName = Meld;
+			productReference = B6D531E605140D227604EF41 /* Meld.app */;
+			productType = "com.apple.product-type.application";
+		};
+		74855E5B121B9A9E077C34BA /* MeldTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9C2E53B3F7D681025A1685F2 /* Build configuration list for PBXNativeTarget "MeldTests" */;
+			buildPhases = (
+				22FB620CDAA29D937032C58D /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				5E43BA365E1C20877D7F14F5 /* PBXTargetDependency */,
+			);
+			name = MeldTests;
+			packageProductDependencies = (
+			);
+			productName = MeldTests;
+			productReference = 7BAB2F2D4E6D31C7F0E899AA /* MeldTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		AF5FE20FFC42ED85DFA9D7AC /* MeldUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D9FDBE0FF66FE32DC98546BC /* Build configuration list for PBXNativeTarget "MeldUITests" */;
+			buildPhases = (
+				F62FE392CC178AC867B81578 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				16B0D4A1B3C5B07C14032787 /* PBXTargetDependency */,
+			);
+			name = MeldUITests;
+			packageProductDependencies = (
+			);
+			productName = MeldUITests;
+			productReference = 5E0C37A57943BFD8B0F4BF5B /* MeldUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		21FDA16C998EB9C8770A1650 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					6708B8A2908FCF03B350FD07 = {
+						DevelopmentTeam = "";
+					};
+					74855E5B121B9A9E077C34BA = {
+						DevelopmentTeam = "";
+					};
+					AF5FE20FFC42ED85DFA9D7AC = {
+						DevelopmentTeam = "";
+						TestTargetID = 6708B8A2908FCF03B350FD07;
+					};
+				};
+			};
+			buildConfigurationList = 0A9F808ED62B7DE7227EAA15 /* Build configuration list for PBXProject "Meld" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 8F2276B2A0E0437A7C538682;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				BC29C4492D3A353CDB20AE86 /* XCRemoteSwiftPackageReference "swift" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = F762023F101187702AB60DB4 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				6708B8A2908FCF03B350FD07 /* Meld */,
+				74855E5B121B9A9E077C34BA /* MeldTests */,
+				AF5FE20FFC42ED85DFA9D7AC /* MeldUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		DA2D935A4CE432C29866C84F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				457B8A3447097FC4BF85E7A4 /* Assets.xcassets in Resources */,
+				E7064A094486FBAD2FF7247C /* Preview Assets.xcassets in Resources */,
+				34CC3E9AB4066F319295B8C2 /* Roboto-Bold.ttf in Resources */,
+				0C3D73E975E24D01954FB2B3 /* Roboto-Light.ttf in Resources */,
+				21BBC242D75BEDC60F80A295 /* Roboto-Medium.ttf in Resources */,
+				8B6EA651AC579F8BC176ED9F /* Roboto-Regular.ttf in Resources */,
+				B28092A66F2124B884F747C1 /* Roboto-Thin.ttf in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		22FB620CDAA29D937032C58D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B283DB7953B0B6BD39135396 /* MeldTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		85519F7A1ECDF7E362DD7BC3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				18432C67A644D4C59BEE778D /* APIClient.swift in Sources */,
+				961090D396931216EDCFCD44 /* CoachInsightCard.swift in Sources */,
+				B430ECE2FAF53AD130FA5622 /* DSButton.swift in Sources */,
+				763D11C0C419CD5B1A5A8F2B /* DSCard.swift in Sources */,
+				EC77FA137F91B81A689F1CB6 /* DSChip.swift in Sources */,
+				4BB7955934D431C4EB50E3A0 /* DSColor.swift in Sources */,
+				F09B00C1994CDF1BF09C04C0 /* DSElevation.swift in Sources */,
+				01675907A16E699FA0279F46 /* DSHaptic.swift in Sources */,
+				40D4B6BBE99087CC15287B90 /* DSIcon.swift in Sources */,
+				325FBF88091588ACDB060B17 /* DSMotion.swift in Sources */,
+				0C50F126F62B310FCC7F7AEC /* DSRadius.swift in Sources */,
+				62BDCDD99193465D13B41A74 /* DSSpacing.swift in Sources */,
+				C19AE17FFB4B978910912454 /* DSTextField.swift in Sources */,
+				837343980B2924BF5D31E199 /* DSTypography.swift in Sources */,
+				BDFE1F05C8F7CBA4CCA12061 /* DashboardView.swift in Sources */,
+				34D438FA2F8EEF10980CF3C2 /* DashboardViewModel.swift in Sources */,
+				12003053E2EC75F0E1861891 /* DesignSystemPreview.swift in Sources */,
+				5985241318596586B90E4E4B /* GlassMorphism.swift in Sources */,
+				38D294C1034AD62B844EDD60 /* HealthMetrics.swift in Sources */,
+				BEEF9F17DC1D4A6389F5C0C3 /* Insight.swift in Sources */,
+				6549AA04CC32EBEA73782E61 /* MainTabView.swift in Sources */,
+				6B6C31C57013A4A257A2A531 /* MeldApp.swift in Sources */,
+				A177988A131646C49B36E74B /* MeldTabBar.swift in Sources */,
+				D4BC2320AEC17E40261EFCFD /* MetricCardView.swift in Sources */,
+				94F43E876767471E5FF7C0DF /* MetricDetailView.swift in Sources */,
+				BD6B2325892F7FA7324DED7A /* PlaceholderTab.swift in Sources */,
+				38D623D3C6522A051D2C06ED /* RecoveryDetailView.swift in Sources */,
+				27C3A3E61776B0552EFD331E /* TabIcons.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F62FE392CC178AC867B81578 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8DB37BAA49E705577EDCB0ED /* MeldUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		16B0D4A1B3C5B07C14032787 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6708B8A2908FCF03B350FD07 /* Meld */;
+			targetProxy = 996A84AC7AB45620D932951B /* PBXContainerItemProxy */;
+		};
+		5E43BA365E1C20877D7F14F5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 6708B8A2908FCF03B350FD07 /* Meld */;
+			targetProxy = 0E806B9E024E81E9EECD871C /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		3283EADECA7E6CC4BC84A70A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.heymeld.MeldUITests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Meld;
+			};
+			name = Release;
+		};
+		6E15817F7FEAE7350005E1CA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.heymeld.MeldTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Meld.app/Meld";
+			};
+			name = Debug;
+		};
+		8C12BEC7B46A3CEC255F6902 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		9A5D4B3423BD3C6126A0C727 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.heymeld.MeldUITests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Meld;
+			};
+			name = Debug;
+		};
+		A61CA3A2A202CE8B5D5A79E7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		C1E7F0AAB8B40F61C48CC817 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = Meld/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.heymeld.app;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		D9FC527AB80870CED2EB566F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = Meld/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.heymeld.app;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		F519EE2BF98E3BA555CC77BE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.heymeld.MeldTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Meld.app/Meld";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		02EC38D66E1CF9B1281AA5A5 /* Build configuration list for PBXNativeTarget "Meld" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D9FC527AB80870CED2EB566F /* Debug */,
+				C1E7F0AAB8B40F61C48CC817 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		0A9F808ED62B7DE7227EAA15 /* Build configuration list for PBXProject "Meld" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A61CA3A2A202CE8B5D5A79E7 /* Debug */,
+				8C12BEC7B46A3CEC255F6902 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		9C2E53B3F7D681025A1685F2 /* Build configuration list for PBXNativeTarget "MeldTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6E15817F7FEAE7350005E1CA /* Debug */,
+				F519EE2BF98E3BA555CC77BE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D9FDBE0FF66FE32DC98546BC /* Build configuration list for PBXNativeTarget "MeldUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9A5D4B3423BD3C6126A0C727 /* Debug */,
+				3283EADECA7E6CC4BC84A70A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		BC29C4492D3A353CDB20AE86 /* XCRemoteSwiftPackageReference "swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/phosphor-icons/swift";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		909B22674938CED539216C4B /* PhosphorSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BC29C4492D3A353CDB20AE86 /* XCRemoteSwiftPackageReference "swift" */;
+			productName = PhosphorSwift;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 21FDA16C998EB9C8770A1650 /* Project object */;
+}

@@ -48,6 +48,7 @@ private struct MeldTabItem: View {
     let tab: Tab
     let isSelected: Bool
     let action: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Button(action: action) {
@@ -59,12 +60,12 @@ private struct MeldTabItem: View {
 
                 // Icon
                 tabIcon
-                    .scaleEffect(isSelected ? 1.08 : 1.0)
+                    .scaleEffect(isSelected && !reduceMotion ? 1.08 : 1.0)
                     .frame(width: 28, height: 28)
 
                 // Label
                 Text(tab.title)
-                    .font(.system(size: 10, weight: isSelected ? .semibold : .regular))
+                    .font(DSTypography.caption)
                     .foregroundStyle(
                         isSelected ? DSColor.Green.green500 : DSColor.Text.tertiary
                     )

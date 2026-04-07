@@ -1,36 +1,59 @@
 import SwiftUI
 
 // MARK: - Main Tab Navigation
-// Custom tab bar with pillowy filled icons and glassmorphic background.
-// Active state has depth: glow + scale + dot indicator.
-// Haptic feedback on every tab change.
+// Custom tab bar with Phosphor + SquatBlob icons and glassmorphic background.
+// Manages cross-tab navigation (e.g., "Continue in chat" → Coach tab).
+// Content gets proper safe area inset to clear the custom tab bar.
 
 struct MainTabView: View {
     @State private var selectedTab: Tab = .home
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            // Content area
+            // Content area with safe area inset for tab bar
             Group {
                 switch selectedTab {
                 case .home:
-                    DashboardView()
+                    NavigationStack {
+                        DashboardView(switchToTab: switchToTab)
+                    }
                 case .coach:
-                    PlaceholderTab(title: "Coach", subtitle: "Cycle 2")
+                    NavigationStack {
+                        PlaceholderTab(title: "Coach", subtitle: "Cycle 2")
+                    }
                 case .trends:
-                    PlaceholderTab(title: "Trends", subtitle: "Cycle 3")
+                    NavigationStack {
+                        PlaceholderTab(title: "Trends", subtitle: "Cycle 3")
+                    }
                 case .meals:
-                    PlaceholderTab(title: "Meals", subtitle: "Future")
+                    NavigationStack {
+                        PlaceholderTab(title: "Meals", subtitle: "Future")
+                    }
                 case .profile:
-                    PlaceholderTab(title: "Profile", subtitle: "Future")
+                    NavigationStack {
+                        PlaceholderTab(title: "Profile", subtitle: "Future")
+                    }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Push content up so it clears the tab bar
+            .safeAreaInset(edge: .bottom) {
+                Color.clear.frame(height: 80)
+            }
 
             // Custom tab bar
             MeldTabBar(selectedTab: $selectedTab)
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
+    }
+
+    // MARK: - Cross-tab Navigation
+
+    private func switchToTab(_ tab: Tab) {
+        withAnimation(DSMotion.snappy) {
+            selectedTab = tab
+        }
+        DSHaptic.selection()
     }
 }
 

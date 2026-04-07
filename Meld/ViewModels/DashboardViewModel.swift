@@ -4,13 +4,45 @@ import Foundation
 // Provides data for the Dashboard screen.
 // Currently serves mock data. Will pull from backend API in Cycle 1.
 
-@Observable
+@Observable @MainActor
 final class DashboardViewModel {
 
+    // MARK: - State
+
     var dashboardData: DashboardData
+    var isLoading: Bool = false
+    var error: DashboardError? = nil
+
+    enum DashboardError: Error, LocalizedError {
+        case networkFailure
+        case noData
+        case staleData
+
+        var errorDescription: String? {
+            switch self {
+            case .networkFailure: "Unable to connect. Check your connection."
+            case .noData: "No health data available. Connect a wearable in Profile."
+            case .staleData: "Data may be outdated. Pull to refresh."
+            }
+        }
+    }
 
     init() {
         self.dashboardData = Self.mockData()
+    }
+
+    // MARK: - Actions
+
+    /// Pull-to-refresh handler. Will call backend API when wired.
+    func refresh() async {
+        isLoading = true
+        error = nil
+
+        // Simulate network delay for now
+        try? await Task.sleep(for: .seconds(1))
+
+        dashboardData = Self.mockData()
+        isLoading = false
     }
 
     // MARK: - Computed Properties
@@ -24,6 +56,7 @@ final class DashboardViewModel {
         case 17..<22: timeOfDay = "evening"
         default: timeOfDay = "night"
         }
+        // TODO: Pull user name from profile/backend
         return "Good \(timeOfDay), Brock"
     }
 
@@ -31,6 +64,13 @@ final class DashboardViewModel {
         let formatter = DateFormatter()
         formatter.dateFormat = "EEEE, MMMM d"
         return formatter.string(from: Date())
+    }
+
+    var lastSyncedString: String? {
+        guard let lastSynced = dashboardData.lastSynced else { return nil }
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .abbreviated
+        return "Synced \(formatter.localizedString(for: lastSynced, relativeTo: Date()))"
     }
 
     // MARK: - Mock Data
@@ -79,8 +119,9 @@ final class DashboardViewModel {
             ),
             coachInsight: CoachInsight(
                 message: "Your HRV is 14% above your 7-day baseline and sleep efficiency hit 91%. Great recovery night. Today is ideal for progressive overload on your leg day. Prioritize compound lifts.",
-                timestamp: Date()
-            )
+                timestamp: Date().addingTimeInterval(-300) // 5 min ago
+            ),
+            lastSynced: Date().addingTimeInterval(-120) // 2 min ago
         )
     }
 }

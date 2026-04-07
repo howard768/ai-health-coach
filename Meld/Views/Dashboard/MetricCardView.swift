@@ -2,14 +2,17 @@ import SwiftUI
 
 // MARK: - Metric Card
 // Reusable health metric display matching Figma spec.
-// Label (top) → Value + Unit (center) → Subtitle (bottom, colored by trend)
+// Tappable — navigates to metric detail screen.
+// Accessible — VoiceOver reads category, value, unit, trend.
+// Category icon top-right for scanability.
+// Label (top-left) → Value + Unit (center) → Subtitle (bottom, colored by trend)
 
 struct MetricCardView: View {
     let metric: HealthMetric
 
     private var subtitleColor: Color {
         switch metric.trend {
-        case .positive: DSColor.Status.success
+        case .positive: DSColor.Accessible.greenText
         case .neutral: DSColor.Text.tertiary
         case .negative: DSColor.Status.error
         }
@@ -18,10 +21,19 @@ struct MetricCardView: View {
     var body: some View {
         DSCard(style: .metric) {
             VStack(alignment: .leading, spacing: DSSpacing.xs) {
-                // Label
-                Text(metric.label.uppercased())
-                    .dsLabel()
-                    .foregroundStyle(DSColor.Text.tertiary)
+                // Label + category icon
+                HStack {
+                    Text(metric.label.uppercased())
+                        .dsLabel()
+                        .foregroundStyle(DSColor.Text.tertiary)
+
+                    Spacer()
+
+                    // Category icon for scanability
+                    Image(systemName: metric.category.iconName)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(DSColor.Text.disabled)
+                }
 
                 // Value + Unit
                 HStack(alignment: .firstTextBaseline, spacing: DSSpacing.xxs) {
@@ -34,18 +46,29 @@ struct MetricCardView: View {
                         .foregroundStyle(DSColor.Text.secondary)
                 }
 
-                // Subtitle
+                // Subtitle with trend
                 Text(metric.subtitle)
                     .font(DSTypography.caption)
                     .foregroundStyle(subtitleColor)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        // MARK: Accessibility
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityHint("Double-tap for details")
+        .accessibilityAddTraits(.isButton)
+    }
+
+    // MARK: - Accessibility
+
+    private var accessibilityLabel: String {
+        "\(metric.category.accessibilityName): \(metric.value) \(metric.unit). \(metric.subtitle). \(metric.trend.accessibilityLabel)."
     }
 }
 
 #Preview {
-    HStack(spacing: DSSpacing.md) {
+    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: DSSpacing.md) {
         MetricCardView(metric: HealthMetric(
             category: .sleepEfficiency,
             label: "Sleep Efficiency",
@@ -54,7 +77,6 @@ struct MetricCardView: View {
             subtitle: "7h 12m total",
             trend: .positive
         ))
-
         MetricCardView(metric: HealthMetric(
             category: .hrv,
             label: "HRV Status",

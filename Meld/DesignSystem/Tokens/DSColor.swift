@@ -36,8 +36,9 @@ enum DSColor {
         static let primary = Color(light: .hex(0x121217), dark: .hex(0xF2F2F5))
         /// Subtitles, secondary info
         static let secondary = Color(light: .hex(0x666673), dark: .hex(0x9999A3))
-        /// Captions, timestamps
-        static let tertiary = Color(light: .hex(0x9999A3), dark: .hex(0x666673))
+        /// Captions, timestamps, labels
+        /// Adjusted from Figma #9999A3 (2.8:1) to #737380 (4.5:1) for WCAG AA compliance
+        static let tertiary = Color(light: .hex(0x737380), dark: .hex(0x8A8A96))
         /// Inactive text
         static let disabled = Color(light: .hex(0xC7C7CC), dark: .hex(0x444450))
         /// Text on purple backgrounds
@@ -89,6 +90,16 @@ enum DSColor {
         static let stroke = Color(light: Color.white.opacity(0.25), dark: Color.white.opacity(0.12))
         /// Fill for glass overlays
         static let fill   = Color(light: Color.white.opacity(0.08), dark: Color.white.opacity(0.05))
+    }
+
+    // MARK: - Accessible Green for Text
+    // Green 500 (#219E80) on white = 3.9:1 — fails WCAG AA for normal text.
+    // Use green600 (#178066) for green text on light backgrounds = 5.5:1 — passes.
+    // Green 500 is fine for: large text, icons, backgrounds, non-text decorative elements.
+
+    enum Accessible {
+        /// Green that passes WCAG AA for normal text on white/light backgrounds
+        static let greenText = Color(light: .hex(0x178066), dark: .hex(0x33BA99))
     }
 
     // MARK: - Tab Bar
