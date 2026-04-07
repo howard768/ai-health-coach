@@ -1,17 +1,19 @@
 import SwiftUI
 
 // MARK: - Recovery Detail View
-// Detail screen for the Recovery Readiness card.
-// Shows readiness level, contributing factors, and coaching advice.
+// Uses ZoneBadge with contributing factors.
+// Research: WHOOP 3-zone system with factor decomposition.
+// Triple encoding: color + icon + text for accessibility.
 
 struct RecoveryDetailView: View {
     let readiness: RecoveryReadiness
+    private let M: CGFloat = 20
 
-    private var levelColor: Color {
+    private var zone: RecoveryZone {
         switch readiness.level {
-        case .high: DSColor.Green.green500
-        case .moderate: DSColor.Status.warning
-        case .low: DSColor.Status.error
+        case .high: .high
+        case .moderate: .moderate
+        case .low: .low
         }
     }
 
@@ -19,56 +21,56 @@ struct RecoveryDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: DSSpacing.xxl) {
 
-                // MARK: Hero
-                VStack(alignment: .leading, spacing: DSSpacing.sm) {
-                    Text("RECOVERY READINESS")
-                        .dsLabel()
-                        .foregroundStyle(DSColor.Text.tertiary)
-
-                    Text(readiness.level.rawValue)
-                        .font(DSTypography.display)
-                        .foregroundStyle(levelColor)
-
-                    Text(readiness.description)
-                        .font(DSTypography.body)
-                        .foregroundStyle(DSColor.Text.secondary)
+                // Zone badge — the hero
+                DSCard(style: .metric) {
+                    ZoneBadge(zone: zone, score: 82, badgeSize: 72)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
-                // MARK: Contributing Factors (stub)
-                DSCard(style: .metric) {
-                    VStack(alignment: .leading, spacing: DSSpacing.md) {
-                        Text("Contributing Factors")
-                            .font(DSTypography.h3)
-                            .foregroundStyle(DSColor.Text.primary)
-
-                        factorRow(label: "Sleep Quality", value: "High", color: DSColor.Green.green500)
-                        factorRow(label: "HRV Trend", value: "+14%", color: DSColor.Green.green500)
-                        factorRow(label: "Resting HR", value: "Stable", color: DSColor.Text.secondary)
-                        factorRow(label: "Recent Training Load", value: "Moderate", color: DSColor.Status.warning)
-                    }
+                // Contributing factors
+                DSCard(style: .data) {
+                    ContributingFactors(factors: [
+                        ContributingFactor(name: "Sleep Quality", value: 0.91, status: .good),
+                        ContributingFactor(name: "HRV vs Baseline", value: 0.78, status: .good),
+                        ContributingFactor(name: "Resting Heart Rate", value: 0.65, status: .watch),
+                        ContributingFactor(name: "Training Load", value: 0.45, status: .watch),
+                    ])
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
-                // MARK: Coach Recommendation (stub)
+                // Coach recommendation
                 DSCard(style: .insight) {
                     VStack(alignment: .leading, spacing: DSSpacing.md) {
                         HStack(spacing: DSSpacing.sm) {
-                            SquatBlobIcon(isActive: true, size: 24)
-
-                            Text("Recommendation")
+                            AnimatedMascot(state: .idle, size: 24)
+                            Text("What to do today")
                                 .font(DSTypography.h3)
                                 .foregroundStyle(DSColor.Purple.purple600)
                         }
 
-                        Text("Your recovery metrics are aligned for high-intensity training. This is an ideal day for progressive overload on compound movements. Consider increasing working weight by 2.5-5lbs on your primary lifts.")
+                        Text(coachAdvice)
                             .font(DSTypography.body)
                             .foregroundStyle(DSColor.Text.primary)
                             .lineSpacing(4)
+
+                        DSChip(title: "Plan my workout") {
+                            // Navigate to coach chat
+                        }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
+
+                // Source
+                HStack(spacing: DSSpacing.xs) {
+                    Circle()
+                        .fill(DSColor.Green.green400)
+                        .frame(width: 6, height: 6)
+                    Text("From: Oura Ring + training log")
+                        .font(DSTypography.caption)
+                        .foregroundStyle(DSColor.Text.disabled)
+                }
             }
-            .padding(.horizontal, DSSpacing.lg)
+            .padding(.horizontal, M)
             .padding(.top, DSSpacing.md)
             .padding(.bottom, DSSpacing.xxxl)
         }
@@ -83,17 +85,15 @@ struct RecoveryDetailView: View {
         }
     }
 
-    private func factorRow(label: String, value: String, color: Color) -> some View {
-        HStack {
-            Text(label)
-                .font(DSTypography.body)
-                .foregroundStyle(DSColor.Text.primary)
-            Spacer()
-            Text(value)
-                .font(DSTypography.bodyEmphasis)
-                .foregroundStyle(color)
+    private var coachAdvice: String {
+        switch zone {
+        case .high:
+            "You slept well and your heart rate is low. Your body can handle a hard workout. Try adding weight to your main lifts today."
+        case .moderate:
+            "Your body is okay but not at its best. Stick to your plan but don't push for new records today."
+        case .low:
+            "Your body needs rest. Skip the heavy lifting and do a light walk or stretching instead."
         }
-        .padding(.vertical, DSSpacing.xs)
     }
 }
 
