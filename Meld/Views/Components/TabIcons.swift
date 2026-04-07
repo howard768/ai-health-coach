@@ -6,14 +6,16 @@ import SwiftUI
 // Corner radius: 2px (proportional ~14% of cell size).
 // Cells are edge-to-edge on a 14px grid — NO explicit gaps.
 // Visual spacing comes solely from the rounded corners.
-// Body: #33BA99 | Eyes: #0F382E (row 2, cols 3 & 6)
+// Body: #E5A84B (Warm Amber) | Eyes: #6B4B1A (Dark Brown)
+// Changed from green (#33BA99) to avoid Android mascot association.
+// Amber creates triadic harmony with purple (brand) and green (accent).
 
 struct SquatBlobIcon: View {
     var isActive: Bool = false
     var size: CGFloat = 26
 
     // Exact pixel grid from Figma metadata
-    // 0 = empty, 1 = body (#33BA99), 2 = eye (#0F382E)
+    // 0 = empty, 1 = body (#E5A84B), 2 = eye (#6B4B1A)
     private static let grid: [[Int]] = [
         [0, 0, 1, 1, 1, 1, 1, 1, 0, 0],  // row 0
         [0, 1, 1, 1, 1, 1, 1, 1, 1, 0],  // row 1
@@ -27,9 +29,9 @@ struct SquatBlobIcon: View {
     private static let cols = 10
     private static let rows = 7
 
-    // Figma exact colors
-    private static let bodyColor = Color.hex(0x33BA99)
-    private static let eyeColor = Color.hex(0x0F382E)
+    // Mascot colors: Warm Amber (triadic with purple brand + green accent)
+    private static let bodyColor = Color.hex(0xE5A84B)
+    private static let eyeColor = Color.hex(0x6B4B1A)
 
     var body: some View {
         Canvas { context, canvasSize in

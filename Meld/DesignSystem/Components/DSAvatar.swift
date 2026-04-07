@@ -69,7 +69,7 @@ struct DSMascotAvatar: View {
     var body: some View {
         SquatBlobIcon(isActive: true, size: size.points * 0.75)
             .frame(width: size.points, height: size.points)
-            .background(DSColor.Green.green100)
+            .background(Color.hex(0xFAF0DA)) // Warm amber tint background for mascot
             .clipShape(Circle())
             .accessibilityLabel("Coach mascot")
     }
