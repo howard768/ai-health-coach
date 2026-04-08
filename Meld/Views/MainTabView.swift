@@ -21,7 +21,7 @@ struct MainTabView: View {
                     CoachChatView()
                 case .trends:
                     NavigationStack {
-                        PlaceholderTab(title: "Trends", subtitle: "Cycle 3")
+                        TrendsView()
                     }
                 case .meals:
                     MealsView()

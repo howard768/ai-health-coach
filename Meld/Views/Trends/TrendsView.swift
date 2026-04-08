@@ -1,0 +1,359 @@
+import SwiftUI
+import Charts
+
+// MARK: - Trends Tab
+// Health metrics over time with contextual visualization.
+// Time range selector (7d / 30d / 90d).
+// Per-metric trend cards with area sparklines and AI trend insights.
+// Research: trends ARE the one place where historical charts are justified,
+// but each chart must still encode meaning (baseline, annotations, context).
+//
+// Grid: 20pt margins, 8pt vertical rhythm.
+
+struct TrendsView: View {
+    @State private var selectedRange: TimeRange = .week
+    @State private var selectedMetric: MetricCategory? = nil
+    private let M: CGFloat = 20
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: DSSpacing.xxl) {
+
+                // Time range selector
+                timeRangeSelector
+
+                // Trend summary (headline insight)
+                trendSummaryCard
+
+                // Per-metric trend cards
+                ForEach(MetricCategory.allCases, id: \.self) { metric in
+                    TrendCard(metric: metric, range: selectedRange)
+                }
+
+                // Cross-domain trend insight
+                crossDomainTrendInsight
+
+                // Nutrition trend (if meals logged)
+                nutritionTrendCard
+            }
+            .padding(.horizontal, M)
+            .padding(.top, DSSpacing.md)
+            .padding(.bottom, DSSpacing.xxxl)
+        }
+        .background(DSColor.Background.primary)
+        .navigationTitle("Trends")
+        .navigationBarTitleDisplayMode(.large)
+    }
+
+    // MARK: - Time Range Selector
+
+    private var timeRangeSelector: some View {
+        HStack(spacing: 0) {
+            ForEach(TimeRange.allCases) { range in
+                Button(action: {
+                    withAnimation(DSMotion.snappy) {
+                        selectedRange = range
+                    }
+                    DSHaptic.selection()
+                }) {
+                    Text(range.label)
+                        .font(DSTypography.bodySM)
+                        .foregroundStyle(selectedRange == range ? DSColor.Text.onPurple : DSColor.Text.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, DSSpacing.sm)
+                        .background(selectedRange == range ? DSColor.Purple.purple500 : Color.clear)
+                        .dsCornerRadius(DSRadius.sm)
+                }
+            }
+        }
+        .padding(DSSpacing.xs)
+        .background(DSColor.Surface.secondary)
+        .dsCornerRadius(DSRadius.md)
+    }
+
+    // MARK: - Trend Summary
+
+    private var trendSummaryCard: some View {
+        DSCard(style: .insight) {
+            VStack(alignment: .leading, spacing: DSSpacing.md) {
+                HStack(spacing: DSSpacing.sm) {
+                    AnimatedMascot(state: .idle, size: 24)
+                    Text("This \(selectedRange.label.lowercased())")
+                        .font(DSTypography.h3)
+                        .foregroundStyle(DSColor.Purple.purple600)
+                }
+
+                Text(summaryText)
+                    .font(DSTypography.body)
+                    .foregroundStyle(DSColor.Text.primary)
+                    .lineSpacing(4)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var summaryText: String {
+        switch selectedRange {
+        case .week:
+            "Your sleep and HRV are both trending up. Resting heart rate is stable. You trained 5 of 7 days. Strong week."
+        case .month:
+            "Your sleep got better over the last 30 days. HRV is up 8% from where you started. Your body is adapting to your training."
+        case .quarter:
+            "Big picture: your fitness is improving. Resting HR dropped 4 bpm, HRV is up 15%, and you've been consistent 80% of the time."
+        }
+    }
+
+    // MARK: - Cross-Domain Trend
+
+    private var crossDomainTrendInsight: some View {
+        DSCard(style: .data) {
+            VStack(alignment: .leading, spacing: DSSpacing.md) {
+                Text("Pattern Found")
+                    .font(DSTypography.h3)
+                    .foregroundStyle(DSColor.Text.primary)
+
+                Text("Your HRV tends to be higher on days after you eat dinner before 7pm. This pattern showed up 5 out of the last 7 times.")
+                    .font(DSTypography.body)
+                    .foregroundStyle(DSColor.Text.secondary)
+                    .lineSpacing(4)
+
+                DSChip(title: "Ask coach about this") {
+                    // Deep link to coach chat
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    // MARK: - Nutrition Trend
+
+    private var nutritionTrendCard: some View {
+        DSCard(style: .metric) {
+            VStack(alignment: .leading, spacing: DSSpacing.md) {
+                Text("NUTRITION")
+                    .dsLabel()
+                    .foregroundStyle(DSColor.Text.tertiary)
+
+                HStack(spacing: DSSpacing.xxl) {
+                    VStack(alignment: .leading, spacing: DSSpacing.xxs) {
+                        Text("Avg Protein")
+                            .font(DSTypography.caption)
+                            .foregroundStyle(DSColor.Text.tertiary)
+                        Text("138g")
+                            .font(DSTypography.h3)
+                            .foregroundStyle(DSColor.Text.primary)
+                        Text("Target: 150g")
+                            .font(DSTypography.caption)
+                            .foregroundStyle(DSColor.Status.warning)
+                    }
+
+                    VStack(alignment: .leading, spacing: DSSpacing.xxs) {
+                        Text("Avg Calories")
+                            .font(DSTypography.caption)
+                            .foregroundStyle(DSColor.Text.tertiary)
+                        Text("2,050")
+                            .font(DSTypography.h3)
+                            .foregroundStyle(DSColor.Text.primary)
+                        Text("Target: 2,200")
+                            .font(DSTypography.caption)
+                            .foregroundStyle(DSColor.Accessible.greenText)
+                    }
+
+                    VStack(alignment: .leading, spacing: DSSpacing.xxs) {
+                        Text("Logged")
+                            .font(DSTypography.caption)
+                            .foregroundStyle(DSColor.Text.tertiary)
+                        Text("12/14")
+                            .font(DSTypography.h3)
+                            .foregroundStyle(DSColor.Text.primary)
+                        Text("days")
+                            .font(DSTypography.caption)
+                            .foregroundStyle(DSColor.Text.tertiary)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
+// MARK: - Time Range
+
+enum TimeRange: String, CaseIterable, Identifiable {
+    case week = "7D"
+    case month = "30D"
+    case quarter = "90D"
+
+    var id: String { rawValue }
+
+    var label: String { rawValue }
+
+    var days: Int {
+        switch self {
+        case .week: 7
+        case .month: 30
+        case .quarter: 90
+        }
+    }
+}
+
+// MARK: - Individual Trend Card
+
+private struct TrendCard: View {
+    let metric: MetricCategory
+    let range: TimeRange
+
+    var body: some View {
+        DSCard(style: .metric) {
+            VStack(alignment: .leading, spacing: DSSpacing.md) {
+                // Header
+                HStack {
+                    Text(metric.accessibilityName.uppercased())
+                        .dsLabel()
+                        .foregroundStyle(DSColor.Text.tertiary)
+
+                    Spacer()
+
+                    // Trend direction
+                    HStack(spacing: DSSpacing.xxs) {
+                        Image(systemName: trendIcon)
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(trendColor)
+                        Text(trendText)
+                            .font(DSTypography.caption)
+                            .foregroundStyle(trendColor)
+                    }
+                }
+
+                // Current value + unit
+                HStack(alignment: .firstTextBaseline, spacing: DSSpacing.xxs) {
+                    Text(currentValue)
+                        .font(DSTypography.h2)
+                        .foregroundStyle(DSColor.Text.primary)
+                    Text(currentUnit)
+                        .font(DSTypography.bodySM)
+                        .foregroundStyle(DSColor.Text.secondary)
+                }
+
+                // Area sparkline with baseline
+                AreaSparkline(
+                    values: trendData,
+                    baseline: baselineValue,
+                    fillColor: chartFillColor,
+                    lineColor: chartLineColor,
+                    highlightColor: chartHighlightColor
+                )
+                .frame(height: 64)
+
+                // Context line
+                Text(contextText)
+                    .font(DSTypography.caption)
+                    .foregroundStyle(DSColor.Text.tertiary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    // MARK: - Per-Metric Data
+
+    private var currentValue: String {
+        switch metric {
+        case .sleepEfficiency: "91"
+        case .hrv: "68"
+        case .restingHR: "58"
+        case .consistency: "5/7"
+        }
+    }
+
+    private var currentUnit: String {
+        switch metric {
+        case .sleepEfficiency: "%"
+        case .hrv: "ms"
+        case .restingHR: "bpm"
+        case .consistency: "days"
+        }
+    }
+
+    private var trendData: [Double] {
+        switch metric {
+        case .sleepEfficiency: [82, 85, 88, 84, 91, 87, 91]
+        case .hrv: [52, 55, 58, 62, 58, 64, 68]
+        case .restingHR: [64, 62, 63, 60, 61, 59, 58]
+        case .consistency: [3, 4, 5, 4, 5, 5, 5]
+        }
+    }
+
+    private var baselineValue: Double {
+        switch metric {
+        case .sleepEfficiency: 85
+        case .hrv: 58
+        case .restingHR: 62
+        case .consistency: 4
+        }
+    }
+
+    private var trendIcon: String {
+        switch metric {
+        case .sleepEfficiency, .hrv, .consistency: "arrow.up.right"
+        case .restingHR: "arrow.down.right" // Lower is better
+        }
+    }
+
+    private var trendColor: Color {
+        switch metric {
+        case .sleepEfficiency, .hrv, .consistency: DSColor.Status.success
+        case .restingHR: DSColor.Status.success // Down is good for HR
+        }
+    }
+
+    private var trendText: String {
+        switch metric {
+        case .sleepEfficiency: "+6% this \(range.label.lowercased())"
+        case .hrv: "+17% this \(range.label.lowercased())"
+        case .restingHR: "-4 bpm this \(range.label.lowercased())"
+        case .consistency: "On track"
+        }
+    }
+
+    private var chartFillColor: Color {
+        switch metric {
+        case .sleepEfficiency: DSColor.Green.green100
+        case .hrv: DSColor.Purple.purple100
+        case .restingHR: DSColor.Green.green100
+        case .consistency: DSColor.Green.green100
+        }
+    }
+
+    private var chartLineColor: Color {
+        switch metric {
+        case .sleepEfficiency: DSColor.Green.green500
+        case .hrv: DSColor.Purple.purple500
+        case .restingHR: DSColor.Green.green500
+        case .consistency: DSColor.Green.green500
+        }
+    }
+
+    private var chartHighlightColor: Color {
+        switch metric {
+        case .sleepEfficiency: DSColor.Green.green600
+        case .hrv: DSColor.Purple.purple600
+        case .restingHR: DSColor.Green.green600
+        case .consistency: DSColor.Green.green600
+        }
+    }
+
+    private var contextText: String {
+        switch metric {
+        case .sleepEfficiency: "Avg: 85% · Best: 91% · Dashed line = your average"
+        case .hrv: "Avg: 58ms · Today: 68ms · Trending up"
+        case .restingHR: "Avg: 62 bpm · Today: 58 bpm · Getting lower (good)"
+        case .consistency: "4.4 avg days/week · Target: 5 days"
+        }
+    }
+}
+
+#Preview {
+    NavigationStack {
+        TrendsView()
+    }
+}
