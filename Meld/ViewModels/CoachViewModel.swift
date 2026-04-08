@@ -13,8 +13,28 @@ final class CoachViewModel {
     var quickActions: [QuickAction] = QuickAction.defaults
 
     init() {
-        // Seed with initial coach message (what user would see on first visit)
+        // Try loading history from backend, fall back to seed messages
         messages = Self.seedMessages()
+        Task { await loadHistory() }
+    }
+
+    // MARK: - History Persistence
+
+    func loadHistory() async {
+        do {
+            let history = try await APIClient.shared.fetchChatHistory()
+            if !history.isEmpty {
+                messages = history.map { msg in
+                    ChatMessage(
+                        role: msg.role == "coach" ? .coach : .user,
+                        text: msg.content,
+                        timestamp: ISO8601DateFormatter().date(from: msg.createdAt) ?? Date()
+                    )
+                }
+            }
+        } catch {
+            // Backend unavailable — keep seed messages
+        }
     }
 
     // MARK: - Actions

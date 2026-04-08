@@ -33,13 +33,13 @@ actor APIClient {
 
     // MARK: - Coach Chat
 
-    func sendMessage(_ message: String, history: [[String: String]]? = nil) async throws -> APIChatResponse {
+    func sendMessage(_ message: String) async throws -> APIChatResponse {
         let url = baseURL.appendingPathComponent("coach/chat")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let body = APIChatRequest(message: message, history: history)
+        let body = APIChatRequest(message: message)
         request.httpBody = try JSONEncoder().encode(body)
 
         let (data, response) = try await session.data(for: request)
@@ -49,6 +49,20 @@ actor APIClient {
         }
 
         return try decoder.decode(APIChatResponse.self, from: data)
+    }
+
+    // MARK: - Chat History
+
+    func fetchChatHistory() async throws -> [APIHistoryMessage] {
+        let url = baseURL.appendingPathComponent("coach/history")
+        let (data, response) = try await session.data(from: url)
+
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw APIError.serverError
+        }
+
+        let historyResponse = try decoder.decode(APIHistoryResponse.self, from: data)
+        return historyResponse.messages
     }
 
     // MARK: - Health Check
@@ -139,10 +153,25 @@ struct APIDashboardResponse: Codable {
 
 struct APIChatRequest: Codable {
     let message: String
-    let history: [[String: String]]?
 }
 
 struct APIChatResponse: Codable {
     let role: String
     let content: String
+}
+
+struct APIHistoryMessage: Codable {
+    let id: Int
+    let role: String
+    let content: String
+    let model_used: String?
+    let routing_tier: String?
+    let created_at: String
+
+    var createdAt: String { created_at }
+}
+
+struct APIHistoryResponse: Codable {
+    let messages: [APIHistoryMessage]
+    let conversation_id: Int
 }
