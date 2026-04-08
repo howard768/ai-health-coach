@@ -190,20 +190,7 @@ private struct RangeBandMini: View {
 
 // MARK: - Mini Dot Array (compact 7 dots)
 
-private struct DotArrayMini: View {
-    let trainedDays: Int
-    let totalDays: Int
-
-    var body: some View {
-        HStack(spacing: 4) {
-            ForEach(0..<totalDays, id: \.self) { day in
-                Circle()
-                    .fill(day < trainedDays ? DSColor.Green.green500 : DSColor.Text.disabled.opacity(0.4))
-                    .frame(width: 8, height: 8)
-            }
-        }
-    }
-}
+// DotArrayMini is defined in MealsView.swift as a shared component
 
 // MARK: - Previews
 

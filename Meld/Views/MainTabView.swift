@@ -24,9 +24,7 @@ struct MainTabView: View {
                         PlaceholderTab(title: "Trends", subtitle: "Cycle 3")
                     }
                 case .meals:
-                    NavigationStack {
-                        PlaceholderTab(title: "Meals", subtitle: "Future")
-                    }
+                    MealsView()
                 case .profile:
                     NavigationStack {
                         ProfileSettingsView()
