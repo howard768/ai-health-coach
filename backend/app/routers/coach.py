@@ -1,10 +1,27 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
-from sse_starlette.sse import EventSourceResponse
 
-from app.services.claude import ClaudeClient
+from app.services.coach_engine import CoachEngine
 
 router = APIRouter(prefix="/api/coach", tags=["coach"])
+
+# Singleton engine (will be dependency-injected in production)
+engine = CoachEngine()
+
+# Health context with numeric values for evidence-bound coaching
+# In production, pulled from DB (real Oura data)
+MOCK_HEALTH_CONTEXT = {
+    "sleep_efficiency": 91,
+    "sleep_duration_hours": 7.2,
+    "deep_sleep_minutes": 82,
+    "hrv_average": 68,
+    "baseline_hrv": 58,
+    "resting_hr": 58,
+    "baseline_rhr": 62,
+    "readiness_score": 82,
+    "training_days_this_week": 5,
+    "training_target": 5,
+}
 
 
 class ChatRequest(BaseModel):
@@ -15,45 +32,42 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     role: str
     content: str
-
-
-# Mock health context (will come from DB in production)
-MOCK_HEALTH_CONTEXT = {
-    "sleep_efficiency": "91%",
-    "sleep_duration": "7h 12m",
-    "hrv": "68ms (+14% vs baseline)",
-    "resting_hr": "58 bpm (stable)",
-    "readiness": "High",
-    "training": "5/7 days this week",
-    "goals": "Lose weight, Build muscle",
-    "weight": "185 lbs, target 170 lbs",
-}
+    routing: dict | None = None
+    safety: dict | None = None
+    model_used: str | None = None
 
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
-    """Send a message to the AI coach and get a response."""
-    client = ClaudeClient()
-    response_text = client.chat(
-        message=request.message,
-        health_context=MOCK_HEALTH_CONTEXT,
+    """AI coach — full research-informed pipeline.
+
+    Pipeline:
+    1. Safety check (ILION: deterministic pre-execution gates)
+    2. Deliberation routing (DOVA: rules before AI, 40-60% cost savings)
+    3. Evidence-bound response (EviBound: every claim cites data)
+    4. Explainable routing logged (Topaz: why this model was chosen)
+    """
+    result = engine.process_query(
+        query=request.message,
+        health_data=MOCK_HEALTH_CONTEXT,
+        user_goals=["Lose weight", "Build muscle"],
         history=request.history,
     )
-    return ChatResponse(role="coach", content=response_text)
+
+    return ChatResponse(
+        role="coach",
+        content=result["response"],
+        routing=result.get("routing"),
+        safety=result.get("safety"),
+        model_used=result.get("model_used"),
+    )
 
 
-@router.post("/chat/stream")
-async def chat_stream(request: ChatRequest):
-    """Stream a response from the AI coach via Server-Sent Events."""
-
-    async def generate():
-        client = ClaudeClient()
-        with client.stream_chat(
-            message=request.message,
-            health_context=MOCK_HEALTH_CONTEXT,
-            history=request.history,
-        ) as stream:
-            for text in stream.text_stream:
-                yield {"data": text}
-
-    return EventSourceResponse(generate())
+@router.post("/insight")
+async def generate_insight():
+    """Generate daily dashboard insight via the full engine pipeline."""
+    result = engine.generate_daily_insight(
+        health_data=MOCK_HEALTH_CONTEXT,
+        user_goals=["Lose weight", "Build muscle"],
+    )
+    return result
