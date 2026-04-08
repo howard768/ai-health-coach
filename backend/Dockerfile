@@ -12,8 +12,8 @@ COPY app/ app/
 # Install dependencies
 RUN uv sync --frozen --no-dev
 
-# Expose port
-EXPOSE 8000
+# Railway sets PORT env var — default 8000 for local
+ENV PORT=8000
 
-# Start server
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Shell form so $PORT gets expanded at runtime
+CMD uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT
