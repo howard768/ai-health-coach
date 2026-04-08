@@ -1,8 +1,20 @@
+import os
+from pathlib import Path
 from pydantic_settings import BaseSettings
+
+# Manually load .env since pydantic-settings has issues on Python 3.14
+ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
+if ENV_FILE.exists():
+    with open(ENV_FILE) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
+                os.environ[key.strip()] = value.strip()
 
 
 class Settings(BaseSettings):
-    # Database — SQLite for local dev (no Docker needed), PostgreSQL for prod
+    # Database
     database_url: str = "sqlite+aiosqlite:///./meld.db"
 
     # Anthropic
@@ -16,8 +28,6 @@ class Settings(BaseSettings):
     # App
     app_env: str = "development"
     app_secret_key: str = "change-me"
-
-    model_config = {"env_file": ".env", "extra": "ignore"}
 
 
 settings = Settings()
