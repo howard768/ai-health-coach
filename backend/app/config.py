@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     # Oura
     oura_client_id: str = ""
     oura_client_secret: str = ""
-    oura_redirect_uri: str = "http://localhost:8000/api/auth/oura/callback"
+    oura_redirect_uri: str = "http://localhost:8000/auth/oura/callback"
 
     # App
     app_env: str = "development"

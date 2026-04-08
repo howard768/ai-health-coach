@@ -7,7 +7,7 @@ from app.database import get_db
 from app.models.health import OuraToken
 from app.services.oura import OuraClient
 
-router = APIRouter(prefix="/api/auth", tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.get("/oura")
