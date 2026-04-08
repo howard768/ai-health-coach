@@ -24,6 +24,9 @@ struct OnboardingFlow: View {
             case .connect:
                 ConnectDataView(viewModel: viewModel)
                     .transition(.move(edge: .trailing))
+            case .notifications:
+                NotificationPrimingView(viewModel: viewModel)
+                    .transition(.move(edge: .trailing))
             case .sync:
                 FirstSyncView(viewModel: viewModel, onComplete: onComplete)
                     .transition(.move(edge: .trailing))

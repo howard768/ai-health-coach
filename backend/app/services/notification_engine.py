@@ -1,0 +1,129 @@
+"""Notification content generator.
+
+Uses the CoachEngine to generate short-form notification content.
+All notifications follow the wiki rules:
+- No raw health metrics in the title (privacy on lock screen)
+- Body max ~120 chars, 4th grade reading level
+- Evidence-bound: cite specific data when possible
+"""
+
+import logging
+from datetime import datetime
+
+from app.services.coach_engine import CoachEngine
+
+logger = logging.getLogger("meld.notifications")
+
+# Prompt templates for short-form notification content
+MORNING_BRIEF_PROMPT = """Generate a push notification for a morning health check-in.
+
+STRICT RULES — violating any of these is a failure:
+1. Title: max 40 chars. Warm, simple greeting. Example: "Good morning, Brock"
+2. Body: max 120 chars. Contextual language about recovery and ONE action for today.
+3. NEVER include numbers, percentages, scores, or raw metrics (e.g. "48%", "63", "68ms"). These are private health data visible on the lock screen. Instead use words like "great", "solid", "rough", "low", "high".
+4. NEVER use emoji. Not one. Zero emoji anywhere.
+5. 4th grade reading level. Short sentences. Simple words.
+6. Be warm and human, not robotic.
+
+GOOD examples:
+- "Recovery looks strong. Great day to push your workout."
+- "Sleep was rough last night. Take it easy today."
+- "Your body is well-rested. Time to challenge yourself."
+
+BAD examples (never do these):
+- "Recovery is moderate today (readiness: 63)." ← raw number exposed
+- "Your sleep was 48%." ← percentage on lock screen
+- "Good morning! 🌅" ← emoji
+
+Health context (for your reference only, do NOT put these numbers in the output): {health_data}
+
+Respond in EXACTLY this JSON format and nothing else:
+{{"title": "...", "body": "..."}}"""
+
+
+class NotificationEngine:
+    """Generates notification content using the CoachEngine pipeline."""
+
+    def __init__(self):
+        self.coach = CoachEngine()
+
+    def generate_morning_brief(
+        self, health_data: dict, user_name: str = "there"
+    ) -> dict:
+        """Generate morning brief notification content.
+
+        Returns dict with title, body, category, and APNs metadata.
+        """
+        # Determine recovery level for routing
+        readiness = health_data.get("readiness_score", 0)
+        if readiness >= 67:
+            recovery_level = "high"
+        elif readiness >= 34:
+            recovery_level = "moderate"
+        else:
+            recovery_level = "low"
+
+        sleep_eff = health_data.get("sleep_efficiency")
+        hrv = health_data.get("hrv_average")
+        rhr = health_data.get("resting_hr")
+
+        # Build a concise summary for the prompt
+        data_summary = f"Recovery: {recovery_level}"
+        if sleep_eff:
+            data_summary += f", Sleep: {sleep_eff:.0f}%"
+        if hrv:
+            data_summary += f", HRV: {hrv:.0f}ms"
+        if rhr:
+            data_summary += f", RHR: {rhr:.0f}bpm"
+
+        # Use CoachEngine for AI-generated content
+        try:
+            result = self.coach.process_query(
+                query=MORNING_BRIEF_PROMPT.format(health_data=data_summary),
+                health_data=health_data,
+                user_name=user_name,
+            )
+            response_text = result["response"]
+
+            # Parse JSON response
+            import json
+            try:
+                content = json.loads(response_text)
+                title = content.get("title", f"Good morning, {user_name}")
+                body = content.get("body", "Your coach has an update for you.")
+            except (json.JSONDecodeError, KeyError):
+                # Fallback: use the response as body
+                title = f"Good morning, {user_name}"
+                body = response_text[:120]
+
+        except Exception as e:
+            logger.error("Failed to generate morning brief via AI: %s", e)
+            # Deterministic fallback based on data
+            title = f"Good morning, {user_name}"
+            if recovery_level == "high":
+                body = "Recovery looks great today. Good day to push your training."
+            elif recovery_level == "moderate":
+                body = "Recovery is moderate. A lighter session might be best today."
+            else:
+                body = "Your body needs some extra rest today. Easy does it."
+
+        return {
+            "title": title[:50],
+            "body": body[:150],
+            "category": "morning_brief",
+            "apns": {
+                "category": "MORNING_BRIEF",
+                "thread_id": "daily-coaching",
+                "interruption_level": "active",
+                "relevance_score": 0.8,
+                "collapse_id": f"morning-brief-{datetime.utcnow().strftime('%Y-%m-%d')}",
+            },
+            "data": {
+                "deep_link": "meld://dashboard",
+                "notification_type": "morning_brief",
+            },
+        }
+
+
+# Singleton
+notification_engine = NotificationEngine()

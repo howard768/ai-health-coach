@@ -2,7 +2,8 @@ import SwiftUI
 
 @main
 struct MeldApp: App {
-    @State private var hasCompletedOnboarding = false
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
 
     init() {
         #if DEBUG
@@ -14,15 +15,20 @@ struct MeldApp: App {
 
     var body: some Scene {
         WindowGroup {
-            if hasCompletedOnboarding {
-                MainTabView()
-            } else {
-                OnboardingFlow {
-                    Analytics.Onboarding.dashboardReached()
-                    withAnimation(DSMotion.emphasis) {
-                        hasCompletedOnboarding = false
+            Group {
+                if hasCompletedOnboarding {
+                    MainTabView()
+                } else {
+                    OnboardingFlow {
+                        Analytics.Onboarding.dashboardReached()
+                        withAnimation(DSMotion.emphasis) {
+                            hasCompletedOnboarding = true
+                        }
                     }
                 }
+            }
+            .onOpenURL { url in
+                NotificationNavigator.shared.handle(url: url)
             }
         }
     }

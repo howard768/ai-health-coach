@@ -29,5 +29,12 @@ class Settings(BaseSettings):
     app_env: str = "development"
     app_secret_key: str = "change-me"
 
+    # APNs (Push Notifications)
+    apns_key_id: str = ""
+    apns_team_id: str = ""
+    apns_key_path: str = ""  # Path to .p8 file
+    apns_bundle_id: str = "com.heymeld.app"
+    apns_environment: str = "sandbox"  # "sandbox" or "production"
+
 
 settings = Settings()

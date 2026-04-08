@@ -10,10 +10,11 @@ enum OnboardingStep: Int, CaseIterable {
     case goals = 1
     case profile = 2
     case connect = 3
-    case sync = 4
+    case notifications = 4
+    case sync = 5
 
     var progressIndex: Int { rawValue - 1 } // -1 for welcome (no dots)
-    var totalSteps: Int { 4 } // Steps shown in progress dots (excludes welcome)
+    var totalSteps: Int { 5 } // Steps shown in progress dots (excludes welcome)
 }
 
 @Observable @MainActor

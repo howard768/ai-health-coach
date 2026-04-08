@@ -12,8 +12,6 @@ import SwiftUI
 // Grid: 20pt margins, 8pt vertical rhythm.
 
 struct ProfileSettingsView: View {
-    @State private var pushNotifications = false
-    @State private var dailyInsights = true
     @State private var showDeleteConfirmation = false
     @State private var showSignOutConfirmation = false
     private let M: CGFloat = 20
@@ -157,23 +155,24 @@ struct ProfileSettingsView: View {
         settingsCard {
             DSSectionHeader(title: "COACHING")
 
-            DSToggle(
-                title: "Push Notifications",
-                isOn: $pushNotifications,
-                subtitle: "Proactive coaching alerts"
-            )
-
-            DSDivider()
-
-            DSToggle(
-                title: "Daily Insights",
-                isOn: $dailyInsights,
-                subtitle: "Morning briefing on your data"
-            )
-
-            DSDivider()
-
-            navigationRow(title: "Quiet Hours", subtitle: "10 PM – 7 AM")
+            NavigationLink {
+                NotificationPreferencesView()
+            } label: {
+                DSListRow(
+                    title: "Notifications",
+                    subtitle: "Morning brief, nudges, alerts",
+                    leading: {
+                        Image(systemName: "bell")
+                            .foregroundStyle(DSColor.Text.secondary)
+                    },
+                    trailing: {
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(DSColor.Text.tertiary)
+                    }
+                )
+            }
+            .buttonStyle(.plain)
         }
     }
 

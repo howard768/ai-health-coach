@@ -1,6 +1,15 @@
 {
-  "originHash" : "f84d2d2adb013c70be815e88479b4bf7b26831bc96edd0f931b21143faab48df",
+  "originHash" : "8736491aa21f7c8961c52aadeae0b29be82bc4ca3de767e96cad96d5752fabb1",
   "pins" : [
+    {
+      "identity" : "popups",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/Mijick/Popups",
+      "state" : {
+        "revision" : "3aa55233eda7bbcbd98b52a6f63d5a7e1955189a",
+        "version" : "4.0.5"
+      }
+    },
     {
       "identity" : "swift",
       "kind" : "remoteSourceControl",
@@ -8,6 +17,51 @@
       "state" : {
         "branch" : "main",
         "revision" : "3289615c203e57d2604c97d0e89ece1d431c9475"
+      }
+    },
+    {
+      "identity" : "swiftglass",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/1998code/SwiftGlass",
+      "state" : {
+        "revision" : "b11729993a2f4a4f11d17ee833ec05b2140400c5",
+        "version" : "26.0.1"
+      }
+    },
+    {
+      "identity" : "swiftsdk",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/TelemetryDeck/SwiftSDK",
+      "state" : {
+        "revision" : "d41d6e86265dc182ba4474f9ef53ecddbbe052b8",
+        "version" : "2.12.0"
+      }
+    },
+    {
+      "identity" : "swiftui-introspect",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/siteline/swiftui-introspect",
+      "state" : {
+        "revision" : "26986a57e31c813f98262ddb62d4b07d40008535",
+        "version" : "26.0.1"
+      }
+    },
+    {
+      "identity" : "swiftui-shimmer",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/markiv/SwiftUI-Shimmer",
+      "state" : {
+        "revision" : "0226e21f9bf355d40e07e5f5e1c33679d50e167f",
+        "version" : "1.5.1"
+      }
+    },
+    {
+      "identity" : "swiftuix",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/SwiftUIX/SwiftUIX",
+      "state" : {
+        "branch" : "master",
+        "revision" : "c1a29980849703457ec2e26d9682e309a3c0a171"
       }
     }
   ],

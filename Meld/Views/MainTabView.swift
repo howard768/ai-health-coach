@@ -7,6 +7,7 @@ import SwiftUI
 
 struct MainTabView: View {
     @State private var selectedTab: Tab = .home
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -41,6 +42,19 @@ struct MainTabView: View {
             MeldTabBar(selectedTab: $selectedTab)
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
+        .onAppear { checkPendingTab() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { checkPendingTab() }
+        }
+    }
+
+    /// Check if a notification action set a pending tab to navigate to.
+    private func checkPendingTab() {
+        guard let tabName = AppDelegate.pendingTab else { return }
+        AppDelegate.pendingTab = nil
+        if let tab = Tab(rawValue: tabName) {
+            switchToTab(tab)
+        }
     }
 
     // MARK: - Cross-tab Navigation

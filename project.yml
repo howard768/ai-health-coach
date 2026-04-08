@@ -11,7 +11,7 @@ settings:
     SWIFT_VERSION: "6.0"
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: 1
-    DEVELOPMENT_TEAM: ""
+    DEVELOPMENT_TEAM: "8HA7S8AFF7"
 
 targets:
   Meld:
@@ -24,11 +24,14 @@ targets:
     resources:
       - path: Meld/Resources
       - path: Meld/Preview Content
+    entitlements:
+      path: Meld/Meld.entitlements
     settings:
       base:
         INFOPLIST_FILE: Meld/Info.plist
         PRODUCT_BUNDLE_IDENTIFIER: com.heymeld.app
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_ENTITLEMENTS: Meld/Meld.entitlements
     dependencies:
       - package: PhosphorSwift
       - package: SwiftUI-Shimmer
@@ -54,8 +57,13 @@ targets:
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         UIUserInterfaceStyle: Automatic
+        CFBundleURLTypes:
+          - CFBundleURLSchemes:
+              - meld
+            CFBundleURLName: com.heymeld.app.deeplink
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
+          NSAllowsArbitraryLoads: true
 
   MeldTests:
     type: bundle.unit-test

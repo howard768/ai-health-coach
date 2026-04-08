@@ -2,3 +2,4 @@
 from app.models.health import OuraToken, SleepRecord  # noqa
 from app.models.user import User  # noqa
 from app.models.chat import Conversation, ChatMessageRecord  # noqa
+from app.models.notification import DeviceToken, NotificationRecord, NotificationPreference, NotificationTemplate  # noqa

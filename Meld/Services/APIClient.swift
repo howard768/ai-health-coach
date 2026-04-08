@@ -12,8 +12,9 @@ actor APIClient {
     private let session: URLSession
 
     private init() {
-        // Local development — switch to Railway URL for production
-        self.baseURL = URL(string: "http://localhost:8000/api")!
+        // Local development — use Mac's local IP so physical devices can connect
+        // Switch to Railway URL for production
+        self.baseURL = URL(string: "http://192.168.86.47:8000/api")!
         self.decoder = JSONDecoder()
         self.session = URLSession.shared
     }
@@ -63,6 +64,64 @@ actor APIClient {
 
         let historyResponse = try decoder.decode(APIHistoryResponse.self, from: data)
         return historyResponse.messages
+    }
+
+    // MARK: - Notifications
+
+    func registerDeviceToken(_ token: String) async throws {
+        let url = baseURL.deletingLastPathComponent()
+            .appendingPathComponent("api/notifications/register")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body = ["device_token": token, "platform": "ios"]
+        request.httpBody = try JSONEncoder().encode(body)
+
+        let (_, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw APIError.serverError
+        }
+    }
+
+    func fetchNotificationPreferences() async throws -> APINotificationPreferences {
+        let url = baseURL.deletingLastPathComponent()
+            .appendingPathComponent("api/notifications/preferences")
+        let (data, response) = try await session.data(from: url)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw APIError.serverError
+        }
+        return try decoder.decode(APINotificationPreferences.self, from: data)
+    }
+
+    func updateNotificationPreferences(_ prefs: APINotificationPreferences) async throws {
+        let url = baseURL.deletingLastPathComponent()
+            .appendingPathComponent("api/notifications/preferences")
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(prefs)
+
+        let (_, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw APIError.serverError
+        }
+    }
+
+    func reportNotificationOpened(notificationId: Int) async throws {
+        let url = baseURL.deletingLastPathComponent()
+            .appendingPathComponent("api/notifications/opened")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body = ["notification_id": notificationId]
+        request.httpBody = try JSONEncoder().encode(body)
+
+        let (_, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw APIError.serverError
+        }
     }
 
     // MARK: - Health Check
@@ -174,4 +233,28 @@ struct APIHistoryMessage: Codable {
 struct APIHistoryResponse: Codable {
     let messages: [APIHistoryMessage]
     let conversation_id: Int
+}
+
+struct APINotificationPreferences: Codable {
+    var morning_brief: Bool
+    var coaching_nudge: Bool
+    var bedtime_coaching: Bool
+    var streak_alerts: Bool
+    var weekly_review: Bool
+    var workout_reminders: Bool
+    var health_alerts: Bool
+    var quiet_hours_start: String
+    var quiet_hours_end: String
+
+    static let defaults = APINotificationPreferences(
+        morning_brief: true,
+        coaching_nudge: true,
+        bedtime_coaching: true,
+        streak_alerts: true,
+        weekly_review: true,
+        workout_reminders: false,
+        health_alerts: true,
+        quiet_hours_start: "22:00",
+        quiet_hours_end: "07:00"
+    )
 }

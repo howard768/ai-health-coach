@@ -5,15 +5,18 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import init_db
-from app.routers import auth, health, coach
+from app.routers import auth, health, coach, notifications
+from app.tasks.scheduler import start_scheduler, stop_scheduler
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: create tables
+    # Startup: create tables + start scheduler
     await init_db()
+    start_scheduler()
     yield
-    # Shutdown: cleanup
+    # Shutdown: stop scheduler
+    stop_scheduler()
 
 
 app = FastAPI(
@@ -36,6 +39,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(health.router)
 app.include_router(coach.router)
+app.include_router(notifications.router)
 
 
 @app.get("/")
