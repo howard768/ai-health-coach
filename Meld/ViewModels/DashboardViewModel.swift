@@ -41,15 +41,21 @@ final class DashboardViewModel {
 
     // MARK: - Actions
 
-    /// Pull-to-refresh handler. Will call backend API when wired.
+    /// Pull-to-refresh — tries backend first, falls back to mock data
     func refresh() async {
         isLoading = true
         error = nil
 
-        // Simulate network delay for now
-        try? await Task.sleep(for: .seconds(1))
+        do {
+            let response = try await APIClient.shared.fetchDashboard()
+            dashboardData = response.toDashboardData()
+            viewState = .loaded
+        } catch {
+            // Backend not available — use mock data silently
+            dashboardData = Self.mockData()
+            viewState = .loaded
+        }
 
-        dashboardData = Self.mockData()
         isLoading = false
     }
 

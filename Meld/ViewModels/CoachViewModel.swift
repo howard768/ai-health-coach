@@ -48,10 +48,20 @@ final class CoachViewModel {
     private func simulateCoachResponse(to prompt: String) {
         isTyping = true
 
-        // Simulate streaming delay
         Task {
-            try? await Task.sleep(for: .seconds(1.5))
+            // Try real backend first
+            do {
+                let response = try await APIClient.shared.sendMessage(prompt)
+                let coachMsg = ChatMessage(role: .coach, text: response.content)
+                messages.append(coachMsg)
+                isTyping = false
+                return
+            } catch {
+                // Backend not available — fall back to mock
+            }
 
+            // Fallback: mock response
+            try? await Task.sleep(for: .seconds(1.5))
             let response = generateMockResponse(for: prompt)
             messages.append(response)
             isTyping = false

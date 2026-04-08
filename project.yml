@@ -54,6 +54,8 @@ targets:
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         UIUserInterfaceStyle: Automatic
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
 
   MeldTests:
     type: bundle.unit-test
