@@ -75,6 +75,7 @@ async def _send_notification(db, tokens: list, content: dict):
             relevance_score=content["apns"]["relevance_score"],
             collapse_id=content["apns"].get("collapse_id"),
             data=content["data"],
+            media_url=content.get("media_url"),
         )
 
         record = NotificationRecord(
@@ -142,11 +143,28 @@ async def morning_brief_job():
 
 
 async def coaching_nudge_job():
-    """Cross-domain insight notification. 2-3x per week."""
+    """Cross-domain insight notification. Frequency set by user preference."""
     logger.info("Running coaching_nudge_job")
     async with async_session() as db:
         if not await can_send(db, USER_ID, "coaching_nudge"):
             return
+
+        # Check frequency preference
+        from app.models.notification import NotificationPreference
+        pref_result = await db.execute(
+            select(NotificationPreference).where(NotificationPreference.user_id == USER_ID)
+        )
+        pref = pref_result.scalar_one_or_none()
+        frequency = pref.nudge_frequency if pref else "2x_week"
+
+        today = datetime.utcnow().weekday()  # 0=Mon, 6=Sun
+        if frequency == "weekly" and today != 0:
+            logger.info("Nudge frequency is weekly, today is not Monday — skipping")
+            return
+        elif frequency == "2x_week" and today not in (0, 3):  # Mon, Thu
+            logger.info("Nudge frequency is 2x/week, today is not Mon/Thu — skipping")
+            return
+        # "daily" sends every day — no skip
         tokens = await _get_active_tokens(db)
         if not tokens:
             logger.info("No active tokens — skipping")
@@ -296,6 +314,99 @@ async def health_alert_job():
     logger.info("health_alert_job complete")
 
 
+async def get_personalized_timing(db, user_id: str) -> dict:
+    """Calculate rolling 7-day average wake/sleep times from Oura data.
+
+    Returns dict with wake_hour, wake_minute, bedtime_hour, bedtime_minute.
+    Falls back to defaults if insufficient data.
+    """
+    result = await db.execute(
+        select(SleepRecord)
+        .where(
+            SleepRecord.user_id == user_id,
+            SleepRecord.bedtime_start.isnot(None),
+            SleepRecord.bedtime_end.isnot(None),
+        )
+        .order_by(desc(SleepRecord.date))
+        .limit(7)
+    )
+    records = result.scalars().all()
+
+    if len(records) < 3:
+        return {"wake_hour": 8, "wake_minute": 0, "bedtime_hour": 22, "bedtime_minute": 0}
+
+    # Average bedtime_start (sleep time) and bedtime_end (wake time)
+    sleep_minutes = []
+    wake_minutes = []
+    for r in records:
+        if r.bedtime_start:
+            h, m = map(int, r.bedtime_start.split(":"))
+            # Handle after-midnight bedtimes (e.g., 01:30 = 25*60+30 for averaging)
+            total = h * 60 + m
+            if total < 12 * 60:  # Before noon = after midnight
+                total += 24 * 60
+            sleep_minutes.append(total)
+        if r.bedtime_end:
+            h, m = map(int, r.bedtime_end.split(":"))
+            wake_minutes.append(h * 60 + m)
+
+    if not sleep_minutes or not wake_minutes:
+        return {"wake_hour": 8, "wake_minute": 0, "bedtime_hour": 22, "bedtime_minute": 0}
+
+    avg_sleep = sum(sleep_minutes) // len(sleep_minutes)
+    avg_wake = sum(wake_minutes) // len(wake_minutes)
+
+    # Normalize back from 24+ hour range
+    avg_sleep = avg_sleep % (24 * 60)
+
+    return {
+        "wake_hour": avg_wake // 60,
+        "wake_minute": avg_wake % 60,
+        "bedtime_hour": avg_sleep // 60,
+        "bedtime_minute": avg_sleep % 60,
+    }
+
+
+async def timing_refresh_job():
+    """Recalculate personalized notification timing from Oura sleep data.
+
+    Runs daily at 03:00 UTC. Reschedules morning brief and bedtime coaching
+    with updated times based on rolling 7-day sleep patterns.
+    """
+    logger.info("Running timing_refresh_job")
+    async with async_session() as db:
+        timing = await get_personalized_timing(db, USER_ID)
+
+    # Reschedule morning brief: 30 min after average wake time
+    wake_hour = timing["wake_hour"]
+    wake_minute = timing["wake_minute"] + 30
+    if wake_minute >= 60:
+        wake_hour += 1
+        wake_minute -= 60
+
+    scheduler.reschedule_job(
+        "morning_brief",
+        trigger=CronTrigger(hour=wake_hour, minute=wake_minute),
+    )
+
+    # Reschedule bedtime coaching: 30 min before average bedtime
+    bed_hour = timing["bedtime_hour"]
+    bed_minute = timing["bedtime_minute"] - 30
+    if bed_minute < 0:
+        bed_hour -= 1
+        bed_minute += 60
+
+    scheduler.reschedule_job(
+        "bedtime_coaching",
+        trigger=CronTrigger(hour=bed_hour, minute=bed_minute),
+    )
+
+    logger.info(
+        "Rescheduled: morning_brief=%02d:%02d, bedtime=%02d:%02d",
+        wake_hour, wake_minute, bed_hour, bed_minute,
+    )
+
+
 # ── Scheduler Setup ─────────────────────────────────────────
 
 async def _seed_on_start():
@@ -323,10 +434,10 @@ def start_scheduler():
         replace_existing=True,
     )
 
-    # Coaching nudge: Mon/Wed/Fri at 12:00 UTC
+    # Coaching nudge: daily at 12:00 UTC (frequency logic inside job checks preference)
     scheduler.add_job(
         coaching_nudge_job,
-        trigger=CronTrigger(day_of_week="mon,wed,fri", hour=12, minute=0),
+        trigger=CronTrigger(hour=12, minute=0),
         id="coaching_nudge",
         name="Coaching Nudge",
         replace_existing=True,
@@ -365,6 +476,15 @@ def start_scheduler():
         trigger=CronTrigger(hour="*/6"),
         id="health_alert",
         name="Health Alert Check",
+        replace_existing=True,
+    )
+
+    # Timing refresh: daily at 03:00 UTC (recalculates personalized send times)
+    scheduler.add_job(
+        timing_refresh_job,
+        trigger=CronTrigger(hour=3, minute=0),
+        id="timing_refresh",
+        name="Personalized Timing Refresh",
         replace_existing=True,
     )
 

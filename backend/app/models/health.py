@@ -30,5 +30,7 @@ class SleepRecord(Base):
     hrv_average: Mapped[float] = mapped_column(Float, nullable=True)
     resting_hr: Mapped[float] = mapped_column(Float, nullable=True)
     readiness_score: Mapped[int] = mapped_column(Integer, nullable=True)
+    bedtime_start: Mapped[str] = mapped_column(String(5), nullable=True)  # HH:MM when user fell asleep
+    bedtime_end: Mapped[str] = mapped_column(String(5), nullable=True)    # HH:MM when user woke up
     raw_json: Mapped[str] = mapped_column(Text, nullable=True)
     synced_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

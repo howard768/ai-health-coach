@@ -48,8 +48,25 @@ struct NotificationPreferencesView: View {
                     DSToggle(
                         title: "Coaching Nudges",
                         isOn: $prefs.coaching_nudge,
-                        subtitle: "Cross-domain insights from your data, 2-3x per week"
+                        subtitle: "Cross-domain insights from your data"
                     )
+
+                    // Frequency selector (only shown when nudges enabled)
+                    if prefs.coaching_nudge {
+                        HStack(spacing: DSSpacing.sm) {
+                            ForEach(["daily", "2x_week", "weekly"], id: \.self) { freq in
+                                DSChip(
+                                    title: frequencyLabel(freq),
+                                    isSelected: prefs.nudge_frequency == freq
+                                ) {
+                                    prefs.nudge_frequency = freq
+                                    savePreferences()
+                                }
+                            }
+                        }
+                        .padding(.vertical, DSSpacing.xs)
+                    }
+
                     DSDivider()
                     DSToggle(
                         title: "Streak Alerts",
@@ -142,6 +159,16 @@ struct NotificationPreferencesView: View {
         .onChange(of: prefs.weekly_review) { _, _ in savePreferences() }
         .onChange(of: prefs.health_alerts) { _, _ in savePreferences() }
         .onChange(of: prefs.workout_reminders) { _, _ in savePreferences() }
+        .onChange(of: prefs.nudge_frequency) { _, _ in savePreferences() }
+    }
+
+    private func frequencyLabel(_ freq: String) -> String {
+        switch freq {
+        case "daily": return "Daily"
+        case "2x_week": return "2-3x/week"
+        case "weekly": return "Weekly"
+        default: return freq
+        }
     }
 
     // MARK: - System Disabled Banner

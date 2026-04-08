@@ -11,6 +11,7 @@ import logging
 from datetime import datetime
 
 from app.services.coach_engine import CoachEngine
+from app.services.notification_media import generate_recovery_badge
 
 logger = logging.getLogger("meld.notifications")
 
@@ -107,6 +108,11 @@ class NotificationEngine:
             else:
                 body = "Your body needs some extra rest today. Easy does it."
 
+        # Generate recovery badge for rich notification
+        from app.config import settings
+        base_url = f"http://localhost:8000" if settings.app_env == "development" else "https://zippy-forgiveness-production-0704.up.railway.app"
+        media_url = generate_recovery_badge(recovery_level, base_url=base_url)
+
         return {
             "title": title[:50],
             "body": body[:150],
@@ -122,6 +128,7 @@ class NotificationEngine:
                 "deep_link": "meld://dashboard",
                 "notification_type": "morning_brief",
             },
+            "media_url": media_url,
         }
 
 

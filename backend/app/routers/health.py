@@ -58,6 +58,24 @@ async def sync_oura(db: AsyncSession = Depends(get_db)):
                 break
 
         contributors = day.get("contributors", {})
+        # Extract bedtime start/end for personalized notification timing
+        bedtime_start_raw = day.get("bedtime_start")  # ISO 8601 timestamp
+        bedtime_end_raw = day.get("bedtime_end")
+        bedtime_start = None
+        bedtime_end = None
+        if bedtime_start_raw:
+            try:
+                from datetime import datetime as dt
+                bedtime_start = dt.fromisoformat(bedtime_start_raw.replace("Z", "+00:00")).strftime("%H:%M")
+            except (ValueError, AttributeError):
+                pass
+        if bedtime_end_raw:
+            try:
+                from datetime import datetime as dt
+                bedtime_end = dt.fromisoformat(bedtime_end_raw.replace("Z", "+00:00")).strftime("%H:%M")
+            except (ValueError, AttributeError):
+                pass
+
         record = SleepRecord(
             user_id="default",
             date=day_date,
@@ -69,6 +87,8 @@ async def sync_oura(db: AsyncSession = Depends(get_db)):
             hrv_average=None,  # HRV comes from a separate endpoint
             resting_hr=day.get("lowest_heart_rate"),
             readiness_score=readiness_score,
+            bedtime_start=bedtime_start,
+            bedtime_end=bedtime_end,
             raw_json=str(day),
         )
         db.add(record)

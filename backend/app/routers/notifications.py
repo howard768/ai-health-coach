@@ -45,6 +45,7 @@ class NotificationPreferencesResponse(BaseModel):
     weekly_review: bool = True
     workout_reminders: bool = False
     health_alerts: bool = True
+    nudge_frequency: str = "2x_week"  # daily, 2x_week, weekly
     quiet_hours_start: str = "22:00"
     quiet_hours_end: str = "07:00"
 
@@ -141,6 +142,7 @@ async def send_test_notification(db: AsyncSession = Depends(get_db)):
         relevance_score=content["apns"]["relevance_score"],
         collapse_id=content["apns"]["collapse_id"],
         data=content["data"],
+        media_url=content.get("media_url"),
     )
 
     # Log the notification
@@ -261,6 +263,7 @@ async def get_notification_preferences(db: AsyncSession = Depends(get_db)):
         weekly_review=pref.weekly_review,
         workout_reminders=pref.workout_reminders,
         health_alerts=pref.health_alerts,
+        nudge_frequency=pref.nudge_frequency,
         quiet_hours_start=pref.quiet_hours_start,
         quiet_hours_end=pref.quiet_hours_end,
     )
@@ -284,6 +287,7 @@ async def update_notification_preferences(
         pref.weekly_review = prefs.weekly_review
         pref.workout_reminders = prefs.workout_reminders
         pref.health_alerts = prefs.health_alerts
+        pref.nudge_frequency = prefs.nudge_frequency
         pref.quiet_hours_start = prefs.quiet_hours_start
         pref.quiet_hours_end = prefs.quiet_hours_end
     else:
@@ -296,6 +300,7 @@ async def update_notification_preferences(
             weekly_review=prefs.weekly_review,
             workout_reminders=prefs.workout_reminders,
             health_alerts=prefs.health_alerts,
+            nudge_frequency=prefs.nudge_frequency,
             quiet_hours_start=prefs.quiet_hours_start,
             quiet_hours_end=prefs.quiet_hours_end,
         )

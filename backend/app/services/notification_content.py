@@ -13,6 +13,7 @@ import logging
 from datetime import datetime
 
 from app.services.coach_engine import CoachEngine
+from app.services.notification_media import generate_recovery_badge
 
 logger = logging.getLogger("meld.notifications.content")
 
@@ -234,10 +235,15 @@ class NotificationContentGenerator:
         if not safety_reasons:
             return None
 
+        from app.config import settings
+        base_url = "http://localhost:8000" if settings.app_env == "development" else "https://zippy-forgiveness-production-0704.up.railway.app"
+        media_url = generate_recovery_badge("low", base_url=base_url)
+
         return {
             "title": "Your coach flagged something",
             "body": "Some of your health signals are outside your normal range. Take a look when you can.",
             "category": "health_alert",
+            "media_url": media_url,
             "apns": {
                 "category": "HEALTH_ALERT",
                 "thread_id": "health-alerts",

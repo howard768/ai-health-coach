@@ -33,6 +33,7 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_ENTITLEMENTS: Meld/Meld.entitlements
     dependencies:
+      - target: MeldNotificationServiceExtension
       - package: PhosphorSwift
       - package: SwiftUI-Shimmer
         product: Shimmer
@@ -64,6 +65,22 @@ targets:
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
           NSAllowsArbitraryLoads: true
+
+  MeldNotificationServiceExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: MeldNotificationServiceExtension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.heymeld.app.notification-service
+        INFOPLIST_FILE: MeldNotificationServiceExtension/Info.plist
+    info:
+      path: MeldNotificationServiceExtension/Info.plist
+      properties:
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.usernotifications.service
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).NotificationService
 
   MeldTests:
     type: bundle.unit-test

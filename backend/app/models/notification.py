@@ -43,6 +43,7 @@ class NotificationPreference(Base):
     weekly_review: Mapped[bool] = mapped_column(Boolean, default=True)
     workout_reminders: Mapped[bool] = mapped_column(Boolean, default=False)
     health_alerts: Mapped[bool] = mapped_column(Boolean, default=True)
+    nudge_frequency: Mapped[str] = mapped_column(String(20), default="2x_week")  # daily, 2x_week, weekly
     quiet_hours_start: Mapped[str] = mapped_column(String(5), default="22:00")
     quiet_hours_end: Mapped[str] = mapped_column(String(5), default="07:00")
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

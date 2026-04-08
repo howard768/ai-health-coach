@@ -243,6 +243,7 @@ struct APINotificationPreferences: Codable {
     var weekly_review: Bool
     var workout_reminders: Bool
     var health_alerts: Bool
+    var nudge_frequency: String
     var quiet_hours_start: String
     var quiet_hours_end: String
 
@@ -254,6 +255,7 @@ struct APINotificationPreferences: Codable {
         weekly_review: true,
         workout_reminders: false,
         health_alerts: true,
+        nudge_frequency: "2x_week",
         quiet_hours_start: "22:00",
         quiet_hours_end: "07:00"
     )
