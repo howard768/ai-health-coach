@@ -13,6 +13,7 @@ struct DataSourceDetailView: View {
     @State private var showDisconnectConfirm = false
     @State private var isSyncing = false
     @State private var syncMessage: String?
+    @State private var displaySyncTime: String?
 
     var body: some View {
         NavigationStack {
@@ -37,8 +38,8 @@ struct DataSourceDetailView: View {
                                 .foregroundStyle(DSColor.Text.secondary)
                         }
 
-                        if let lastSynced {
-                            Text("Last synced: \(formatSyncTime(lastSynced))")
+                        if let syncTime = displaySyncTime ?? lastSynced {
+                            Text("Last synced: \(formatSyncTime(syncTime))")
                                 .font(DSTypography.caption)
                                 .foregroundStyle(DSColor.Text.tertiary)
                         }
@@ -182,15 +183,23 @@ struct DataSourceDetailView: View {
         isSyncing = true
         syncMessage = nil
 
+        let now = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)
         do {
             switch source {
             case .oura:
                 try await APIClient.shared.syncOura()
                 syncMessage = "Synced"
+                // Set to current time in ISO format so formatSyncTime shows "just now"
+                let formatter = DateFormatter()
+                formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+                displaySyncTime = formatter.string(from: Date())
                 DSHaptic.success()
             case .appleHealth:
                 await HealthKitService.shared.syncToBackend()
                 syncMessage = "Synced"
+                let formatter = DateFormatter()
+                formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+                displaySyncTime = formatter.string(from: Date())
                 DSHaptic.success()
             default:
                 syncMessage = "Sync not available yet"
