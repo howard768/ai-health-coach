@@ -115,6 +115,9 @@ struct ProfileSettingsView: View {
 
     // MARK: - Section 2: Data Sources
 
+    @State private var showPelotonLogin = false
+    @State private var showGarminLogin = false
+
     private var dataSourcesSection: some View {
         settingsCard {
             DSSectionHeader(title: "DATA SOURCES")
@@ -123,33 +126,63 @@ struct ProfileSettingsView: View {
                 if source != DataSourceType.allCases.first {
                     DSDivider()
                 }
-                DSListRow(title: source.rawValue, subtitle: source.subtitle, leading: {
-                    dataSourceIcon(source)
-                }, trailing: {
-                    HStack(spacing: DSSpacing.sm) {
-                        DSListStatusDot(isConnected: isSourceConnected(source))
-                        DSListChevron()
-                    }
-                })
+                Button {
+                    handleDataSourceTap(source)
+                } label: {
+                    DSListRow(title: source.rawValue, subtitle: source.subtitle, leading: {
+                        dataSourceIcon(source)
+                    }, trailing: {
+                        HStack(spacing: DSSpacing.sm) {
+                            DSListStatusDot(isConnected: isSourceConnected(source))
+                            DSListChevron()
+                        }
+                    })
+                }
+                .buttonStyle(.plain)
             }
+        }
+        .sheet(isPresented: $showPelotonLogin) {
+            PelotonLoginView()
+        }
+        .sheet(isPresented: $showGarminLogin) {
+            GarminLoginView()
+        }
+    }
+
+    private func handleDataSourceTap(_ source: DataSourceType) {
+        switch source {
+        case .oura:
+            // Oura is OAuth — would need to open browser for re-auth
+            // For now, just show it's connected
+            DSHaptic.light()
+        case .appleHealth:
+            Task {
+                let granted = await HealthKitService.shared.requestAuthorization()
+                if granted {
+                    await HealthKitService.shared.syncToBackend()
+                    DSHaptic.success()
+                }
+            }
+        case .peloton:
+            showPelotonLogin = true
+        case .garmin:
+            showGarminLogin = true
         }
     }
 
     private func dataSourceIcon(_ source: DataSourceType) -> some View {
-        // TODO: Replace SF Symbols with actual company logo assets when available
-        let (icon, color): (String, Color) = switch source {
-        case .oura: ("circle.circle", Color.hex(0x5438A6))       // Ring shape, purple
-        case .appleHealth: ("heart.fill", .red)                    // Apple Health heart
-        case .peloton: ("figure.indoor.cycle", Color.hex(0xD94040)) // Cycling figure, Peloton red
-        case .garmin: ("location.north.fill", DSColor.Green.green500) // Navigation, Garmin green
+        let imageName: String = switch source {
+        case .oura: "oura"
+        case .appleHealth: "apple-health"
+        case .peloton: "peloton"
+        case .garmin: "garmin"
         }
 
-        return Image(systemName: icon)
-            .font(.system(size: 16))
-            .foregroundStyle(color)
+        return Image(imageName)
+            .resizable()
+            .aspectRatio(contentMode: .fit)
             .frame(width: 32, height: 32)
-            .background(color.opacity(0.12))
-            .clipShape(Circle())
+            .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
     private func isSourceConnected(_ source: DataSourceType) -> Bool {
