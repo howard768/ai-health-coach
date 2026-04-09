@@ -15,6 +15,13 @@ struct MealsView: View {
         ZStack(alignment: .bottomTrailing) {
             ScrollView {
                 VStack(alignment: .leading, spacing: DSSpacing.xxl) {
+                    // Error banner
+                    if viewModel.loadError {
+                        InlineErrorBanner.syncFailed {
+                            Task { await viewModel.loadMeals() }
+                        }
+                    }
+
                     // Daily summary card
                     dailySummaryCard
 

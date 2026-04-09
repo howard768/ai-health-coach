@@ -176,6 +176,54 @@ async def delete_meal(meal_id: int, db: AsyncSession = Depends(get_db)):
     return {"status": "ok"}
 
 
+@router.put("/meals/{meal_id}/items/{item_id}")
+async def update_food_item(
+    meal_id: int, item_id: int, item_data: FoodItemCreate, db: AsyncSession = Depends(get_db)
+):
+    """Update an individual food item within a meal."""
+    result = await db.execute(
+        select(FoodItemRecord).where(
+            FoodItemRecord.id == item_id, FoodItemRecord.meal_id == meal_id
+        )
+    )
+    item = result.scalar_one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="Food item not found")
+
+    item.name = item_data.name
+    item.serving_size = item_data.serving_size
+    item.serving_count = item_data.serving_count
+    item.calories = item_data.calories
+    item.protein = item_data.protein
+    item.carbs = item_data.carbs
+    item.fat = item_data.fat
+    item.quality = item_data.quality
+    item.data_source = item_data.data_source
+    item.confidence = item_data.confidence
+
+    await db.commit()
+    return {"status": "ok"}
+
+
+@router.delete("/meals/{meal_id}/items/{item_id}")
+async def delete_food_item(
+    meal_id: int, item_id: int, db: AsyncSession = Depends(get_db)
+):
+    """Remove an individual food item from a meal."""
+    result = await db.execute(
+        select(FoodItemRecord).where(
+            FoodItemRecord.id == item_id, FoodItemRecord.meal_id == meal_id
+        )
+    )
+    item = result.scalar_one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="Food item not found")
+
+    await db.delete(item)
+    await db.commit()
+    return {"status": "ok"}
+
+
 # ── Food Recognition ────────────────────────────────────────
 
 @router.post("/food/recognize", response_model=FoodRecognitionResponse)

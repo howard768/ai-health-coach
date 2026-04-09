@@ -81,6 +81,20 @@ actor APIClient {
         return historyResponse.messages
     }
 
+    // MARK: - Trends
+
+    func fetchTrends(rangeDays: Int = 7) async throws -> APITrendsResponse {
+        let url = serverRoot.appendingPathComponent("api/trends")
+        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
+        components.queryItems = [URLQueryItem(name: "range", value: "\(rangeDays)")]
+
+        let (data, response) = try await session.data(from: components.url!)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw APIError.serverError
+        }
+        return try decoder.decode(APITrendsResponse.self, from: data)
+    }
+
     // MARK: - Notifications
 
     func registerDeviceToken(_ token: String) async throws {
@@ -223,6 +237,17 @@ actor APIClient {
 
         let item = try decoder.decode(APIFoodItemResponse.self, from: data)
         return item.toFoodItem()
+    }
+
+    // MARK: - User Profile
+
+    func fetchUserProfile() async throws -> APIUserProfile {
+        let url = serverRoot.appendingPathComponent("api/user/profile")
+        let (data, response) = try await session.data(from: url)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw APIError.serverError
+        }
+        return try decoder.decode(APIUserProfile.self, from: data)
     }
 
     func reportNotificationOpened(notificationId: Int) async throws {
@@ -430,6 +455,60 @@ struct APIMealResponse: Codable {
     let total_carbs: Double
     let total_fat: Double
     let created_at: String
+}
+
+struct APITrendsResponse: Codable {
+    let range_days: Int
+    let metrics: [String: APIMetricTrend]
+}
+
+struct APIMetricTrend: Codable {
+    let values: [Double]
+    let dates: [String]?
+    let baseline: Double
+    let personal_min: Double
+    let personal_max: Double
+    let personal_average: Double
+}
+
+struct APIUserProfile: Codable {
+    let name: String?
+    let email: String?
+    let age: Int?
+    let height_inches: Int?
+    let weight_lbs: Double?
+    let target_weight_lbs: Double?
+    let goals: [String]
+    let training_experience: String?
+    let training_days_per_week: Int?
+    let member_since: String?
+    let data_sources: [APIDataSource]
+
+    var heightString: String {
+        guard let inches = height_inches else { return "--" }
+        return "\(inches / 12)'\(inches % 12)\""
+    }
+
+    var weightString: String {
+        guard let lbs = weight_lbs else { return "--" }
+        return "\(Int(lbs)) lbs"
+    }
+
+    var goalsString: String {
+        goals.isEmpty ? "--" : goals.joined(separator: " · ")
+    }
+
+    var initials: String {
+        guard let name else { return "?" }
+        let parts = name.split(separator: " ")
+        return parts.prefix(2).map { String($0.prefix(1)) }.joined()
+    }
+}
+
+struct APIDataSource: Codable {
+    let name: String
+    let connected: Bool
+    let last_synced: String?
 }
 
 struct APINotificationPreferences: Codable {

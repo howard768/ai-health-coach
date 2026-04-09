@@ -15,6 +15,7 @@ final class MealsViewModel {
     var showCamera: Bool = false
     var showBarcodeScanner: Bool = false
     var isLoading: Bool = false
+    var loadError: Bool = false
     private var searchTask: Task<Void, Never>?
 
     init() {
@@ -34,6 +35,7 @@ final class MealsViewModel {
 
     func loadMeals() async {
         isLoading = true
+        loadError = false
         let dateString = Self.dateFormatter.string(from: Date())
         do {
             let response = try await APIClient.shared.fetchMeals(date: dateString)
@@ -54,7 +56,7 @@ final class MealsViewModel {
                 streak: 0
             )
         } catch {
-            // Keep current state on error — don't blank out
+            loadError = true
             print("[Meals] Failed to load meals: \(error)")
         }
         isLoading = false

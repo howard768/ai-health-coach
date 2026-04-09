@@ -75,14 +75,14 @@ enum InputSource: String {
 
 struct FoodItem: Identifiable {
     let id: UUID
-    let name: String
-    let servingSize: String
-    let servingCount: Double
-    let calories: Int
-    let protein: Double
-    let carbs: Double
-    let fat: Double
-    let quality: FoodQuality
+    var name: String
+    var servingSize: String
+    var servingCount: Double
+    var calories: Int
+    var protein: Double
+    var carbs: Double
+    var fat: Double
+    var quality: FoodQuality
     let dataSource: FoodDataSource
     let confidence: Double    // 1.0 for database, <1.0 for AI estimates
 

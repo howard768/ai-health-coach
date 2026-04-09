@@ -12,6 +12,57 @@ from app.services.oura_sync import sync_user_data
 router = APIRouter(prefix="/api", tags=["health"])
 
 
+@router.get("/trends")
+async def get_trends(range: int = 7, db: AsyncSession = Depends(get_db)):
+    """Historical health metric trends for a given number of days.
+
+    Returns arrays of values, dates, baselines, and personal ranges per metric.
+    """
+    start_date = (date.today() - timedelta(days=range)).isoformat()
+
+    result = await db.execute(
+        select(SleepRecord)
+        .where(SleepRecord.user_id == "default", SleepRecord.date >= start_date)
+        .order_by(SleepRecord.date)
+    )
+    records = list(result.scalars().all())
+
+    if not records:
+        return {"range_days": range, "metrics": {}}
+
+    def build_metric(values):
+        clean = [v for v in values if v is not None]
+        if not clean:
+            return {"values": [], "dates": [], "baseline": 0, "personal_min": 0, "personal_max": 0, "personal_average": 0}
+        return {
+            "values": clean,
+            "baseline": round(sum(clean) / len(clean), 1),
+            "personal_min": round(min(clean), 1),
+            "personal_max": round(max(clean), 1),
+            "personal_average": round(sum(clean) / len(clean), 1),
+        }
+
+    dates = [r.date for r in records]
+    sleep_eff = build_metric([r.efficiency for r in records])
+    sleep_eff["dates"] = dates
+    resting_hr = build_metric([r.resting_hr for r in records])
+    resting_hr["dates"] = dates
+    readiness = build_metric([r.readiness_score for r in records])
+    readiness["dates"] = dates
+    hrv = build_metric([r.hrv_average for r in records])
+    hrv["dates"] = dates
+
+    return {
+        "range_days": range,
+        "metrics": {
+            "sleep_efficiency": sleep_eff,
+            "resting_hr": resting_hr,
+            "readiness": readiness,
+            "hrv": hrv,
+        },
+    }
+
+
 @router.post("/sync/oura")
 async def sync_oura(db: AsyncSession = Depends(get_db)):
     """Pull latest data from Oura API and store in DB."""

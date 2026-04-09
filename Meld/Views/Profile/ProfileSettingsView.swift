@@ -14,6 +14,7 @@ import SwiftUI
 struct ProfileSettingsView: View {
     @State private var showDeleteConfirmation = false
     @State private var showSignOutConfirmation = false
+    @State private var profile: APIUserProfile?
     private let M: CGFloat = 20
 
     var body: some View {
@@ -50,6 +51,13 @@ struct ProfileSettingsView: View {
         }
         .background(DSColor.Background.primary)
         .navigationTitle("Profile")
+        .task {
+            do {
+                profile = try await APIClient.shared.fetchUserProfile()
+            } catch {
+                // Keep nil — shows "--" placeholders
+            }
+        }
         .navigationBarTitleDisplayMode(.large)
         .alert("Sign out?", isPresented: $showSignOutConfirmation) {
             Button("Cancel", role: .cancel) {}
@@ -65,20 +73,22 @@ struct ProfileSettingsView: View {
 
     private var profileHeader: some View {
         HStack(spacing: DSSpacing.lg) {
-            DSAvatar(size: .xl, initials: "BH")
+            DSAvatar(size: .xl, initials: profile?.initials ?? "?")
 
             VStack(alignment: .leading, spacing: DSSpacing.xs) {
-                Text("Brock Howard")
+                Text(profile?.name ?? "Loading...")
                     .font(DSTypography.h2)
                     .foregroundStyle(DSColor.Text.primary)
 
-                Text("Lose weight · Build muscle")
+                Text(profile?.goalsString ?? "--")
                     .font(DSTypography.bodySM)
                     .foregroundStyle(DSColor.Text.secondary)
 
-                Text("Member since April 2026")
-                    .font(DSTypography.caption)
-                    .foregroundStyle(DSColor.Text.tertiary)
+                if let since = profile?.member_since {
+                    Text("Member since \(since)")
+                        .font(DSTypography.caption)
+                        .foregroundStyle(DSColor.Text.tertiary)
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -91,15 +101,15 @@ struct ProfileSettingsView: View {
         settingsCard {
             DSSectionHeader(title: "YOU")
 
-            settingsRow(title: "Name", value: "Brock Howard")
+            settingsRow(title: "Name", value: profile?.name ?? "--")
             DSDivider()
-            settingsRow(title: "Age", value: "32")
+            settingsRow(title: "Age", value: profile?.age.map { "\($0)" } ?? "--")
             DSDivider()
-            settingsRow(title: "Weight", value: "185 lbs")
+            settingsRow(title: "Weight", value: profile?.weightString ?? "--")
             DSDivider()
-            settingsRow(title: "Height", value: "5'10\"")
+            settingsRow(title: "Height", value: profile?.heightString ?? "--")
             DSDivider()
-            navigationRow(title: "Goals", subtitle: "Lose weight, Build muscle")
+            navigationRow(title: "Goals", subtitle: profile?.goalsString ?? "--")
         }
     }
 

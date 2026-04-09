@@ -41,6 +41,12 @@ struct DashboardView: View {
             case .loaded:
                 ScrollView {
                     VStack(alignment: .leading, spacing: DSSpacing.xxl) {
+                        // Stale data banner
+                        if let lastSynced = viewModel.dashboardData.lastSynced,
+                           Date().timeIntervalSince(lastSynced) > 7200 {
+                            InlineErrorBanner.staleData()
+                        }
+
                         headerSection
 
                         CoachInsightCard(

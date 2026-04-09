@@ -13,6 +13,7 @@ struct FoodConfirmationView: View {
     var image: UIImage?
     @Environment(\.dismiss) private var dismiss
     @State private var isSaving = false
+    @State private var editingIndex: Int?
 
     var body: some View {
         NavigationStack {
@@ -103,56 +104,124 @@ struct FoodConfirmationView: View {
 
     @ViewBuilder
     private func foodItemRow(_ item: FoodItem, index: Int) -> some View {
-        HStack(alignment: .top, spacing: DSSpacing.md) {
-            // Quality dot
-            Circle()
-                .fill(item.quality.color)
-                .frame(width: 8, height: 8)
-                .padding(.top, 6)
-
-            VStack(alignment: .leading, spacing: DSSpacing.xs) {
-                Text(item.name)
-                    .font(DSTypography.body)
-                    .foregroundStyle(DSColor.Text.primary)
-                Text(item.servingSize)
-                    .font(DSTypography.caption)
-                    .foregroundStyle(DSColor.Text.secondary)
-                HStack(spacing: DSSpacing.md) {
-                    Text("\(item.calories) cal")
-                        .font(DSTypography.caption.weight(.medium))
-                    Text("P: \(Int(item.protein))g")
-                        .font(DSTypography.caption)
-                    Text("C: \(Int(item.carbs))g")
-                        .font(DSTypography.caption)
-                    Text("F: \(Int(item.fat))g")
-                        .font(DSTypography.caption)
-                }
-                .foregroundStyle(DSColor.Text.tertiary)
-            }
-
-            Spacer()
-
-            // Confidence badge
-            if item.confidence < 0.9 {
-                Text("Est.")
-                    .font(DSTypography.caption)
-                    .foregroundStyle(DSColor.Text.tertiary)
-                    .padding(.horizontal, DSSpacing.sm)
-                    .padding(.vertical, DSSpacing.xs)
-                    .background(DSColor.Background.secondary)
-                    .clipShape(Capsule())
-            }
-
-            // Remove button
+        if editingIndex == index {
+            // Editing mode
+            editableItemRow(index: index)
+        } else {
+            // Display mode — tap to edit
             Button {
-                items.remove(at: index)
+                editingIndex = index
             } label: {
-                Image(systemName: "xmark.circle")
-                    .foregroundStyle(DSColor.Text.tertiary)
+                HStack(alignment: .top, spacing: DSSpacing.md) {
+                    Circle()
+                        .fill(item.quality.color)
+                        .frame(width: 8, height: 8)
+                        .padding(.top, 6)
+
+                    VStack(alignment: .leading, spacing: DSSpacing.xs) {
+                        Text(item.name)
+                            .font(DSTypography.body)
+                            .foregroundStyle(DSColor.Text.primary)
+                        Text(item.servingSize)
+                            .font(DSTypography.caption)
+                            .foregroundStyle(DSColor.Text.secondary)
+                        HStack(spacing: DSSpacing.md) {
+                            Text("\(item.calories) cal")
+                                .font(DSTypography.caption.weight(.medium))
+                            Text("P: \(Int(item.protein))g")
+                                .font(DSTypography.caption)
+                            Text("C: \(Int(item.carbs))g")
+                                .font(DSTypography.caption)
+                            Text("F: \(Int(item.fat))g")
+                                .font(DSTypography.caption)
+                        }
+                        .foregroundStyle(DSColor.Text.tertiary)
+                    }
+
+                    Spacer()
+
+                    if item.confidence < 0.9 {
+                        Text("Est.")
+                            .font(DSTypography.caption)
+                            .foregroundStyle(DSColor.Text.tertiary)
+                            .padding(.horizontal, DSSpacing.sm)
+                            .padding(.vertical, DSSpacing.xs)
+                            .background(DSColor.Background.secondary)
+                            .clipShape(Capsule())
+                    }
+
+                    Button {
+                        items.remove(at: index)
+                    } label: {
+                        Image(systemName: "xmark.circle")
+                            .foregroundStyle(DSColor.Text.tertiary)
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, DSSpacing.xl)
+            .padding(.vertical, DSSpacing.sm)
+        }
+    }
+
+    @ViewBuilder
+    private func editableItemRow(index: Int) -> some View {
+        VStack(alignment: .leading, spacing: DSSpacing.sm) {
+            TextField("Food name", text: Binding(
+                get: { items[index].name },
+                set: { items[index].name = $0 }
+            ))
+            .font(DSTypography.body)
+
+            TextField("Serving size", text: Binding(
+                get: { items[index].servingSize },
+                set: { items[index].servingSize = $0 }
+            ))
+            .font(DSTypography.caption)
+
+            HStack(spacing: DSSpacing.sm) {
+                editField("Cal", value: Binding(
+                    get: { Double(items[index].calories) },
+                    set: { items[index].calories = Int($0) }
+                ))
+                editField("P", value: Binding(
+                    get: { items[index].protein },
+                    set: { items[index].protein = $0 }
+                ))
+                editField("C", value: Binding(
+                    get: { items[index].carbs },
+                    set: { items[index].carbs = $0 }
+                ))
+                editField("F", value: Binding(
+                    get: { items[index].fat },
+                    set: { items[index].fat = $0 }
+                ))
+            }
+
+            DSButton(title: "Done", style: .secondary, size: .sm) {
+                editingIndex = nil
             }
         }
+        .padding(DSSpacing.lg)
+        .background(DSColor.Background.secondary)
+        .clipShape(RoundedRectangle(cornerRadius: DSRadius.sm))
         .padding(.horizontal, DSSpacing.xl)
-        .padding(.vertical, DSSpacing.sm)
+    }
+
+    private func editField(_ label: String, value: Binding<Double>) -> some View {
+        VStack(spacing: 2) {
+            Text(label)
+                .font(DSTypography.caption)
+                .foregroundStyle(DSColor.Text.tertiary)
+            TextField("0", value: value, format: .number)
+                .font(DSTypography.bodySM)
+                .keyboardType(.decimalPad)
+                .multilineTextAlignment(.center)
+                .frame(width: 60)
+                .padding(.vertical, DSSpacing.xs)
+                .background(DSColor.Background.primary)
+                .clipShape(RoundedRectangle(cornerRadius: DSRadius.sm))
+        }
     }
 
     // MARK: - Totals Card
