@@ -54,7 +54,7 @@ struct RecoveryDetailView: View {
                             .lineSpacing(4)
 
                         DSChip(title: "Plan my workout") {
-                            AppDelegate.pendingTab = "coach"
+                            NotificationCenter.default.post(name: .init("MeldSwitchTab"), object: nil, userInfo: ["tab": "coach"])
                             DSHaptic.light()
                         }
                     }

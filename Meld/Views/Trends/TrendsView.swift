@@ -135,7 +135,7 @@ struct TrendsView: View {
                     .lineSpacing(4)
 
                 DSChip(title: "Ask coach about this") {
-                    AppDelegate.pendingTab = "coach"
+                    NotificationCenter.default.post(name: .init("MeldSwitchTab"), object: nil, userInfo: ["tab": "coach"])
                     DSHaptic.light()
                 }
             }

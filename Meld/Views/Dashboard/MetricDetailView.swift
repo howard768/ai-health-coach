@@ -175,7 +175,7 @@ struct MetricDetailView: View {
 
                 // Ask about this
                 DSChip(title: "Ask your coach about this") {
-                    AppDelegate.pendingTab = "coach"
+                    NotificationCenter.default.post(name: .init("MeldSwitchTab"), object: nil, userInfo: ["tab": "coach"])
                     DSHaptic.light()
                 }
             }

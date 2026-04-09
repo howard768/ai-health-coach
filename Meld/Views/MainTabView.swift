@@ -46,6 +46,12 @@ struct MainTabView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { checkPendingTab() }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .init("MeldSwitchTab"))) { notification in
+            if let tabName = notification.userInfo?["tab"] as? String,
+               let tab = Tab(rawValue: tabName) {
+                switchToTab(tab)
+            }
+        }
     }
 
     /// Check if a notification action set a pending tab to navigate to.

@@ -27,7 +27,7 @@ struct DashboardView: View {
 
             case .empty:
                 DashboardEmptyState {
-                    AppDelegate.pendingTab = "profile"
+                    NotificationCenter.default.post(name: .init("MeldSwitchTab"), object: nil, userInfo: ["tab": "profile"])
                     DSHaptic.light()
                 }
 
@@ -60,7 +60,7 @@ struct DashboardView: View {
                     }
                     .padding(.horizontal, DSSpacing.lg)
                     .padding(.top, DSSpacing.md)
-                    .padding(.bottom, DSSpacing.lg)
+                    .padding(.bottom, 120) // Room for tab bar
                 }
                 .refreshable {
                     await viewModel.refresh()

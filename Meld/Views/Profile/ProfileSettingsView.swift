@@ -136,27 +136,20 @@ struct ProfileSettingsView: View {
     }
 
     private func dataSourceIcon(_ source: DataSourceType) -> some View {
-        Group {
-            switch source {
-            case .oura:
-                SquatBlobIcon(isActive: true, size: 24)
-                    .frame(width: 32, height: 32)
-                    .background(Color.hex(0xFAF0DA))
-                    .clipShape(Circle())
-            case .appleHealth:
-                Image(systemName: "heart.fill")
-                    .foregroundStyle(.red)
-                    .frame(width: 32, height: 32)
-            case .peloton:
-                Image(systemName: "bicycle")
-                    .foregroundStyle(DSColor.Status.error)
-                    .frame(width: 32, height: 32)
-            case .garmin:
-                Image(systemName: "applewatch")
-                    .foregroundStyle(DSColor.Green.green500)
-                    .frame(width: 32, height: 32)
-            }
+        // TODO: Replace SF Symbols with actual company logo assets when available
+        let (icon, color): (String, Color) = switch source {
+        case .oura: ("circle.circle", Color.hex(0x5438A6))       // Ring shape, purple
+        case .appleHealth: ("heart.fill", .red)                    // Apple Health heart
+        case .peloton: ("figure.indoor.cycle", Color.hex(0xD94040)) // Cycling figure, Peloton red
+        case .garmin: ("location.north.fill", DSColor.Green.green500) // Navigation, Garmin green
         }
+
+        return Image(systemName: icon)
+            .font(.system(size: 16))
+            .foregroundStyle(color)
+            .frame(width: 32, height: 32)
+            .background(color.opacity(0.12))
+            .clipShape(Circle())
     }
 
     private func isSourceConnected(_ source: DataSourceType) -> Bool {

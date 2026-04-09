@@ -150,29 +150,54 @@ struct LogFoodSheet: View {
                         .font(DSTypography.h3)
                         .foregroundStyle(DSColor.Text.primary)
 
-                    HStack(spacing: DSSpacing.lg) {
+                    HStack(spacing: DSSpacing.xl) {
                         Button {
-                            viewModel.showCamera = true
+                            viewModel.showInputSheet = false
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                viewModel.showCamera = true
+                            }
                         } label: {
-                            featureTeaser(icon: "camera.fill", title: "Photo")
+                            quickLogButton(icon: "camera.fill", title: "Photo")
                         }
 
                         Button {
-                            viewModel.showBarcodeScanner = true
+                            viewModel.showInputSheet = false
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                viewModel.showBarcodeScanner = true
+                            }
                         } label: {
-                            featureTeaser(icon: "barcode.viewfinder", title: "Barcode")
+                            quickLogButton(icon: "barcode.viewfinder", title: "Barcode")
                         }
 
                         Button {
-                            viewModel.showVoiceCapture = true
+                            viewModel.showInputSheet = false
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                viewModel.showVoiceCapture = true
+                            }
                         } label: {
-                            featureTeaser(icon: "mic.fill", title: "Voice")
+                            quickLogButton(icon: "mic.fill", title: "Voice")
                         }
                     }
+                    .frame(maxWidth: .infinity)
                 }
             }
             .padding(.horizontal, M)
             .padding(.top, DSSpacing.xxl)
+        }
+    }
+
+    private func quickLogButton(icon: String, title: String) -> some View {
+        VStack(spacing: DSSpacing.sm) {
+            Image(systemName: icon)
+                .font(.system(size: 22))
+                .foregroundStyle(DSColor.Purple.purple500)
+                .frame(width: 56, height: 56)
+                .background(DSColor.Purple.purple50)
+                .clipShape(Circle())
+
+            Text(title)
+                .font(DSTypography.caption)
+                .foregroundStyle(DSColor.Text.secondary)
         }
     }
 
