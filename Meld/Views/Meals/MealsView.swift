@@ -47,6 +47,13 @@ struct MealsView: View {
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
+        .sheet(isPresented: $viewModel.showCamera) {
+            CameraView(viewModel: viewModel)
+        }
+        .sheet(isPresented: $viewModel.showBarcodeScanner) {
+            BarcodeScannerView(viewModel: viewModel)
+        }
+        .task { await viewModel.loadMeals() }
     }
 
     // MARK: - Daily Summary Card

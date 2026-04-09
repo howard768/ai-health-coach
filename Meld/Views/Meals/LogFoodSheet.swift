@@ -144,19 +144,29 @@ struct LogFoodSheet: View {
                     }
                 }
 
-                // Phase 2 teaser: camera + barcode
+                // Quick log methods
                 VStack(alignment: .leading, spacing: DSSpacing.sm) {
-                    Text("Coming soon")
+                    Text("Quick log")
                         .font(DSTypography.h3)
                         .foregroundStyle(DSColor.Text.primary)
 
                     HStack(spacing: DSSpacing.lg) {
-                        featureTeaser(icon: "camera.fill", title: "Photo")
-                        featureTeaser(icon: "barcode.viewfinder", title: "Barcode")
+                        Button {
+                            viewModel.showCamera = true
+                        } label: {
+                            featureTeaser(icon: "camera.fill", title: "Photo")
+                        }
+
+                        Button {
+                            viewModel.showBarcodeScanner = true
+                        } label: {
+                            featureTeaser(icon: "barcode.viewfinder", title: "Barcode")
+                        }
+
                         featureTeaser(icon: "mic.fill", title: "Voice")
+                            .opacity(0.5) // Voice still coming soon
                     }
                 }
-                .opacity(0.5)
             }
             .padding(.horizontal, M)
             .padding(.top, DSSpacing.xxl)

@@ -36,12 +36,21 @@ final class DashboardViewModel {
     }
 
     init() {
-        self.dashboardData = Self.mockData()
+        // Start with empty data — refresh() fills from API on appear
+        self.dashboardData = DashboardData(
+            date: Date(),
+            greeting: "",
+            metrics: [],
+            recoveryReadiness: RecoveryReadiness(level: .high, description: ""),
+            coachInsight: CoachInsight(message: "", timestamp: Date()),
+            lastSynced: nil
+        )
+        self.viewState = .loading
     }
 
     // MARK: - Actions
 
-    /// Pull-to-refresh — tries backend first, falls back to mock data
+    /// Load dashboard data from backend API
     func refresh() async {
         isLoading = true
         error = nil
@@ -49,11 +58,14 @@ final class DashboardViewModel {
         do {
             let response = try await APIClient.shared.fetchDashboard()
             dashboardData = response.toDashboardData()
-            viewState = .loaded
+            viewState = dashboardData.metrics.isEmpty ? .empty : .loaded
         } catch {
-            // Backend not available — use mock data silently
-            dashboardData = Self.mockData()
-            viewState = .loaded
+            if dashboardData.metrics.isEmpty {
+                // First load failed — show error state
+                self.error = .networkFailure
+                viewState = .error(.networkFailure)
+            }
+            // If we already have data, keep showing it (stale is better than empty)
         }
 
         isLoading = false

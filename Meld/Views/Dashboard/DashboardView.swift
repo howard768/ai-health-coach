@@ -63,6 +63,7 @@ struct DashboardView: View {
         .background(DSColor.Background.primary)
         .navigationBarHidden(true)
         .onAppear { Analytics.Dashboard.viewed() }
+        .task { await viewModel.refresh() }
     }
 
     // MARK: - Header

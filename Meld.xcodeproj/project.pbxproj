@@ -23,6 +23,7 @@
 		21BBC242D75BEDC60F80A295 /* Roboto-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 9A472D250C42F3714DE0AFD3 /* Roboto-Medium.ttf */; };
 		222C231F31335482DD6B5953 /* NotificationPrimingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D824ABE3A75752B22C77E9E /* NotificationPrimingView.swift */; };
 		2335AA2472F01D931DE3A599 /* OnboardingFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D32123BFA2F6917C59DB724 /* OnboardingFlow.swift */; };
+		24B38CCDFF62FDA8FDFA0C42 /* BarcodeScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07492F282A3FB96B07B78E27 /* BarcodeScannerView.swift */; };
 		27C3A3E61776B0552EFD331E /* TabIcons.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C237B3745CA79E10538D385 /* TabIcons.swift */; };
 		27E7437F21495A867503F7FC /* ProfileSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E9CC5FD1CDD07B7A7B4805 /* ProfileSettingsView.swift */; };
 		2993EA0F3AC1D1C51CB2DF32 /* CoachViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDF5D65016BCC5BFAA060EDD /* CoachViewModel.swift */; };
@@ -141,6 +142,7 @@
 		033478A1C5362862FAAA9E81 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
 		0607A6967CC83E94C077DD54 /* ComponentShowcase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComponentShowcase.swift; sourceTree = "<group>"; };
 		073E4AA91D6E3F6E31B3BBB4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		07492F282A3FB96B07B78E27 /* BarcodeScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarcodeScannerView.swift; sourceTree = "<group>"; };
 		082F2E21560C0B593CD24568 /* MetricCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricCardView.swift; sourceTree = "<group>"; };
 		092B821EC0B9E234F3D75CE3 /* DSRadius.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSRadius.swift; sourceTree = "<group>"; };
 		0A3FF7FE563CB668058C480C /* RecoveryDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryDetailView.swift; sourceTree = "<group>"; };
@@ -267,6 +269,7 @@
 		0E2D76F96883454A27B9BC41 /* Meals */ = {
 			isa = PBXGroup;
 			children = (
+				07492F282A3FB96B07B78E27 /* BarcodeScannerView.swift */,
 				0DAF3D55EA08732D53B2FCFF /* CameraView.swift */,
 				2CE089989AFCA5CED2A7DFB1 /* FoodConfirmationView.swift */,
 				4D81FB5BB5C88DA3C1C3293D /* LogFoodSheet.swift */,
@@ -739,6 +742,7 @@
 				3D1D3EFC622ADDE59731D782 /* AnalyticsService.swift in Sources */,
 				9B390368AD3926BCEA948FBF /* AppDelegate.swift in Sources */,
 				646F6EBB0D38715D63D8D078 /* ArcGauge.swift in Sources */,
+				24B38CCDFF62FDA8FDFA0C42 /* BarcodeScannerView.swift in Sources */,
 				0DCE3A4CF339F24CAE6E1976 /* CameraView.swift in Sources */,
 				113D3E0D78B2AC0CC84227A1 /* ChatMessage.swift in Sources */,
 				392C0B68D015E27FA7A93A47 /* CoachChatView.swift in Sources */,

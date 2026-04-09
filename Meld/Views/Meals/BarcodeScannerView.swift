@@ -104,7 +104,7 @@ struct DataScannerRepresentable: UIViewControllerRepresentable {
 
     func makeUIViewController(context: Context) -> DataScannerViewController {
         let scanner = DataScannerViewController(
-            recognizedDataTypes: [.barcode(symbologies: [.ean8, .ean13, .upca, .upce])],
+            recognizedDataTypes: [.barcode(symbologies: [.ean8, .ean13, .upce])],
             isHighlightingEnabled: true
         )
         scanner.delegate = context.coordinator

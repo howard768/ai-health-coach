@@ -12,11 +12,26 @@ actor APIClient {
     private let session: URLSession
 
     private init() {
-        // Local development — use Mac's local IP so physical devices can connect
-        // Switch to Railway URL for production
+        // Environment-aware URL:
+        // - Simulator: localhost (same machine)
+        // - Physical device: Mac's LAN IP (same network)
+        // - Production: Railway deployment
+        #if targetEnvironment(simulator)
+        self.baseURL = URL(string: "http://localhost:8000/api")!
+        #else
+        // TODO: Switch to Railway URL for production release
+        // "https://zippy-forgiveness-production-0704.up.railway.app/api"
         self.baseURL = URL(string: "http://192.168.86.47:8000/api")!
+        #endif
         self.decoder = JSONDecoder()
         self.session = URLSession.shared
+    }
+
+    /// Build a URL from a path relative to the server root (e.g., "/api/meals").
+    /// Handles the baseURL already containing "/api" — strips it to get server root.
+    private var serverRoot: URL {
+        // baseURL is like "http://host:8000/api" — go up one to get "http://host:8000"
+        baseURL.deletingLastPathComponent()
     }
 
     // MARK: - Dashboard
