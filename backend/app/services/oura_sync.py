@@ -11,7 +11,7 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.health import OuraToken, SleepRecord
+from app.models.health import OuraToken, SleepRecord, HealthMetricRecord
 from app.services.oura import OuraClient
 
 logger = logging.getLogger("meld.oura_sync")
@@ -121,6 +121,16 @@ async def sync_user_data(db: AsyncSession, user_id: str) -> dict:
         )
         db.add(record)
         records_saved += 1
+
+        # Also write to unified HealthMetricRecord for reconciliation
+        if contributors.get("efficiency"):
+            db.add(HealthMetricRecord(user_id=user_id, date=day_date, metric_type="sleep_efficiency", value=contributors["efficiency"], unit="%", source="oura"))
+        if day.get("total_sleep_duration"):
+            db.add(HealthMetricRecord(user_id=user_id, date=day_date, metric_type="sleep_duration", value=day["total_sleep_duration"] / 3600, unit="hours", source="oura"))
+        if day.get("lowest_heart_rate"):
+            db.add(HealthMetricRecord(user_id=user_id, date=day_date, metric_type="resting_hr", value=day["lowest_heart_rate"], unit="bpm", source="oura"))
+        if readiness_score:
+            db.add(HealthMetricRecord(user_id=user_id, date=day_date, metric_type="readiness", value=readiness_score, unit="score", source="oura"))
 
     await db.commit()
 

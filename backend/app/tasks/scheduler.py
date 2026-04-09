@@ -21,6 +21,7 @@ from app.services.anti_fatigue import can_send
 from app.services.notification_templates import seed_templates, pick_template
 from app.services.coach_engine import SafetyCheck
 from app.services.oura_sync import sync_user_data as oura_sync
+from app.services.data_reconciliation import reconcile_day
 
 logger = logging.getLogger("meld.scheduler")
 
@@ -323,6 +324,10 @@ async def oura_sync_job():
     async with async_session() as db:
         result = await oura_sync(db, USER_ID)
         logger.info("Oura sync result: %s", result)
+        # Run reconciliation after sync
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+        await reconcile_day(db, USER_ID, today)
+        logger.info("Reconciliation complete for %s", today)
 
 
 async def get_personalized_timing(db, user_id: str) -> dict:
