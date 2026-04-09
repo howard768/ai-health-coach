@@ -39,15 +39,15 @@ struct PelotonLoginView: View {
                             .foregroundStyle(DSColor.Text.secondary)
 
                         DSTextField(
-                            text: $username,
-                            placeholder: "Email or username"
+                            placeholder: "Email or username",
+                            text: $username
                         )
                         .textContentType(.emailAddress)
                         .autocapitalization(.none)
 
                         DSTextField(
-                            text: $password,
-                            placeholder: "Password"
+                            placeholder: "Password",
+                            text: $password
                         )
                         .textContentType(.password)
 

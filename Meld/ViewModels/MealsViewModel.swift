@@ -14,6 +14,7 @@ final class MealsViewModel {
     var showInputSheet: Bool = false
     var showCamera: Bool = false
     var showBarcodeScanner: Bool = false
+    var showVoiceCapture: Bool = false
     var isLoading: Bool = false
     var loadError: Bool = false
     private var searchTask: Task<Void, Never>?

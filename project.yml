@@ -63,6 +63,8 @@ targets:
               - meld
             CFBundleURLName: com.heymeld.app.deeplink
         NSCameraUsageDescription: Meld uses your camera to take photos of food and scan barcodes.
+        NSSpeechRecognitionUsageDescription: Meld uses speech recognition to log food by voice.
+        NSMicrophoneUsageDescription: Meld needs microphone access for voice food logging.
         NSHealthShareUsageDescription: Meld reads your sleep, activity, and heart rate to provide personalized coaching.
         NSHealthUpdateUsageDescription: Meld logs meals and workouts to keep your health records in sync.
         NSAppTransportSecurity:

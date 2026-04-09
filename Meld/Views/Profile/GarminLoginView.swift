@@ -36,11 +36,11 @@ struct GarminLoginView: View {
                             .font(DSTypography.bodySM)
                             .foregroundStyle(DSColor.Text.secondary)
 
-                        DSTextField(text: $username, placeholder: "Email or username")
+                        DSTextField(placeholder: "Email or username", text: $username)
                             .textContentType(.emailAddress)
                             .autocapitalization(.none)
 
-                        DSTextField(text: $password, placeholder: "Password")
+                        DSTextField(placeholder: "Password", text: $password)
                             .textContentType(.password)
 
                         if let error = errorMessage {

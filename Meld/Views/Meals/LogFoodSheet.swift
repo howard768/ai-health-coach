@@ -163,8 +163,11 @@ struct LogFoodSheet: View {
                             featureTeaser(icon: "barcode.viewfinder", title: "Barcode")
                         }
 
-                        featureTeaser(icon: "mic.fill", title: "Voice")
-                            .opacity(0.5) // Voice still coming soon
+                        Button {
+                            viewModel.showVoiceCapture = true
+                        } label: {
+                            featureTeaser(icon: "mic.fill", title: "Voice")
+                        }
                     }
                 }
             }

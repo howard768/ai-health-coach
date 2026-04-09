@@ -60,6 +60,9 @@ struct MealsView: View {
         .sheet(isPresented: $viewModel.showBarcodeScanner) {
             BarcodeScannerView(viewModel: viewModel)
         }
+        .sheet(isPresented: $viewModel.showVoiceCapture) {
+            VoiceCaptureView(viewModel: viewModel)
+        }
         .task { await viewModel.loadMeals() }
     }
 
