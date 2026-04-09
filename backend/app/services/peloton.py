@@ -1,88 +1,75 @@
-"""Peloton API client.
+"""Peloton API client using pylotoncycle library.
 
-Unofficial API at api.onepeloton.com. Session cookie authentication
-(username/password → session_id). NOT OAuth.
-
-Risk: Unofficial API, could change without notice.
-All calls wrapped in try/catch for graceful degradation.
+Uses OAuth2 authentication (not the old session cookie approach).
+pylotoncycle handles the auth flow using Peloton's known client_id.
 """
 
 import logging
+import asyncio
 from datetime import date, timedelta
-
-import httpx
 
 logger = logging.getLogger("meld.peloton")
 
-PELOTON_API = "https://api.onepeloton.com"
-
 
 class PelotonClient:
-    """Interacts with Peloton's unofficial API."""
+    """Interacts with Peloton via pylotoncycle library."""
 
-    def __init__(self, session_id: str | None = None, user_id: str | None = None):
-        self.session_id = session_id
-        self.peloton_user_id = user_id
+    def __init__(self):
+        self._client = None
+        self.peloton_user_id = None
 
     async def login(self, username: str, password: str) -> dict:
-        """Authenticate with Peloton and get session cookie.
+        """Authenticate with Peloton via OAuth2."""
+        from pylotoncycle import PylotonCycle
 
-        Returns dict with session_id and user_id.
-        """
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{PELOTON_API}/auth/login",
-                json={"username_or_email": username, "password": password},
-            )
-            response.raise_for_status()
-            data = response.json()
+        def _login():
+            client = PylotonCycle(username=username, password=password)
+            return client
 
-        self.session_id = data.get("session_id")
-        self.peloton_user_id = data.get("user_id")
+        try:
+            self._client = await asyncio.to_thread(_login)
+            # Get user info
+            user_id = getattr(self._client, 'user_id', None)
+            self.peloton_user_id = user_id
+            return {
+                "session_id": "oauth",  # pylotoncycle manages tokens internally
+                "user_id": user_id or "connected",
+            }
+        except Exception as e:
+            logger.error("Peloton login failed: %s", e)
+            raise
 
-        return {
-            "session_id": self.session_id,
-            "user_id": self.peloton_user_id,
-        }
-
-    async def get_workouts(self, limit: int = 20, page: int = 0) -> dict:
-        """Get recent workouts for the authenticated user."""
-        if not self.session_id or not self.peloton_user_id:
+    async def get_workouts(self, limit: int = 20) -> list:
+        """Get recent workouts."""
+        if not self._client:
             raise ValueError("Not authenticated. Call login() first.")
 
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{PELOTON_API}/api/user/{self.peloton_user_id}/workouts",
-                params={
-                    "joins": "ride,ride.instructor",
-                    "limit": limit,
-                    "page": page,
-                },
-                cookies={"peloton_session_id": self.session_id},
-                headers={"Peloton-Platform": "web"},
-            )
-            response.raise_for_status()
-            return response.json()
+        def _get():
+            return self._client.GetRecentWorkouts(limit)
 
-    async def get_workout_details(self, workout_id: str) -> dict:
-        """Get detailed metrics for a specific workout."""
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{PELOTON_API}/api/workout/{workout_id}/performance_graph",
-                params={"every_n": 5},  # Sample every 5 seconds
-                cookies={"peloton_session_id": self.session_id},
-                headers={"Peloton-Platform": "web"},
-            )
-            response.raise_for_status()
-            return response.json()
+        try:
+            return await asyncio.to_thread(_get)
+        except Exception as e:
+            logger.error("Peloton get_workouts failed: %s", e)
+            return []
+
+    async def get_workout_metrics(self, workout_id: str) -> dict:
+        """Get detailed metrics for a workout."""
+        if not self._client:
+            return {}
+
+        def _get():
+            return self._client.GetWorkoutMetricsById(workout_id)
+
+        try:
+            return await asyncio.to_thread(_get)
+        except Exception as e:
+            logger.error("Peloton get_metrics failed: %s", e)
+            return {}
 
     def parse_workout(self, workout: dict) -> dict:
         """Normalize a Peloton workout to our WorkoutRecord format."""
-        ride = workout.get("ride", {})
-        instructor = ride.get("instructor", {})
-
-        # Determine workout type from fitness_discipline
-        discipline = workout.get("fitness_discipline", "cycling")
+        fitness_discipline = workout.get("fitness_discipline", "cycling")
         workout_type_map = {
             "cycling": "cycling",
             "running": "running",
@@ -94,17 +81,19 @@ class PelotonClient:
             "bootcamp": "bootcamp",
             "rowing": "rowing",
         }
-        workout_type = workout_type_map.get(discipline, discipline)
+        workout_type = workout_type_map.get(fitness_discipline, fitness_discipline)
+
+        ride = workout.get("ride", {}) or {}
 
         return {
             "peloton_workout_id": workout.get("id"),
             "workout_type": workout_type,
-            "duration_seconds": ride.get("duration", 0),
-            "calories": workout.get("total_work", 0) // 1000 if workout.get("total_work") else None,
-            "avg_heart_rate": None,  # Requires performance_graph call
-            "max_heart_rate": None,
-            "avg_output": None,  # Watts, cycling-specific
-            "instructor": instructor.get("name"),
+            "duration_seconds": ride.get("duration", workout.get("ride_duration", 0)) or 0,
+            "calories": int(workout.get("total_work", 0) or 0) // 1000 or None,
+            "avg_heart_rate": workout.get("avg_heart_rate"),
+            "max_heart_rate": workout.get("max_heart_rate"),
+            "avg_output": workout.get("avg_output"),
+            "instructor": ride.get("instructor", {}).get("name") if isinstance(ride.get("instructor"), dict) else None,
             "title": ride.get("title"),
-            "created_at": workout.get("created_at"),
+            "created_at": workout.get("created_at", 0),
         }

@@ -32,16 +32,22 @@ struct GarminLoginView: View {
                         Text("Connect Garmin")
                             .font(DSTypography.h2)
                             .foregroundStyle(DSColor.Text.primary)
-                        Text("Sign in with your Garmin Connect account.")
+                        Text("Garmin uses secure OAuth to connect. You'll be redirected to Garmin's login page to authorize Meld.")
                             .font(DSTypography.bodySM)
                             .foregroundStyle(DSColor.Text.secondary)
 
-                        DSTextField(placeholder: "Email or username", text: $username)
-                            .textContentType(.emailAddress)
-                            .autocapitalization(.none)
-
-                        DSTextField(placeholder: "Password", text: $password)
-                            .textContentType(.password)
+                        // Info card
+                        VStack(alignment: .leading, spacing: DSSpacing.sm) {
+                            Text("What we'll access:")
+                                .font(DSTypography.bodySM.weight(.medium))
+                                .foregroundStyle(DSColor.Text.primary)
+                            Text("Steps, heart rate, sleep, stress, body battery, and activities")
+                                .font(DSTypography.caption)
+                                .foregroundStyle(DSColor.Text.secondary)
+                        }
+                        .padding(DSSpacing.lg)
+                        .background(DSColor.Background.secondary)
+                        .clipShape(RoundedRectangle(cornerRadius: DSRadius.md))
 
                         if let error = errorMessage {
                             Text(error)
@@ -59,11 +65,11 @@ struct GarminLoginView: View {
                         .padding(.horizontal, DSSpacing.xl)
                 } else {
                     DSButton(
-                        title: isLoading ? "Connecting..." : "Connect",
-                        style: .primary, size: .lg,
-                        isDisabled: username.isEmpty || password.isEmpty || isLoading
+                        title: "Connect with Garmin",
+                        style: .primary, size: .lg
                     ) {
-                        Task { await login() }
+                        // TODO: Open Garmin OAuth URL in browser when Developer Program credentials are available
+                        errorMessage = "Garmin OAuth integration pending. Apply at developer.garmin.com."
                     }
                     .padding(.horizontal, DSSpacing.xl)
                 }
