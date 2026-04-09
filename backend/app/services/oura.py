@@ -51,6 +51,22 @@ class OuraClient:
             response.raise_for_status()
             return response.json()
 
+    async def get_sleep_sessions(self, start_date: date | None = None, end_date: date | None = None) -> dict:
+        """Get detailed sleep session data (durations, stages, timing)."""
+        if not start_date:
+            start_date = date.today() - timedelta(days=7)
+        if not end_date:
+            end_date = date.today()
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{OURA_API_BASE}/sleep",
+                headers={"Authorization": f"Bearer {self.access_token}"},
+                params={"start_date": str(start_date), "end_date": str(end_date)},
+            )
+            response.raise_for_status()
+            return response.json()
+
     async def get_daily_readiness(self, start_date: date | None = None, end_date: date | None = None) -> dict:
         if not start_date:
             start_date = date.today() - timedelta(days=7)

@@ -65,11 +65,12 @@ async def sync_user_data(db: AsyncSession, user_id: str) -> dict:
 
     client = OuraClient(access_token=access_token)
     start = date.today() - timedelta(days=7)
-    end = date.today()
+    end = date.today() + timedelta(days=1)  # Include today (Oura API end date is exclusive)
 
     try:
         sleep_data = await client.get_daily_sleep(start, end)
         readiness_data = await client.get_daily_readiness(start, end)
+        sleep_sessions = await client.get_sleep_sessions(start, end)
     except Exception as e:
         error_msg = str(e)
         if "401" in error_msg:
@@ -77,6 +78,16 @@ async def sync_user_data(db: AsyncSession, user_id: str) -> dict:
             return {"status": "error", "message": "Oura access revoked. Reconnect your ring."}
         logger.error("Oura API error: %s", e)
         return {"status": "error", "message": f"Oura API error: {error_msg}"}
+
+    # Index sleep sessions by day for duration data
+    session_by_day: dict[str, dict] = {}
+    for session in sleep_sessions.get("data", []):
+        sday = session.get("day", "")
+        # Pick the longest sleep session per day (main sleep, not naps)
+        existing_duration = session_by_day.get(sday, {}).get("total_sleep_duration", 0) or 0
+        session_duration = session.get("total_sleep_duration", 0) or 0
+        if session_duration > existing_duration:
+            session_by_day[sday] = session
 
     records_saved = 0
     for day in sleep_data.get("data", []):
@@ -99,21 +110,24 @@ async def sync_user_data(db: AsyncSession, user_id: str) -> dict:
                 readiness_score = r.get("score")
                 break
 
-        # Parse bedtime timestamps
+        # Get session data for durations (daily_sleep only has contributor scores)
+        session = session_by_day.get(day_date, {})
+
+        # Parse bedtime timestamps from session data
         contributors = day.get("contributors", {})
-        bedtime_start = _parse_time(day.get("bedtime_start"))
-        bedtime_end = _parse_time(day.get("bedtime_end"))
+        bedtime_start = _parse_time(session.get("bedtime_start"))
+        bedtime_end = _parse_time(session.get("bedtime_end"))
 
         record = SleepRecord(
             user_id=user_id,
             date=day_date,
             efficiency=contributors.get("efficiency"),
-            total_sleep_seconds=day.get("total_sleep_duration"),
-            deep_sleep_seconds=day.get("deep_sleep_duration"),
-            rem_sleep_seconds=day.get("rem_sleep_duration"),
-            light_sleep_seconds=day.get("light_sleep_duration"),
+            total_sleep_seconds=session.get("total_sleep_duration"),
+            deep_sleep_seconds=session.get("deep_sleep_duration"),
+            rem_sleep_seconds=session.get("rem_sleep_duration"),
+            light_sleep_seconds=session.get("light_sleep_duration"),
             hrv_average=None,  # Patched by sync_hrv below
-            resting_hr=day.get("lowest_heart_rate"),
+            resting_hr=session.get("lowest_heart_rate"),
             readiness_score=readiness_score,
             bedtime_start=bedtime_start,
             bedtime_end=bedtime_end,

@@ -6,24 +6,41 @@ from sqlalchemy import select, desc
 
 from app.database import get_db
 from app.models.chat import Conversation, ChatMessageRecord
+from app.models.health import SleepRecord
 from app.services.coach_engine import CoachEngine
 
 router = APIRouter(prefix="/api/coach", tags=["coach"])
 
 engine = CoachEngine()
 
-MOCK_HEALTH_CONTEXT = {
-    "sleep_efficiency": 91,
-    "sleep_duration_hours": 7.2,
-    "deep_sleep_minutes": 82,
-    "hrv_average": 68,
-    "baseline_hrv": 58,
-    "resting_hr": 58,
-    "baseline_rhr": 62,
-    "readiness_score": 82,
-    "training_days_this_week": 5,
-    "training_target": 5,
-}
+
+async def _get_real_health_data(db: AsyncSession, user_id: str) -> dict:
+    """Load real health data from the latest SleepRecord for coach context."""
+    result = await db.execute(
+        select(SleepRecord)
+        .where(SleepRecord.user_id == user_id)
+        .order_by(desc(SleepRecord.date))
+        .limit(7)
+    )
+    records = list(result.scalars().all())
+    if not records:
+        return {}
+
+    latest = records[0]
+    avg_eff = sum(r.efficiency or 0 for r in records) / len(records)
+    avg_rhr = sum(r.resting_hr or 0 for r in records if r.resting_hr) / max(1, sum(1 for r in records if r.resting_hr))
+    avg_hrv = sum(r.hrv_average or 0 for r in records if r.hrv_average) / max(1, sum(1 for r in records if r.hrv_average))
+
+    return {
+        "sleep_efficiency": latest.efficiency or 0,
+        "sleep_duration_hours": round((latest.total_sleep_seconds or 0) / 3600, 1),
+        "deep_sleep_minutes": round((latest.deep_sleep_seconds or 0) / 60),
+        "hrv_average": latest.hrv_average or 0,
+        "baseline_hrv": round(avg_hrv, 1),
+        "resting_hr": latest.resting_hr or 0,
+        "baseline_rhr": round(avg_rhr, 1),
+        "readiness_score": latest.readiness_score or 0,
+    }
 
 
 class ChatRequest(BaseModel):
@@ -68,7 +85,8 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
 
     # Load recent history from DB for context (last 20 messages)
     history_records = await _get_recent_messages(db, conv.id, limit=20)
-    history = [{"role": m.role, "content": m.content} for m in history_records]
+    # Map DB roles to Claude API roles (coach → assistant)
+    history = [{"role": "assistant" if m.role == "coach" else "user", "content": m.content} for m in history_records]
 
     # Save user message
     user_msg = ChatMessageRecord(
@@ -80,20 +98,36 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
     db.add(user_msg)
     await db.flush()
 
+    # Load real health data for context
+    health_data = await _get_real_health_data(db, user_id)
+
     # Process through coach engine (with conversation history)
-    result = engine.process_query(
-        query=request.message,
-        health_data=MOCK_HEALTH_CONTEXT,
-        user_goals=["Lose weight", "Build muscle"],
-        history=history,
+    # Wrap in to_thread because process_query() calls synchronous Anthropic SDK
+    import asyncio
+    result = await asyncio.to_thread(
+        engine.process_query,
+        request.message,
+        health_data,
+        "Brock",
+        ["Lose weight", "Build muscle"],
+        history,
     )
+
+    # Strip markdown formatting — our chat UI renders plain text
+    import re
+    clean_response = result["response"]
+    clean_response = re.sub(r'\*\*(.+?)\*\*', r'\1', clean_response)  # **bold** → bold
+    clean_response = re.sub(r'\*(.+?)\*', r'\1', clean_response)  # *italic* → italic
+    clean_response = re.sub(r'^#{1,3}\s+', '', clean_response, flags=re.MULTILINE)  # ## headers → plain
+    clean_response = re.sub(r'^- ', '• ', clean_response, flags=re.MULTILINE)  # - bullets → •
+    result["response"] = clean_response
 
     # Save coach response
     coach_msg = ChatMessageRecord(
         conversation_id=conv.id,
         user_id=user_id,
         role="coach",
-        content=result["response"],
+        content=clean_response,
         routing_tier=result.get("routing", {}).get("tier"),
         routing_reason=result.get("routing", {}).get("reason"),
         model_used=result.get("model_used"),
@@ -150,10 +184,11 @@ async def get_history(db: AsyncSession = Depends(get_db)):
 # ============================================================
 
 @router.post("/insight")
-async def generate_insight():
+async def generate_insight(db: AsyncSession = Depends(get_db)):
     """Generate daily dashboard insight via the engine pipeline."""
+    health_data = await _get_real_health_data(db, "default")
     result = engine.generate_daily_insight(
-        health_data=MOCK_HEALTH_CONTEXT,
+        health_data=health_data,
         user_goals=["Lose weight", "Build muscle"],
     )
     return result

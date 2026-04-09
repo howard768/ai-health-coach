@@ -21,7 +21,7 @@ actor APIClient {
         #else
         // TODO: Switch to Railway URL for production release
         // "https://zippy-forgiveness-production-0704.up.railway.app/api"
-        self.baseURL = URL(string: "http://192.168.86.47:8000/api")!
+        self.baseURL = URL(string: "http://192.168.86.27:8000/api")!
         #endif
         self.decoder = JSONDecoder()
         self.session = URLSession.shared
