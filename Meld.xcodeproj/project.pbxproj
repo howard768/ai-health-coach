@@ -79,6 +79,7 @@
 		BEEF9F17DC1D4A6389F5C0C3 /* Insight.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7E4EE5F20D1F63592AAC907 /* Insight.swift */; };
 		C19AE17FFB4B978910912454 /* DSTextField.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD2F6E93116C0DD784DA442E /* DSTextField.swift */; };
 		C536E91A8D0672C333433135 /* UserAssessment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 352AED50997F2CAF26A08DFC /* UserAssessment.swift */; };
+		C6AB4CC26A435D852720177C /* HealthKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E576B9A8994B06E42003B76B /* HealthKitService.swift */; };
 		C8DCBC359A0322EF17CDA92E /* Meal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 677A773BE63AF573A8F858B7 /* Meal.swift */; };
 		CBB3F01C23877B0B9AF5BDFA /* DSDataCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F8AD21DF3C1AC2CE65BF90D /* DSDataCard.swift */; };
 		CE7AD5652EF337BC1ABF15B9 /* OnboardingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37386448CA570AD31436258F /* OnboardingViewModel.swift */; };
@@ -220,6 +221,7 @@
 		E2CC31EBD93056DA9519BB8A /* DotArray.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DotArray.swift; sourceTree = "<group>"; };
 		E32A9C7851C52EEB802E74FB /* ArcGauge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArcGauge.swift; sourceTree = "<group>"; };
 		E38FFD1C8B13E2A1BA86E1A2 /* GoalsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalsView.swift; sourceTree = "<group>"; };
+		E576B9A8994B06E42003B76B /* HealthKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitService.swift; sourceTree = "<group>"; };
 		E6D49A37406D396DF7E8703A /* DSMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSMotion.swift; sourceTree = "<group>"; };
 		E931C641C1F0F6FAC611DE43 /* ChatMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessage.swift; sourceTree = "<group>"; };
 		EC4991B3D708F7A206210514 /* DSHaptic.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSHaptic.swift; sourceTree = "<group>"; };
@@ -362,6 +364,7 @@
 			children = (
 				5148F0AE1587BD811BC77A19 /* AnalyticsService.swift */,
 				C489492FE8BCEB0F999CDC53 /* APIClient.swift */,
+				E576B9A8994B06E42003B76B /* HealthKitService.swift */,
 				7BFD33ABD40FD835B5638619 /* NavigationCoordinator.swift */,
 				033478A1C5362862FAAA9E81 /* NotificationService.swift */,
 			);
@@ -777,6 +780,7 @@
 				94CF51B80E6241E21C5DA95E /* FoodConfirmationView.swift in Sources */,
 				5985241318596586B90E4E4B /* GlassMorphism.swift in Sources */,
 				718AEE142F719E94848E2EBE /* GoalsView.swift in Sources */,
+				C6AB4CC26A435D852720177C /* HealthKitService.swift in Sources */,
 				38D294C1034AD62B844EDD60 /* HealthMetrics.swift in Sources */,
 				BEEF9F17DC1D4A6389F5C0C3 /* Insight.swift in Sources */,
 				B8C0DB5BEB9601E7209F8C6F /* LoadingStateView.swift in Sources */,

@@ -63,6 +63,50 @@ async def get_trends(range: int = 7, db: AsyncSession = Depends(get_db)):
     }
 
 
+@router.post("/health/apple-health")
+async def sync_apple_health(metrics: list[dict], db: AsyncSession = Depends(get_db)):
+    """Batch sync HealthKit data from iOS device.
+
+    Each metric: {date, metric_type, value, unit, source}
+    Writes to HealthMetricRecord for reconciliation.
+    """
+    from app.models.health import HealthMetricRecord
+
+    saved = 0
+    for m in metrics:
+        # Check for existing record (dedup by user+date+metric+source)
+        existing = await db.execute(
+            select(HealthMetricRecord).where(
+                HealthMetricRecord.user_id == "default",
+                HealthMetricRecord.date == m.get("date", ""),
+                HealthMetricRecord.metric_type == m.get("metric_type", ""),
+                HealthMetricRecord.source == m.get("source", "apple_health"),
+            )
+        )
+        if existing.scalar_one_or_none():
+            continue
+
+        record = HealthMetricRecord(
+            user_id="default",
+            date=m.get("date", ""),
+            metric_type=m.get("metric_type", ""),
+            value=float(m.get("value", 0)),
+            unit=m.get("unit", ""),
+            source=m.get("source", "apple_health"),
+        )
+        db.add(record)
+        saved += 1
+
+    if saved:
+        await db.commit()
+        # Run reconciliation for today
+        from app.services.data_reconciliation import reconcile_day
+        today = datetime.now().strftime("%Y-%m-%d")
+        await reconcile_day(db, "default", today)
+
+    return {"status": "ok", "records_saved": saved}
+
+
 @router.post("/sync/oura")
 async def sync_oura(db: AsyncSession = Depends(get_db)):
     """Pull latest data from Oura API and store in DB."""

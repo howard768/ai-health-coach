@@ -81,6 +81,21 @@ actor APIClient {
         return historyResponse.messages
     }
 
+    // MARK: - HealthKit Sync
+
+    func syncHealthKitMetrics(_ metrics: [HealthKitService.HealthMetricPayload]) async throws {
+        let url = serverRoot.appendingPathComponent("api/health/apple-health")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(metrics)
+
+        let (_, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw APIError.serverError
+        }
+    }
+
     // MARK: - Trends
 
     func fetchTrends(rangeDays: Int = 7) async throws -> APITrendsResponse {

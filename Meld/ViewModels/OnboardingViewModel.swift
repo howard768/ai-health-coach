@@ -85,7 +85,24 @@ final class OnboardingViewModel {
         // Analytics
         switch source {
         case .oura: Analytics.Onboarding.ouraConnected()
-        case .appleHealth: Analytics.Onboarding.healthKitGranted()
+        case .appleHealth:
+            Analytics.Onboarding.healthKitGranted()
+            // Request HealthKit authorization and prefill profile data
+            Task {
+                let granted = await HealthKitService.shared.requestAuthorization()
+                if granted {
+                    prefilledAge = HealthKitService.shared.getAge()
+                    if let weight = await HealthKitService.shared.getLatestWeight() {
+                        prefilledWeightLbs = weight
+                    }
+                    if let height = await HealthKitService.shared.getLatestHeight() {
+                        prefilledHeightInches = Int(height)
+                    }
+                    applyPrefill()
+                    // Trigger background sync to backend
+                    await HealthKitService.shared.syncToBackend()
+                }
+            }
         default: break
         }
     }
