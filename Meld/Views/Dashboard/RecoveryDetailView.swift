@@ -54,7 +54,8 @@ struct RecoveryDetailView: View {
                             .lineSpacing(4)
 
                         DSChip(title: "Plan my workout") {
-                            // Navigate to coach chat
+                            AppDelegate.pendingTab = "coach"
+                            DSHaptic.light()
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)

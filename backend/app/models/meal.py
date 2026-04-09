@@ -22,7 +22,7 @@ class FoodItemRecord(Base):
     __tablename__ = "food_item_records"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    meal_id: Mapped[int] = mapped_column(Integer, ForeignKey("meal_records.id"), index=True)
+    meal_id: Mapped[int] = mapped_column(Integer, ForeignKey("meal_records.id", ondelete="CASCADE"), index=True)
     name: Mapped[str] = mapped_column(String(255))
     serving_size: Mapped[str] = mapped_column(String(100))
     serving_count: Mapped[float] = mapped_column(Float, default=1.0)

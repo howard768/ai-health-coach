@@ -453,14 +453,23 @@ class CoachEngine:
             messages.extend(history)
         messages.append({"role": "user", "content": query})
 
-        response = self.client.messages.create(
-            model=model,
-            max_tokens=500,
-            system=system_prompt,
-            messages=messages,
-        )
-
-        response_text = response.content[0].text
+        try:
+            response = self.client.messages.create(
+                model=model,
+                max_tokens=500,
+                system=system_prompt,
+                messages=messages,
+            )
+            response_text = response.content[0].text if response.content else "I'm having trouble right now. Please try again."
+        except Exception as e:
+            logger.error("Claude API call failed: %s", e)
+            return {
+                "response": "I'm having trouble connecting right now. Please try again in a moment.",
+                "routing": routing.to_dict(),
+                "safety": {"is_concerning": False},
+                "model_used": model,
+                "tokens": {"input": 0, "output": 0},
+            }
 
         # Step 6: Log for explainability (Topaz)
         logger.info(f"Model used: {model}, tokens: {response.usage.input_tokens}+{response.usage.output_tokens}")

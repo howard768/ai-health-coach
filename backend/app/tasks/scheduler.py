@@ -362,7 +362,7 @@ async def get_personalized_timing(db, user_id: str) -> dict:
     if not sleep_minutes or not wake_minutes:
         return {"wake_hour": 8, "wake_minute": 0, "bedtime_hour": 22, "bedtime_minute": 0}
 
-    avg_sleep = sum(sleep_minutes) // len(sleep_minutes)
+    avg_sleep = sum(sleep_minutes) / len(sleep_minutes)
     avg_wake = sum(wake_minutes) // len(wake_minutes)
 
     # Normalize back from 24+ hour range
@@ -393,10 +393,13 @@ async def timing_refresh_job():
         wake_hour += 1
         wake_minute -= 60
 
-    scheduler.reschedule_job(
-        "morning_brief",
-        trigger=CronTrigger(hour=wake_hour, minute=wake_minute),
-    )
+    try:
+        scheduler.reschedule_job(
+            "morning_brief",
+            trigger=CronTrigger(hour=wake_hour, minute=wake_minute),
+        )
+    except Exception as e:
+        logger.warning("Failed to reschedule morning_brief: %s", e)
 
     # Reschedule bedtime coaching: 30 min before average bedtime
     bed_hour = timing["bedtime_hour"]
@@ -405,10 +408,13 @@ async def timing_refresh_job():
         bed_hour -= 1
         bed_minute += 60
 
-    scheduler.reschedule_job(
-        "bedtime_coaching",
-        trigger=CronTrigger(hour=bed_hour, minute=bed_minute),
-    )
+    try:
+        scheduler.reschedule_job(
+            "bedtime_coaching",
+            trigger=CronTrigger(hour=bed_hour, minute=bed_minute),
+        )
+    except Exception as e:
+        logger.warning("Failed to reschedule bedtime_coaching: %s", e)
 
     logger.info(
         "Rescheduled: morning_brief=%02d:%02d, bedtime=%02d:%02d",

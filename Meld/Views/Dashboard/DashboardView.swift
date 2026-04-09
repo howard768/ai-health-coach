@@ -27,7 +27,8 @@ struct DashboardView: View {
 
             case .empty:
                 DashboardEmptyState {
-                    // Navigate to profile/connect
+                    AppDelegate.pendingTab = "profile"
+                    DSHaptic.light()
                 }
 
             case .error(let error):

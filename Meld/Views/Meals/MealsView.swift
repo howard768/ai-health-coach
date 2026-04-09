@@ -175,7 +175,8 @@ struct MealsView: View {
                     .lineSpacing(4)
 
                 DSChip(title: "Ask coach about this") {
-                    // Deep link to Coach Chat with food context
+                    AppDelegate.pendingTab = "coach"
+                    DSHaptic.light()
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

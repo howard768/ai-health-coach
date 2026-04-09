@@ -175,7 +175,8 @@ struct MetricDetailView: View {
 
                 // Ask about this
                 DSChip(title: "Ask your coach about this") {
-                    // Navigate to coach chat with context
+                    AppDelegate.pendingTab = "coach"
+                    DSHaptic.light()
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

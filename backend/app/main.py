@@ -29,10 +29,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS — allow iOS app
+# CORS — restrict to known origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Tighten in production
+    allow_origins=[
+        "http://localhost:8000",
+        "http://192.168.86.47:8000",
+        "https://zippy-forgiveness-production-0704.up.railway.app",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

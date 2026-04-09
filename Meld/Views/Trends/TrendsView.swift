@@ -118,7 +118,8 @@ struct TrendsView: View {
                     .lineSpacing(4)
 
                 DSChip(title: "Ask coach about this") {
-                    // Deep link to coach chat
+                    AppDelegate.pendingTab = "coach"
+                    DSHaptic.light()
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
