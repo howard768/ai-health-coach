@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     app_env: str = "development"
     app_secret_key: str = "change-me"
 
+    # USDA FoodData Central
+    usda_api_key: str = "DEMO_KEY"
+
     # APNs (Push Notifications)
     apns_key_id: str = ""
     apns_team_id: str = ""

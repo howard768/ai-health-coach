@@ -14,6 +14,9 @@ final class MealsViewModel {
     var searchResults: [FoodItem] = []
     var isSearching: Bool = false
     var showInputSheet: Bool = false
+    var showCamera: Bool = false
+    var showBarcodeScanner: Bool = false
+    private var searchTask: Task<Void, Never>?
 
     init() {
         self.dailyNutrition = Self.mockDay()
@@ -47,6 +50,11 @@ final class MealsViewModel {
         showInputSheet = false
         searchText = ""
         searchResults = []
+    }
+
+    func saveMeal(_ meal: Meal) async throws {
+        try await APIClient.shared.logMeal(meal)
+        dailyNutrition.meals.append(meal)
     }
 
     // MARK: - Computed

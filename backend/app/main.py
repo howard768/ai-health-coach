@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import init_db
-from app.routers import auth, health, coach, notifications
+from app.routers import auth, health, coach, notifications, meals
 from app.tasks.scheduler import start_scheduler, stop_scheduler
 
 
@@ -48,6 +48,7 @@ app.include_router(auth.router)
 app.include_router(health.router)
 app.include_router(coach.router)
 app.include_router(notifications.router)
+app.include_router(meals.router)
 
 
 @app.get("/")

@@ -4,10 +4,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 
 from app.database import get_db
-from app.models.health import OuraToken, SleepRecord
+from app.models.health import SleepRecord
 from app.schemas.health import DashboardResponse, MetricResponse, RecoveryResponse, CoachInsightResponse
-from app.services.oura import OuraClient
 from app.services.claude import ClaudeClient
+from app.services.oura_sync import sync_user_data
 
 router = APIRouter(prefix="/api", tags=["health"])
 
@@ -15,88 +15,7 @@ router = APIRouter(prefix="/api", tags=["health"])
 @router.post("/sync/oura")
 async def sync_oura(db: AsyncSession = Depends(get_db)):
     """Pull latest data from Oura API and store in DB."""
-    # Get stored token
-    result = await db.execute(
-        select(OuraToken).order_by(desc(OuraToken.created_at)).limit(1)
-    )
-    token = result.scalar_one_or_none()
-    if not token:
-        return {"status": "error", "message": "No Oura token found. Connect your ring first."}
-
-    client = OuraClient(access_token=token.access_token)
-
-    # Pull last 7 days of sleep data
-    start = date.today() - timedelta(days=7)
-    end = date.today()
-
-    try:
-        sleep_data = await client.get_daily_sleep(start, end)
-        readiness_data = await client.get_daily_readiness(start, end)
-    except Exception as e:
-        return {"status": "error", "message": f"Oura API error: {str(e)}"}
-
-    # Store sleep records
-    records_saved = 0
-    for day in sleep_data.get("data", []):
-        day_date = day.get("day", "")
-
-        # Check if record already exists
-        existing = await db.execute(
-            select(SleepRecord).where(
-                SleepRecord.user_id == "default",
-                SleepRecord.date == day_date,
-            )
-        )
-        if existing.scalar_one_or_none():
-            continue
-
-        # Find matching readiness score
-        readiness_score = None
-        for r in readiness_data.get("data", []):
-            if r.get("day") == day_date:
-                readiness_score = r.get("score")
-                break
-
-        contributors = day.get("contributors", {})
-        # Extract bedtime start/end for personalized notification timing
-        bedtime_start_raw = day.get("bedtime_start")  # ISO 8601 timestamp
-        bedtime_end_raw = day.get("bedtime_end")
-        bedtime_start = None
-        bedtime_end = None
-        if bedtime_start_raw:
-            try:
-                from datetime import datetime as dt
-                bedtime_start = dt.fromisoformat(bedtime_start_raw.replace("Z", "+00:00")).strftime("%H:%M")
-            except (ValueError, AttributeError):
-                pass
-        if bedtime_end_raw:
-            try:
-                from datetime import datetime as dt
-                bedtime_end = dt.fromisoformat(bedtime_end_raw.replace("Z", "+00:00")).strftime("%H:%M")
-            except (ValueError, AttributeError):
-                pass
-
-        record = SleepRecord(
-            user_id="default",
-            date=day_date,
-            efficiency=contributors.get("efficiency"),
-            total_sleep_seconds=day.get("total_sleep_duration"),
-            deep_sleep_seconds=day.get("deep_sleep_duration"),
-            rem_sleep_seconds=day.get("rem_sleep_duration"),
-            light_sleep_seconds=day.get("light_sleep_duration"),
-            hrv_average=None,  # HRV comes from a separate endpoint
-            resting_hr=day.get("lowest_heart_rate"),
-            readiness_score=readiness_score,
-            bedtime_start=bedtime_start,
-            bedtime_end=bedtime_end,
-            raw_json=str(day),
-        )
-        db.add(record)
-        records_saved += 1
-
-    await db.commit()
-
-    return {"status": "ok", "records_saved": records_saved, "days_synced": len(sleep_data.get("data", []))}
+    return await sync_user_data(db, "default")
 
 
 @router.get("/dashboard", response_model=DashboardResponse)

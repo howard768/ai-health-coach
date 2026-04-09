@@ -108,6 +108,108 @@ actor APIClient {
         }
     }
 
+    // MARK: - Meals & Food
+
+    func recognizeFood(imageData: Data) async throws -> [FoodItem] {
+        let url = baseURL.deletingLastPathComponent()
+            .appendingPathComponent("api/food/recognize")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let base64 = imageData.base64EncodedString()
+        let body: [String: String] = ["image_base64": base64, "media_type": "image/jpeg"]
+        request.httpBody = try JSONEncoder().encode(body)
+
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw APIError.serverError
+        }
+
+        let result = try decoder.decode(APIFoodRecognitionResponse.self, from: data)
+        return result.items.map { $0.toFoodItem() }
+    }
+
+    func logMeal(_ meal: Meal) async throws {
+        let url = baseURL.deletingLastPathComponent()
+            .appendingPathComponent("api/meals")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body = APIMealCreate(
+            meal_type: meal.mealType.rawValue.lowercased(),
+            source: meal.source.rawValue,
+            items: meal.items.map { item in
+                APIFoodItemCreate(
+                    name: item.name,
+                    serving_size: item.servingSize,
+                    serving_count: Double(item.servingCount),
+                    calories: item.calories,
+                    protein: item.protein,
+                    carbs: item.carbs,
+                    fat: item.fat,
+                    quality: item.quality.rawValue,
+                    data_source: item.dataSource.rawValue,
+                    confidence: item.confidence
+                )
+            }
+        )
+        request.httpBody = try JSONEncoder().encode(body)
+
+        let (_, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw APIError.serverError
+        }
+    }
+
+    func fetchMeals(date: String) async throws -> APIDailyMealsResponse {
+        let url = baseURL.deletingLastPathComponent()
+            .appendingPathComponent("api/meals")
+        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
+        components.queryItems = [URLQueryItem(name: "date", value: date)]
+
+        let (data, response) = try await session.data(from: components.url!)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw APIError.serverError
+        }
+
+        return try decoder.decode(APIDailyMealsResponse.self, from: data)
+    }
+
+    func searchFood(_ query: String) async throws -> [FoodItem] {
+        let url = baseURL.deletingLastPathComponent()
+            .appendingPathComponent("api/food/search")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body = ["query": query]
+        request.httpBody = try JSONEncoder().encode(body)
+
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw APIError.serverError
+        }
+
+        let result = try decoder.decode(APIFoodSearchResponse.self, from: data)
+        return result.results.map { $0.toFoodItem() }
+    }
+
+    func lookupBarcode(_ code: String) async throws -> FoodItem? {
+        let url = baseURL.deletingLastPathComponent()
+            .appendingPathComponent("api/food/barcode/\(code)")
+        let (data, response) = try await session.data(from: url)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.serverError
+        }
+        if httpResponse.statusCode == 404 { return nil }
+        guard httpResponse.statusCode == 200 else { throw APIError.serverError }
+
+        let item = try decoder.decode(APIFoodItemResponse.self, from: data)
+        return item.toFoodItem()
+    }
+
     func reportNotificationOpened(notificationId: Int) async throws {
         let url = baseURL.deletingLastPathComponent()
             .appendingPathComponent("api/notifications/opened")
@@ -233,6 +335,86 @@ struct APIHistoryMessage: Codable {
 struct APIHistoryResponse: Codable {
     let messages: [APIHistoryMessage]
     let conversation_id: Int
+}
+
+// MARK: - Meal/Food API Models
+
+struct APIFoodItemResponse: Codable {
+    let name: String
+    let serving_size: String
+    let serving_count: Double?
+    let calories: Int
+    let protein: Double
+    let carbs: Double
+    let fat: Double
+    let quality: String
+    let data_source: String
+    let confidence: Double
+
+    func toFoodItem() -> FoodItem {
+        FoodItem(
+            name: name,
+            servingSize: serving_size,
+            servingCount: serving_count ?? 1.0,
+            calories: calories,
+            protein: protein,
+            carbs: carbs,
+            fat: fat,
+            quality: FoodQuality(rawValue: quality) ?? .mixed,
+            dataSource: FoodDataSource(rawValue: data_source) ?? .aiEstimate,
+            confidence: confidence
+        )
+    }
+}
+
+struct APIFoodItemCreate: Codable {
+    let name: String
+    let serving_size: String
+    let serving_count: Double
+    let calories: Int
+    let protein: Double
+    let carbs: Double
+    let fat: Double
+    let quality: String
+    let data_source: String
+    let confidence: Double
+}
+
+struct APIMealCreate: Codable {
+    let meal_type: String
+    let source: String
+    let items: [APIFoodItemCreate]
+}
+
+struct APIFoodRecognitionResponse: Codable {
+    let items: [APIFoodItemResponse]
+    let meal_type: String
+}
+
+struct APIFoodSearchResponse: Codable {
+    let results: [APIFoodItemResponse]
+}
+
+struct APIDailyMealsResponse: Codable {
+    let date: String
+    let meals: [APIMealResponse]
+    let total_calories: Int
+    let total_protein: Double
+    let total_carbs: Double
+    let total_fat: Double
+}
+
+struct APIMealResponse: Codable {
+    let id: Int
+    let date: String
+    let meal_type: String
+    let source: String
+    let items: [APIFoodItemResponse]
+    let total_calories: Int
+    let total_protein: Double
+    let total_carbs: Double
+    let total_fat: Double
+    let created_at: String
 }
 
 struct APINotificationPreferences: Codable {

@@ -66,6 +66,21 @@ class OuraClient:
             response.raise_for_status()
             return response.json()
 
+    async def refresh_access_token(self, refresh_token: str) -> dict:
+        """Refresh an expired Oura access token using OAuth2 refresh flow."""
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                OURA_TOKEN_URL,
+                data={
+                    "grant_type": "refresh_token",
+                    "refresh_token": refresh_token,
+                    "client_id": settings.oura_client_id,
+                    "client_secret": settings.oura_client_secret,
+                },
+            )
+            response.raise_for_status()
+            return response.json()
+
     async def get_heartrate(self, start_date: date | None = None, end_date: date | None = None) -> dict:
         if not start_date:
             start_date = date.today() - timedelta(days=1)

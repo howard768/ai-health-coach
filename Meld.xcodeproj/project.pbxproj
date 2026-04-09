@@ -12,6 +12,7 @@
 		06A69D34A65E37F5188E189A /* recovery-high.png in Resources */ = {isa = PBXBuildFile; fileRef = C6F30B2F73B5093C9F33D737 /* recovery-high.png */; };
 		0C3D73E975E24D01954FB2B3 /* Roboto-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 59BA876ED8BDBC90DBE0E3CA /* Roboto-Light.ttf */; };
 		0C50F126F62B310FCC7F7AEC /* DSRadius.swift in Sources */ = {isa = PBXBuildFile; fileRef = 092B821EC0B9E234F3D75CE3 /* DSRadius.swift */; };
+		0DCE3A4CF339F24CAE6E1976 /* CameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DAF3D55EA08732D53B2FCFF /* CameraView.swift */; };
 		113D3E0D78B2AC0CC84227A1 /* ChatMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E931C641C1F0F6FAC611DE43 /* ChatMessage.swift */; };
 		12003053E2EC75F0E1861891 /* DesignSystemPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12CA06FB8897D4CE836BC60F /* DesignSystemPreview.swift */; };
 		18432C67A644D4C59BEE778D /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C489492FE8BCEB0F999CDC53 /* APIClient.swift */; };
@@ -58,6 +59,7 @@
 		8B6EA651AC579F8BC176ED9F /* Roboto-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 8EC5E74368D8943CC20618E8 /* Roboto-Regular.ttf */; };
 		8DB37BAA49E705577EDCB0ED /* MeldUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E12DC792DDDAD20690A6F32B /* MeldUITests.swift */; };
 		8F6A3321C431A597971FE90C /* DotArray.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2CC31EBD93056DA9519BB8A /* DotArray.swift */; };
+		94CF51B80E6241E21C5DA95E /* FoodConfirmationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CE089989AFCA5CED2A7DFB1 /* FoodConfirmationView.swift */; };
 		94F43E876767471E5FF7C0DF /* MetricDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F0A72624EDD299915C5C9FB /* MetricDetailView.swift */; };
 		961090D396931216EDCFCD44 /* CoachInsightCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EC150E18358CA4F8CDDBC9A /* CoachInsightCard.swift */; };
 		9A6B0254AE9758BF3ADBA82F /* LogFoodSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D81FB5BB5C88DA3C1C3293D /* LogFoodSheet.swift */; };
@@ -142,6 +144,7 @@
 		082F2E21560C0B593CD24568 /* MetricCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricCardView.swift; sourceTree = "<group>"; };
 		092B821EC0B9E234F3D75CE3 /* DSRadius.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSRadius.swift; sourceTree = "<group>"; };
 		0A3FF7FE563CB668058C480C /* RecoveryDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryDetailView.swift; sourceTree = "<group>"; };
+		0DAF3D55EA08732D53B2FCFF /* CameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraView.swift; sourceTree = "<group>"; };
 		12CA06FB8897D4CE836BC60F /* DesignSystemPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystemPreview.swift; sourceTree = "<group>"; };
 		151483947BCE621ACE5CF5D4 /* ZoneBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoneBadge.swift; sourceTree = "<group>"; };
 		181E32CFA113690995D3E26C /* MeldTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeldTests.swift; sourceTree = "<group>"; };
@@ -149,6 +152,7 @@
 		24E040389C083F1B18CF39D3 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		28B16D92818ECFF2187284DC /* recovery-low.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "recovery-low.png"; sourceTree = "<group>"; };
 		2B9673808C71F7E93CA7F2DA /* MealsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MealsView.swift; sourceTree = "<group>"; };
+		2CE089989AFCA5CED2A7DFB1 /* FoodConfirmationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodConfirmationView.swift; sourceTree = "<group>"; };
 		2DF8A8B34FBC6DF11879744E /* LoadingStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingStateView.swift; sourceTree = "<group>"; };
 		2FDDE276F06D4154BC999F63 /* DSButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSButton.swift; sourceTree = "<group>"; };
 		352AED50997F2CAF26A08DFC /* UserAssessment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserAssessment.swift; sourceTree = "<group>"; };
@@ -263,6 +267,8 @@
 		0E2D76F96883454A27B9BC41 /* Meals */ = {
 			isa = PBXGroup;
 			children = (
+				0DAF3D55EA08732D53B2FCFF /* CameraView.swift */,
+				2CE089989AFCA5CED2A7DFB1 /* FoodConfirmationView.swift */,
 				4D81FB5BB5C88DA3C1C3293D /* LogFoodSheet.swift */,
 				2B9673808C71F7E93CA7F2DA /* MealsView.swift */,
 			);
@@ -733,6 +739,7 @@
 				3D1D3EFC622ADDE59731D782 /* AnalyticsService.swift in Sources */,
 				9B390368AD3926BCEA948FBF /* AppDelegate.swift in Sources */,
 				646F6EBB0D38715D63D8D078 /* ArcGauge.swift in Sources */,
+				0DCE3A4CF339F24CAE6E1976 /* CameraView.swift in Sources */,
 				113D3E0D78B2AC0CC84227A1 /* ChatMessage.swift in Sources */,
 				392C0B68D015E27FA7A93A47 /* CoachChatView.swift in Sources */,
 				961090D396931216EDCFCD44 /* CoachInsightCard.swift in Sources */,
@@ -763,6 +770,7 @@
 				E867FA1ADF22608A67E80DF4 /* EmptyStateView.swift in Sources */,
 				B067D026113E16326C1D1314 /* ErrorStateView.swift in Sources */,
 				5675784FB792BAB61892AF14 /* FirstSyncView.swift in Sources */,
+				94CF51B80E6241E21C5DA95E /* FoodConfirmationView.swift in Sources */,
 				5985241318596586B90E4E4B /* GlassMorphism.swift in Sources */,
 				718AEE142F719E94848E2EBE /* GoalsView.swift in Sources */,
 				38D294C1034AD62B844EDD60 /* HealthMetrics.swift in Sources */,

@@ -1,0 +1,257 @@
+"""Meal logging and food search endpoints.
+
+Handles meal CRUD, food photo recognition via Claude Vision,
+food database search (USDA + OFF), and barcode lookup.
+"""
+
+import logging
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.database import get_db
+from app.models.meal import MealRecord, FoodItemRecord
+from app.schemas.meal import (
+    MealCreate, MealResponse, DailyMealsResponse,
+    FoodItemCreate, FoodItemResponse,
+    FoodRecognitionRequest, FoodRecognitionResponse,
+    FoodSearchRequest,
+)
+from app.services.food_recognition import food_recognition
+from app.services.food_search import food_search
+from app.services.openfoodfacts import off_client
+
+logger = logging.getLogger("meld.meals")
+
+router = APIRouter(prefix="/api", tags=["meals"])
+
+USER_ID = "default"  # TODO: replace with real auth
+
+
+def _meal_type_from_time() -> str:
+    """Auto-assign meal type based on current hour."""
+    hour = datetime.now().hour
+    if 5 <= hour < 11:
+        return "breakfast"
+    elif 11 <= hour < 15:
+        return "lunch"
+    elif 15 <= hour < 17:
+        return "snack"
+    else:
+        return "dinner"
+
+
+def _meal_to_response(meal: MealRecord, items: list[FoodItemRecord]) -> MealResponse:
+    """Convert DB records to response model."""
+    food_items = [
+        FoodItemResponse(
+            id=item.id,
+            name=item.name,
+            serving_size=item.serving_size,
+            serving_count=item.serving_count,
+            calories=item.calories,
+            protein=item.protein,
+            carbs=item.carbs,
+            fat=item.fat,
+            quality=item.quality,
+            data_source=item.data_source,
+            confidence=item.confidence,
+        )
+        for item in items
+    ]
+    return MealResponse(
+        id=meal.id,
+        date=meal.date,
+        meal_type=meal.meal_type,
+        source=meal.source,
+        items=food_items,
+        total_calories=sum(i.calories for i in items),
+        total_protein=round(sum(i.protein for i in items), 1),
+        total_carbs=round(sum(i.carbs for i in items), 1),
+        total_fat=round(sum(i.fat for i in items), 1),
+        created_at=meal.created_at.isoformat(),
+    )
+
+
+# ── Meal CRUD ───────────────────────────────────────────────
+
+@router.post("/meals", response_model=MealResponse)
+async def create_meal(meal_data: MealCreate, db: AsyncSession = Depends(get_db)):
+    """Log a new meal with food items."""
+    meal = MealRecord(
+        user_id=USER_ID,
+        date=datetime.now().strftime("%Y-%m-%d"),
+        meal_type=meal_data.meal_type or _meal_type_from_time(),
+        source=meal_data.source,
+        photo_hash=meal_data.photo_hash,
+    )
+    db.add(meal)
+    await db.flush()  # Get meal.id for foreign key
+
+    items = []
+    for item_data in meal_data.items:
+        item = FoodItemRecord(
+            meal_id=meal.id,
+            name=item_data.name,
+            serving_size=item_data.serving_size,
+            serving_count=item_data.serving_count,
+            calories=item_data.calories,
+            protein=item_data.protein,
+            carbs=item_data.carbs,
+            fat=item_data.fat,
+            quality=item_data.quality,
+            data_source=item_data.data_source,
+            confidence=item_data.confidence,
+        )
+        db.add(item)
+        items.append(item)
+
+    await db.commit()
+    await db.refresh(meal)
+    for item in items:
+        await db.refresh(item)
+
+    logger.info("Logged %s with %d items", meal.meal_type, len(items))
+    return _meal_to_response(meal, items)
+
+
+@router.get("/meals", response_model=DailyMealsResponse)
+async def get_meals(date: str | None = None, db: AsyncSession = Depends(get_db)):
+    """Get all meals for a date (defaults to today)."""
+    target_date = date or datetime.now().strftime("%Y-%m-%d")
+
+    result = await db.execute(
+        select(MealRecord)
+        .where(MealRecord.user_id == USER_ID, MealRecord.date == target_date)
+        .order_by(MealRecord.created_at)
+    )
+    meals = result.scalars().all()
+
+    meal_responses = []
+    total_cal, total_p, total_c, total_f = 0, 0.0, 0.0, 0.0
+
+    for meal in meals:
+        items_result = await db.execute(
+            select(FoodItemRecord).where(FoodItemRecord.meal_id == meal.id)
+        )
+        items = items_result.scalars().all()
+        response = _meal_to_response(meal, items)
+        meal_responses.append(response)
+        total_cal += response.total_calories
+        total_p += response.total_protein
+        total_c += response.total_carbs
+        total_f += response.total_fat
+
+    return DailyMealsResponse(
+        date=target_date,
+        meals=meal_responses,
+        total_calories=total_cal,
+        total_protein=round(total_p, 1),
+        total_carbs=round(total_c, 1),
+        total_fat=round(total_f, 1),
+    )
+
+
+@router.delete("/meals/{meal_id}")
+async def delete_meal(meal_id: int, db: AsyncSession = Depends(get_db)):
+    """Delete a meal and its food items."""
+    result = await db.execute(
+        select(MealRecord).where(MealRecord.id == meal_id, MealRecord.user_id == USER_ID)
+    )
+    meal = result.scalar_one_or_none()
+    if not meal:
+        raise HTTPException(status_code=404, detail="Meal not found")
+
+    # Delete food items first
+    items_result = await db.execute(
+        select(FoodItemRecord).where(FoodItemRecord.meal_id == meal_id)
+    )
+    for item in items_result.scalars().all():
+        await db.delete(item)
+
+    await db.delete(meal)
+    await db.commit()
+    return {"status": "ok"}
+
+
+# ── Food Recognition ────────────────────────────────────────
+
+@router.post("/food/recognize", response_model=FoodRecognitionResponse)
+async def recognize_food(request: FoodRecognitionRequest):
+    """Recognize food items from a photo using Claude Vision."""
+    items = food_recognition.recognize_from_photo(
+        request.image_base64, request.media_type
+    )
+
+    meal_type = request.meal_type or _meal_type_from_time()
+
+    return FoodRecognitionResponse(
+        items=[
+            FoodItemResponse(
+                name=item["name"],
+                serving_size=item.get("serving_size", "1 serving"),
+                calories=item.get("calories", 0),
+                protein=item.get("protein", 0),
+                carbs=item.get("carbs", 0),
+                fat=item.get("fat", 0),
+                quality=item.get("quality", "mixed"),
+                data_source=item.get("data_source", "ai_estimate"),
+                confidence=item.get("confidence", 0.7),
+            )
+            for item in items
+        ],
+        meal_type=meal_type,
+    )
+
+
+# ── Food Search (DOVA: USDA → OFF → AI) ────────────────────
+
+@router.post("/food/search")
+async def search_food(request: FoodSearchRequest):
+    """Search for food items using DOVA cascade.
+
+    1. USDA FoodData Central (lab-analyzed, highest confidence)
+    2. Open Food Facts (crowdsourced, good coverage)
+    3. AI estimation fallback (Claude, lowest confidence)
+    """
+    items = await food_search.search(request.query)
+    return {
+        "results": [
+            FoodItemResponse(
+                name=item["name"],
+                serving_size=item.get("serving_size", "1 serving"),
+                calories=item.get("calories", 0),
+                protein=item.get("protein", 0),
+                carbs=item.get("carbs", 0),
+                fat=item.get("fat", 0),
+                quality=item.get("quality", "mixed"),
+                data_source=item.get("data_source", "ai_estimate"),
+                confidence=item.get("confidence", 0.6),
+            )
+            for item in items
+        ],
+    }
+
+
+# ── Barcode Lookup (Open Food Facts) ────────────────────────
+
+@router.get("/food/barcode/{code}")
+async def lookup_barcode(code: str):
+    """Look up a food product by barcode via Open Food Facts."""
+    item = await off_client.get_by_barcode(code)
+    if not item:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    return FoodItemResponse(
+        name=item["name"],
+        serving_size=item.get("serving_size", "1 serving"),
+        calories=item.get("calories", 0),
+        protein=item.get("protein", 0),
+        carbs=item.get("carbs", 0),
+        fat=item.get("fat", 0),
+        quality=item.get("quality", "mixed"),
+        data_source="off",
+        confidence=0.9,
+    )

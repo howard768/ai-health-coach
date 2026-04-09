@@ -20,6 +20,7 @@ from app.services.notification_content import content_generator
 from app.services.anti_fatigue import can_send
 from app.services.notification_templates import seed_templates, pick_template
 from app.services.coach_engine import SafetyCheck
+from app.services.oura_sync import sync_user_data as oura_sync
 
 logger = logging.getLogger("meld.scheduler")
 
@@ -314,6 +315,14 @@ async def health_alert_job():
     logger.info("health_alert_job complete")
 
 
+async def oura_sync_job():
+    """Automatically sync latest Oura data every 6 hours."""
+    logger.info("Running oura_sync_job")
+    async with async_session() as db:
+        result = await oura_sync(db, USER_ID)
+        logger.info("Oura sync result: %s", result)
+
+
 async def get_personalized_timing(db, user_id: str) -> dict:
     """Calculate rolling 7-day average wake/sleep times from Oura data.
 
@@ -476,6 +485,15 @@ def start_scheduler():
         trigger=CronTrigger(hour="*/6"),
         id="health_alert",
         name="Health Alert Check",
+        replace_existing=True,
+    )
+
+    # Oura sync: every 6 hours (offset from health_alert to avoid contention)
+    scheduler.add_job(
+        oura_sync_job,
+        trigger=CronTrigger(hour="*/6", minute=15),
+        id="oura_sync",
+        name="Oura Background Sync",
         replace_existing=True,
     )
 

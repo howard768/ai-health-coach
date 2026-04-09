@@ -62,6 +62,7 @@ targets:
           - CFBundleURLSchemes:
               - meld
             CFBundleURLName: com.heymeld.app.deeplink
+        NSCameraUsageDescription: Meld uses your camera to take photos of food and scan barcodes.
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
           NSAllowsArbitraryLoads: true
