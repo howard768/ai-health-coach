@@ -86,7 +86,7 @@ enum SleepChallenge: String, CaseIterable, Identifiable {
 enum DataSourceType: String, CaseIterable, Identifiable {
     case oura = "Oura Ring"
     case appleHealth = "Apple Health"
-    case eightSleep = "Eight Sleep"
+    case peloton = "Peloton"
     case garmin = "Garmin"
 
     var id: String { rawValue }
@@ -94,16 +94,15 @@ enum DataSourceType: String, CaseIterable, Identifiable {
     var subtitle: String {
         switch self {
         case .oura: "Sleep, HRV, readiness, activity"
-        case .appleHealth: "Steps, workouts, heart rate"
-        case .eightSleep: "Sleep tracking, bed temperature"
-        case .garmin: "Activity, HR, body battery"
+        case .appleHealth: "Steps, workouts, heart rate, sleep, body"
+        case .peloton: "Cycling, running, strength, yoga"
+        case .garmin: "Steps, HR, sleep, stress, body battery"
         }
     }
 
     var isAvailable: Bool {
         switch self {
-        case .oura, .appleHealth: true
-        case .eightSleep, .garmin: false // Coming soon
+        case .oura, .appleHealth, .peloton, .garmin: true
         }
     }
 }

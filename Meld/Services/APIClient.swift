@@ -81,6 +81,23 @@ actor APIClient {
         return historyResponse.messages
     }
 
+    // MARK: - Peloton
+
+    func loginPeloton(username: String, password: String) async throws {
+        let url = serverRoot.appendingPathComponent("auth/peloton/login")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body = ["username": username, "password": password]
+        request.httpBody = try JSONEncoder().encode(body)
+
+        let (_, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw APIError.serverError
+        }
+    }
+
     // MARK: - HealthKit Sync
 
     func syncHealthKitMetrics(_ metrics: [HealthKitService.HealthMetricPayload]) async throws {
