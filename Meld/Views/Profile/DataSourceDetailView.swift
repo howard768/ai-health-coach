@@ -11,6 +11,8 @@ struct DataSourceDetailView: View {
     let lastSynced: String?
     @Environment(\.dismiss) private var dismiss
     @State private var showDisconnectConfirm = false
+    @State private var isSyncing = false
+    @State private var syncMessage: String?
 
     var body: some View {
         NavigationStack {
@@ -36,7 +38,7 @@ struct DataSourceDetailView: View {
                         }
 
                         if let lastSynced {
-                            Text("Last synced: \(lastSynced)")
+                            Text("Last synced: \(formatSyncTime(lastSynced))")
                                 .font(DSTypography.caption)
                                 .foregroundStyle(DSColor.Text.tertiary)
                         }
@@ -67,9 +69,13 @@ struct DataSourceDetailView: View {
 
                     // Sync button
                     if isConnected {
-                        DSButton(title: "Sync now", style: .secondary, size: .lg) {
-                            // TODO: trigger manual sync
-                            DSHaptic.light()
+                        DSButton(
+                            title: isSyncing ? "Syncing..." : (syncMessage ?? "Sync now"),
+                            style: .secondary,
+                            size: .lg,
+                            isDisabled: isSyncing
+                        ) {
+                            Task { await syncData() }
                         }
                     }
 
@@ -132,5 +138,41 @@ struct DataSourceDetailView: View {
             .resizable()
             .aspectRatio(contentMode: .fit)
             .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func formatSyncTime(_ isoString: String) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        guard let date = formatter.date(from: isoString) ?? ISO8601DateFormatter().date(from: isoString) else {
+            return isoString
+        }
+        let relative = RelativeDateTimeFormatter()
+        relative.unitsStyle = .full
+        return relative.localizedString(for: date, relativeTo: Date())
+    }
+
+    private func syncData() async {
+        isSyncing = true
+        syncMessage = nil
+
+        do {
+            switch source {
+            case .oura:
+                try await APIClient.shared.syncOura()
+                syncMessage = "Synced"
+                DSHaptic.success()
+            case .appleHealth:
+                await HealthKitService.shared.syncToBackend()
+                syncMessage = "Synced"
+                DSHaptic.success()
+            default:
+                syncMessage = "Sync not available yet"
+            }
+        } catch {
+            syncMessage = "Sync failed"
+            DSHaptic.error()
+        }
+
+        isSyncing = false
     }
 }

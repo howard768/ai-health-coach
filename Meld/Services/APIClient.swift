@@ -81,6 +81,19 @@ actor APIClient {
         return historyResponse.messages
     }
 
+    // MARK: - Oura Sync
+
+    func syncOura() async throws {
+        let url = serverRoot.appendingPathComponent("api/sync/oura")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        let (_, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw APIError.serverError
+        }
+    }
+
     // MARK: - Garmin
 
     func loginGarmin(username: String, password: String) async throws {
