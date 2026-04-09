@@ -117,6 +117,7 @@ struct ProfileSettingsView: View {
 
     @State private var showPelotonLogin = false
     @State private var showGarminLogin = false
+    @State private var selectedDataSource: DataSourceType?
 
     private var dataSourcesSection: some View {
         settingsCard {
@@ -147,26 +148,40 @@ struct ProfileSettingsView: View {
         .sheet(isPresented: $showGarminLogin) {
             GarminLoginView()
         }
+        .sheet(item: $selectedDataSource) { source in
+            DataSourceDetailView(
+                source: source,
+                isConnected: isSourceConnected(source),
+                lastSynced: profile?.data_sources.first(where: { $0.name == source.rawValue })?.last_synced
+            )
+        }
     }
 
     private func handleDataSourceTap(_ source: DataSourceType) {
-        switch source {
-        case .oura:
-            // Oura is OAuth — would need to open browser for re-auth
-            // For now, just show it's connected
-            DSHaptic.light()
-        case .appleHealth:
-            Task {
-                let granted = await HealthKitService.shared.requestAuthorization()
-                if granted {
-                    await HealthKitService.shared.syncToBackend()
-                    DSHaptic.success()
+        let connected = isSourceConnected(source)
+
+        if connected {
+            // Show detail view for connected sources
+            selectedDataSource = source
+        } else {
+            // Show connection flow for unconnected sources
+            switch source {
+            case .oura:
+                // Oura OAuth — show detail with reconnect option
+                selectedDataSource = source
+            case .appleHealth:
+                Task {
+                    let granted = await HealthKitService.shared.requestAuthorization()
+                    if granted {
+                        await HealthKitService.shared.syncToBackend()
+                        DSHaptic.success()
+                    }
                 }
+            case .peloton:
+                showPelotonLogin = true
+            case .garmin:
+                showGarminLogin = true
             }
-        case .peloton:
-            showPelotonLogin = true
-        case .garmin:
-            showGarminLogin = true
         }
     }
 

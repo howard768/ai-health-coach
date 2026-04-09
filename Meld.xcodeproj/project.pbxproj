@@ -45,6 +45,7 @@
 		5675784FB792BAB61892AF14 /* FirstSyncView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2182C8DEED719965C5EBE6E /* FirstSyncView.swift */; };
 		5985241318596586B90E4E4B /* GlassMorphism.swift in Sources */ = {isa = PBXBuildFile; fileRef = D05C43BC5FD23C2C609BE3D8 /* GlassMorphism.swift */; };
 		59949FDC178D9686C512A2A7 /* DSListRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9658AC761F5E4AEAEA6E973D /* DSListRow.swift */; };
+		5EF80B0ED71D72E582EF3302 /* DataSourceDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA09EEF9F2DE9C2564FED8C7 /* DataSourceDetailView.swift */; };
 		62BDCDD99193465D13B41A74 /* DSSpacing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59BE8D3ED588E9A7B23A5637 /* DSSpacing.swift */; };
 		646F6EBB0D38715D63D8D078 /* ArcGauge.swift in Sources */ = {isa = PBXBuildFile; fileRef = E32A9C7851C52EEB802E74FB /* ArcGauge.swift */; };
 		6549AA04CC32EBEA73782E61 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 691E16DB577A17EABDC27B9B /* MainTabView.swift */; };
@@ -207,6 +208,7 @@
 		B1B3AF7AB5A792CB9B96BDE6 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		B61CC98E7AC99DAC8F42B8D7 /* TrendsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrendsView.swift; sourceTree = "<group>"; };
 		B6D531E605140D227604EF41 /* Meld.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Meld.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		BA09EEF9F2DE9C2564FED8C7 /* DataSourceDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataSourceDetailView.swift; sourceTree = "<group>"; };
 		BC2A9C55CA8275B2988F6D47 /* DSColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSColor.swift; sourceTree = "<group>"; };
 		BDF5D65016BCC5BFAA060EDD /* CoachViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachViewModel.swift; sourceTree = "<group>"; };
 		C2182C8DEED719965C5EBE6E /* FirstSyncView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstSyncView.swift; sourceTree = "<group>"; };
@@ -486,6 +488,7 @@
 		E9E131C2431E824BBA6E43D1 /* Profile */ = {
 			isa = PBXGroup;
 			children = (
+				BA09EEF9F2DE9C2564FED8C7 /* DataSourceDetailView.swift */,
 				DB14712B553170388A7633BD /* GarminLoginView.swift */,
 				7811C768E00CA12AE37751EA /* NotificationPreferencesView.swift */,
 				9A17E59FC3EA7B36AFFFF58D /* PelotonLoginView.swift */,
@@ -781,6 +784,7 @@
 				837343980B2924BF5D31E199 /* DSTypography.swift in Sources */,
 				BDFE1F05C8F7CBA4CCA12061 /* DashboardView.swift in Sources */,
 				34D438FA2F8EEF10980CF3C2 /* DashboardViewModel.swift in Sources */,
+				5EF80B0ED71D72E582EF3302 /* DataSourceDetailView.swift in Sources */,
 				12003053E2EC75F0E1861891 /* DesignSystemPreview.swift in Sources */,
 				8F6A3321C431A597971FE90C /* DotArray.swift in Sources */,
 				E867FA1ADF22608A67E80DF4 /* EmptyStateView.swift in Sources */,
