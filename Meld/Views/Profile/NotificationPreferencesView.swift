@@ -9,6 +9,8 @@ struct NotificationPreferencesView: View {
     @State private var prefs = APINotificationPreferences.defaults
     @State private var isLoading = true
     @State private var systemEnabled = true
+    @State private var quietStart = DateComponents(hour: 22, minute: 0)
+    @State private var quietEnd = DateComponents(hour: 7, minute: 0)
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -109,29 +111,37 @@ struct NotificationPreferencesView: View {
                 Spacer().frame(height: DSSpacing.sm)
 
                 settingsCard {
-                    HStack {
-                        Text("Start")
-                            .font(DSTypography.body)
-                            .foregroundStyle(DSColor.Text.primary)
-                        Spacer()
-                        Text(prefs.quiet_hours_start)
-                            .font(DSTypography.body)
-                            .foregroundStyle(DSColor.Text.secondary)
-                    }
-                    .padding(.vertical, DSSpacing.xs)
+                    DatePicker(
+                        "Start",
+                        selection: Binding(
+                            get: { Calendar.current.date(from: quietStart) ?? Date() },
+                            set: { date in
+                                let comps = Calendar.current.dateComponents([.hour, .minute], from: date)
+                                quietStart = comps
+                                prefs.quiet_hours_start = String(format: "%02d:%02d", comps.hour ?? 22, comps.minute ?? 0)
+                                savePreferences()
+                            }
+                        ),
+                        displayedComponents: .hourAndMinute
+                    )
+                    .font(DSTypography.body)
 
                     DSDivider()
 
-                    HStack {
-                        Text("End")
-                            .font(DSTypography.body)
-                            .foregroundStyle(DSColor.Text.primary)
-                        Spacer()
-                        Text(prefs.quiet_hours_end)
-                            .font(DSTypography.body)
-                            .foregroundStyle(DSColor.Text.secondary)
-                    }
-                    .padding(.vertical, DSSpacing.xs)
+                    DatePicker(
+                        "End",
+                        selection: Binding(
+                            get: { Calendar.current.date(from: quietEnd) ?? Date() },
+                            set: { date in
+                                let comps = Calendar.current.dateComponents([.hour, .minute], from: date)
+                                quietEnd = comps
+                                prefs.quiet_hours_end = String(format: "%02d:%02d", comps.hour ?? 7, comps.minute ?? 0)
+                                savePreferences()
+                            }
+                        ),
+                        displayedComponents: .hourAndMinute
+                    )
+                    .font(DSTypography.body)
                 }
 
                 Spacer().frame(height: DSSpacing.md)
@@ -211,10 +221,23 @@ struct NotificationPreferencesView: View {
     private func loadPreferences() async {
         do {
             prefs = try await APIClient.shared.fetchNotificationPreferences()
-            isLoading = false
+            // Sync quiet hours time pickers from loaded prefs
+            if let parts = parseTime(prefs.quiet_hours_start) {
+                quietStart = DateComponents(hour: parts.0, minute: parts.1)
+            }
+            if let parts = parseTime(prefs.quiet_hours_end) {
+                quietEnd = DateComponents(hour: parts.0, minute: parts.1)
+            }
         } catch {
-            isLoading = false
+            // Keep defaults on error
         }
+        isLoading = false
+    }
+
+    private func parseTime(_ timeString: String) -> (Int, Int)? {
+        let parts = timeString.split(separator: ":").compactMap { Int($0) }
+        guard parts.count == 2 else { return nil }
+        return (parts[0], parts[1])
     }
 
     private func checkSystemPermission() async {

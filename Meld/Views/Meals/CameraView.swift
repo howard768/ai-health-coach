@@ -14,6 +14,7 @@ struct CameraView: View {
     @State private var isRecognizing = false
     @State private var recognizedItems: [FoodItem] = []
     @State private var showConfirmation = false
+    @State private var recognitionTimedOut = false
 
     var body: some View {
         NavigationStack {
@@ -30,9 +31,16 @@ struct CameraView: View {
                     if isRecognizing {
                         VStack(spacing: DSSpacing.md) {
                             AnimatedMascot(state: .thinking, size: 48)
-                            Text("Identifying your food...")
+                            Text(recognitionTimedOut ? "Taking longer than expected..." : "Identifying your food...")
                                 .font(DSTypography.body)
                                 .foregroundStyle(DSColor.Text.secondary)
+                            if recognitionTimedOut {
+                                DSButton(title: "Skip and enter manually", style: .secondary, size: .md) {
+                                    isRecognizing = false
+                                    recognizedItems = []
+                                    showConfirmation = true
+                                }
+                            }
                         }
                         .padding(.top, DSSpacing.xxl)
                     }
@@ -107,14 +115,23 @@ struct CameraView: View {
 
     private func recognizeFood(imageData: Data) async {
         isRecognizing = true
+        recognitionTimedOut = false
+
+        // Show timeout option after 15 seconds
+        let timeoutTask = Task {
+            try? await Task.sleep(for: .seconds(15))
+            if isRecognizing { recognitionTimedOut = true }
+        }
+
         do {
             let items = try await APIClient.shared.recognizeFood(imageData: imageData)
+            timeoutTask.cancel()
             recognizedItems = items
             isRecognizing = false
             showConfirmation = true
         } catch {
+            timeoutTask.cancel()
             isRecognizing = false
-            // Fallback: show empty confirmation so user can manually enter
             recognizedItems = []
             showConfirmation = true
         }

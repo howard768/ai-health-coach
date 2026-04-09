@@ -13,8 +13,8 @@ final class CoachViewModel {
     var quickActions: [QuickAction] = QuickAction.defaults
 
     init() {
-        // Try loading history from backend, fall back to seed messages
-        messages = Self.seedMessages()
+        // Start empty — loadHistory() fills from API on appear
+        messages = []
         Task { await loadHistory() }
     }
 
@@ -31,9 +31,25 @@ final class CoachViewModel {
                         timestamp: ISO8601DateFormatter().date(from: msg.createdAt) ?? Date()
                     )
                 }
+            } else {
+                // No history — show a welcome message (not fake conversation)
+                messages = [
+                    ChatMessage(
+                        role: .coach,
+                        content: [.text("Hey! I'm your health coach. Ask me anything about your sleep, recovery, workouts, or nutrition.")],
+                        timestamp: Date()
+                    )
+                ]
             }
         } catch {
-            // Backend unavailable — keep seed messages
+            // Backend unavailable — show welcome message
+            messages = [
+                ChatMessage(
+                    role: .coach,
+                    content: [.text("Hey! I'm your health coach. I'm having trouble connecting right now, but ask me anything.")],
+                    timestamp: Date()
+                )
+            ]
         }
     }
 

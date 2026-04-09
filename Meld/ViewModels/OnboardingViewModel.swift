@@ -28,10 +28,10 @@ final class OnboardingViewModel {
     var isSyncing = false
     var syncProgress: Double = 0
 
-    // Pre-filled data from HealthKit (stubbed for now)
-    var prefilledAge: Int? = 32
-    var prefilledHeightInches: Int? = 70 // 5'10"
-    var prefilledWeightLbs: Double? = 185
+    // Pre-filled data from HealthKit (nil until HealthKit is integrated)
+    var prefilledAge: Int? = nil
+    var prefilledHeightInches: Int? = nil
+    var prefilledWeightLbs: Double? = nil
 
     // MARK: - Computed
 

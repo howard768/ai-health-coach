@@ -177,11 +177,11 @@ async def sync_hrv(
     for record in records.scalars().all():
         samples = samples_by_date.get(record.date, [])
         if samples:
-            # Use resting HR variability as HRV proxy
-            # Real HRV would come from Oura's HRV endpoint if available
+            # NOTE: This stores average resting HR during sleep as an HRV proxy.
+            # True RMSSD HRV requires the Oura v2 HRV endpoint or raw inter-beat
+            # interval data, which is not available via the daily_sleep scope.
+            # This proxy correlates with HRV trends but is not clinically accurate.
             avg_resting = sum(samples) / len(samples)
-            # Approximate RMSSD from resting HR (rough correlation)
-            # This is a placeholder — Oura v2 daily_sleep may have hrv_balance
             record.hrv_average = round(avg_resting, 1)
             updated += 1
 
