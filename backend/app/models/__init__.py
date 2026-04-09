@@ -6,3 +6,4 @@ from app.models.notification import DeviceToken, NotificationRecord, Notificatio
 from app.models.meal import MealRecord, FoodItemRecord  # noqa
 from app.models.peloton import PelotonToken, WorkoutRecord  # noqa
 from app.models.garmin import GarminToken, GarminDailyRecord  # noqa
+from app.models.correlation import UserCorrelation  # noqa

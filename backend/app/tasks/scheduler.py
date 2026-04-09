@@ -24,6 +24,8 @@ from app.services.oura_sync import sync_user_data as oura_sync
 from app.services.peloton_sync import sync_user_data as peloton_sync
 from app.services.garmin_sync import sync_user_data as garmin_sync
 from app.services.data_reconciliation import reconcile_day
+from app.services.correlation_engine import compute_correlations
+from app.services.literature import literature_service
 
 logger = logging.getLogger("meld.scheduler")
 
@@ -354,6 +356,59 @@ async def garmin_sync_job():
             await reconcile_day(db, USER_ID, today)
 
 
+async def correlation_engine_job():
+    """Weekly: discover cross-domain health correlations from user data."""
+    logger.info("Running correlation_engine_job")
+    async with async_session() as db:
+        results = await compute_correlations(db, USER_ID, window_days=30)
+
+        # Validate against literature and store
+        from app.models.correlation import UserCorrelation
+        for r in results:
+            lit = literature_service.validate_correlation(r.source_metric, r.target_metric, r.direction)
+            if lit:
+                r.literature_match = True
+                r.confidence_tier = "literature_supported"
+
+            # Upsert
+            existing = await db.execute(
+                select(UserCorrelation).where(
+                    UserCorrelation.user_id == USER_ID,
+                    UserCorrelation.source_metric == r.source_metric,
+                    UserCorrelation.target_metric == r.target_metric,
+                    UserCorrelation.lag_days == r.lag_days,
+                )
+            )
+            record = existing.scalar_one_or_none()
+            if record:
+                record.pearson_r = r.pearson_r
+                record.spearman_r = r.spearman_r
+                record.p_value = r.p_value
+                record.fdr_adjusted_p = r.fdr_adjusted_p
+                record.sample_size = r.sample_size
+                record.strength = r.strength
+                record.confidence_tier = r.confidence_tier
+                record.literature_match = r.literature_match
+                record.effect_size_description = r.effect_size_description
+                record.last_validated_at = datetime.utcnow()
+            else:
+                db.add(UserCorrelation(
+                    user_id=USER_ID,
+                    source_metric=r.source_metric, target_metric=r.target_metric,
+                    lag_days=r.lag_days, direction=r.direction,
+                    pearson_r=r.pearson_r, spearman_r=r.spearman_r,
+                    p_value=r.p_value, fdr_adjusted_p=r.fdr_adjusted_p,
+                    sample_size=r.sample_size, strength=r.strength,
+                    confidence_tier=r.confidence_tier,
+                    literature_match=r.literature_match,
+                    literature_ref=lit.doi if lit else None,
+                    effect_size_description=r.effect_size_description,
+                ))
+
+        await db.commit()
+        logger.info("Correlation engine: %d correlations stored", len(results))
+
+
 async def get_personalized_timing(db, user_id: str) -> dict:
     """Calculate rolling 7-day average wake/sleep times from Oura data.
 
@@ -549,6 +604,15 @@ def start_scheduler():
         trigger=CronTrigger(hour="*/6", minute=15),
         id="oura_sync",
         name="Oura Background Sync",
+        replace_existing=True,
+    )
+
+    # Correlation engine: weekly Sunday 04:00
+    scheduler.add_job(
+        correlation_engine_job,
+        trigger=CronTrigger(day_of_week="sun", hour=4, minute=0),
+        id="correlation_engine",
+        name="Cross-Domain Correlation Discovery",
         replace_existing=True,
     )
 
