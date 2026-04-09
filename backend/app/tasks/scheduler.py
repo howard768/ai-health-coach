@@ -22,6 +22,7 @@ from app.services.notification_templates import seed_templates, pick_template
 from app.services.coach_engine import SafetyCheck
 from app.services.oura_sync import sync_user_data as oura_sync
 from app.services.peloton_sync import sync_user_data as peloton_sync
+from app.services.garmin_sync import sync_user_data as garmin_sync
 from app.services.data_reconciliation import reconcile_day
 
 logger = logging.getLogger("meld.scheduler")
@@ -342,6 +343,17 @@ async def peloton_sync_job():
             await reconcile_day(db, USER_ID, today)
 
 
+async def garmin_sync_job():
+    """Sync Garmin health data every 6 hours."""
+    logger.info("Running garmin_sync_job")
+    async with async_session() as db:
+        result = await garmin_sync(db, USER_ID)
+        logger.info("Garmin sync result: %s", result)
+        if result.get("status") == "ok":
+            today = datetime.utcnow().strftime("%Y-%m-%d")
+            await reconcile_day(db, USER_ID, today)
+
+
 async def get_personalized_timing(db, user_id: str) -> dict:
     """Calculate rolling 7-day average wake/sleep times from Oura data.
 
@@ -519,6 +531,15 @@ def start_scheduler():
         trigger=CronTrigger(hour="*/6", minute=30),
         id="peloton_sync",
         name="Peloton Workout Sync",
+        replace_existing=True,
+    )
+
+    # Garmin sync: every 6 hours
+    scheduler.add_job(
+        garmin_sync_job,
+        trigger=CronTrigger(hour="*/6", minute=45),
+        id="garmin_sync",
+        name="Garmin Health Sync",
         replace_existing=True,
     )
 
