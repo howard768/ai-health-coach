@@ -140,15 +140,42 @@ struct DataSourceDetailView: View {
             .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 
-    private func formatSyncTime(_ isoString: String) -> String {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        guard let date = formatter.date(from: isoString) ?? ISO8601DateFormatter().date(from: isoString) else {
-            return isoString
+    private func formatSyncTime(_ rawString: String) -> String {
+        // Try multiple date formats since backend may return various ISO formats
+        let formatters: [DateFormatter] = {
+            let formats = [
+                "yyyy-MM-dd'T'HH:mm:ss.SSSSSS",
+                "yyyy-MM-dd'T'HH:mm:ss.SSS",
+                "yyyy-MM-dd'T'HH:mm:ss",
+            ]
+            return formats.map { fmt in
+                let f = DateFormatter()
+                f.dateFormat = fmt
+                f.locale = Locale(identifier: "en_US_POSIX")
+                return f
+            }
+        }()
+
+        var date: Date?
+        for formatter in formatters {
+            if let d = formatter.date(from: rawString) {
+                date = d
+                break
+            }
         }
+
+        // Also try ISO8601
+        if date == nil {
+            let iso = ISO8601DateFormatter()
+            iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            date = iso.date(from: rawString)
+        }
+
+        guard let parsed = date else { return rawString }
+
         let relative = RelativeDateTimeFormatter()
         relative.unitsStyle = .full
-        return relative.localizedString(for: date, relativeTo: Date())
+        return relative.localizedString(for: parsed, relativeTo: Date())
     }
 
     private func syncData() async {
