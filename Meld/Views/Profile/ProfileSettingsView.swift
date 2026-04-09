@@ -119,44 +119,52 @@ struct ProfileSettingsView: View {
         settingsCard {
             DSSectionHeader(title: "DATA SOURCES")
 
-            DSListRow(title: "Oura Ring", subtitle: "Synced 3 min ago", leading: {
+            ForEach(DataSourceType.allCases) { source in
+                if source != DataSourceType.allCases.first {
+                    DSDivider()
+                }
+                DSListRow(title: source.rawValue, subtitle: source.subtitle, leading: {
+                    dataSourceIcon(source)
+                }, trailing: {
+                    HStack(spacing: DSSpacing.sm) {
+                        DSListStatusDot(isConnected: isSourceConnected(source))
+                        DSListChevron()
+                    }
+                })
+            }
+        }
+    }
+
+    private func dataSourceIcon(_ source: DataSourceType) -> some View {
+        Group {
+            switch source {
+            case .oura:
                 SquatBlobIcon(isActive: true, size: 24)
                     .frame(width: 32, height: 32)
                     .background(Color.hex(0xFAF0DA))
                     .clipShape(Circle())
-            }, trailing: {
-                HStack(spacing: DSSpacing.sm) {
-                    DSListStatusDot(isConnected: true)
-                    DSListChevron()
-                }
-            })
-
-            DSDivider()
-
-            DSListRow(title: "Apple Health", subtitle: "Sleep, Activity", leading: {
+            case .appleHealth:
                 Image(systemName: "heart.fill")
                     .foregroundStyle(.red)
                     .frame(width: 32, height: 32)
-            }, trailing: {
-                HStack(spacing: DSSpacing.sm) {
-                    DSListStatusDot(isConnected: true)
-                    DSListChevron()
-                }
-            })
-
-            DSDivider()
-
-            DSListRow(title: "Eight Sleep", subtitle: "Coming soon", leading: {
-                Image(systemName: "bed.double.fill")
-                    .foregroundStyle(DSColor.Text.disabled)
+            case .peloton:
+                Image(systemName: "bicycle")
+                    .foregroundStyle(DSColor.Status.error)
                     .frame(width: 32, height: 32)
-            }, trailing: {
-                Text("Soon")
-                    .font(DSTypography.caption)
-                    .foregroundStyle(DSColor.Text.disabled)
-            })
-            .opacity(0.6)
+            case .garmin:
+                Image(systemName: "applewatch")
+                    .foregroundStyle(DSColor.Green.green500)
+                    .frame(width: 32, height: 32)
+            }
         }
+    }
+
+    private func isSourceConnected(_ source: DataSourceType) -> Bool {
+        // Check from profile API data
+        if let sources = profile?.data_sources {
+            return sources.contains { $0.name == source.rawValue && $0.connected }
+        }
+        return source == .oura // Default: assume Oura connected
     }
 
     // MARK: - Section 3: Coaching

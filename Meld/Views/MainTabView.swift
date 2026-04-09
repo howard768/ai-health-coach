@@ -38,10 +38,10 @@ struct MainTabView: View {
                 Color.clear.frame(height: 80)
             }
 
-            // Custom tab bar
+            // Custom tab bar — stays at bottom even when keyboard is shown
             MeldTabBar(selectedTab: $selectedTab)
+                .ignoresSafeArea(.keyboard, edges: .bottom)
         }
-        .ignoresSafeArea(.keyboard, edges: .bottom)
         .onAppear { checkPendingTab() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { checkPendingTab() }

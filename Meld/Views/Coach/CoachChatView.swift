@@ -19,6 +19,8 @@ struct CoachChatView: View {
     @State private var viewModel = CoachViewModel()
     private let M: CGFloat = 20
 
+    @FocusState private var isInputFocused: Bool
+
     var body: some View {
         VStack(spacing: 0) {
             // Navigation title
@@ -47,32 +49,43 @@ struct CoachChatView: View {
                     }
                     .padding(.vertical, DSSpacing.md)
                 }
+                .scrollDismissesKeyboard(.interactively)
                 .onChange(of: viewModel.messages.count) { _, _ in
-                    withAnimation(DSMotion.standard) {
-                        if viewModel.isTyping {
-                            proxy.scrollTo("typing", anchor: .bottom)
-                        } else if let last = viewModel.messages.last {
-                            proxy.scrollTo(last.id, anchor: .bottom)
-                        }
-                    }
+                    scrollToBottom(proxy: proxy)
+                }
+                .onChange(of: viewModel.isTyping) { _, _ in
+                    scrollToBottom(proxy: proxy)
+                }
+                .onChange(of: isInputFocused) { _, focused in
+                    if focused { scrollToBottom(proxy: proxy) }
                 }
             }
 
-            // Quick action chips
-            if !viewModel.isTyping {
-                DSChipRow(chips: viewModel.quickActions.map(\.title)) { title in
-                    if let action = viewModel.quickActions.first(where: { $0.title == title }) {
-                        viewModel.sendQuickAction(action)
-                    }
+            // Quick action chips — use opacity instead of if/else to prevent layout jitter
+            DSChipRow(chips: viewModel.quickActions.map(\.title)) { title in
+                if let action = viewModel.quickActions.first(where: { $0.title == title }) {
+                    viewModel.sendQuickAction(action)
                 }
-                .padding(.vertical, DSSpacing.sm)
             }
+            .padding(.vertical, DSSpacing.sm)
+            .opacity(viewModel.isTyping ? 0 : 1)
+            .allowsHitTesting(!viewModel.isTyping)
 
             // Input bar
             chatInputBar
         }
         .background(DSColor.Background.primary)
         .onAppear { Analytics.Coach.chatOpened() }
+    }
+
+    private func scrollToBottom(proxy: ScrollViewProxy) {
+        withAnimation(DSMotion.standard) {
+            if viewModel.isTyping {
+                proxy.scrollTo("typing", anchor: .bottom)
+            } else if let last = viewModel.messages.last {
+                proxy.scrollTo(last.id, anchor: .bottom)
+            }
+        }
     }
 
     // MARK: - Input Bar
@@ -86,6 +99,7 @@ struct CoachChatView: View {
                 .padding(.horizontal, DSSpacing.lg)
                 .background(DSColor.Surface.secondary)
                 .clipShape(Capsule())
+                .focused($isInputFocused)
                 .onSubmit {
                     viewModel.sendMessage()
                 }

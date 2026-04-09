@@ -13,6 +13,7 @@ import Charts
 struct TrendsView: View {
     @State private var selectedRange: TimeRange = .week
     @State private var selectedMetric: MetricCategory? = nil
+    @State private var trendsData: APITrendsResponse?
     private let M: CGFloat = 20
 
     var body: some View {
@@ -27,7 +28,7 @@ struct TrendsView: View {
 
                 // Per-metric trend cards
                 ForEach(MetricCategory.allCases, id: \.self) { metric in
-                    TrendCard(metric: metric, range: selectedRange)
+                    TrendCard(metric: metric, range: selectedRange, apiData: trendsData)
                 }
 
                 // Cross-domain trend insight
@@ -38,11 +39,27 @@ struct TrendsView: View {
             }
             .padding(.horizontal, M)
             .padding(.top, DSSpacing.md)
-            .padding(.bottom, DSSpacing.xxxl)
+            .padding(.bottom, 120) // Room for tab bar
         }
         .background(DSColor.Background.primary)
         .navigationTitle("Trends")
         .navigationBarTitleDisplayMode(.large)
+        .task { await loadTrends() }
+        .onChange(of: selectedRange) { _, _ in Task { await loadTrends() } }
+    }
+
+    private func loadTrends() async {
+        let days: Int
+        switch selectedRange {
+        case .week: days = 7
+        case .month: days = 30
+        case .quarter: days = 90
+        }
+        do {
+            trendsData = try await APIClient.shared.fetchTrends(rangeDays: days)
+        } catch {
+            // Keep existing data on error
+        }
     }
 
     // MARK: - Time Range Selector
@@ -203,6 +220,7 @@ enum TimeRange: String, CaseIterable, Identifiable {
 private struct TrendCard: View {
     let metric: MetricCategory
     let range: TimeRange
+    var apiData: APITrendsResponse?
 
     var body: some View {
         DSCard(style: .metric) {
@@ -276,20 +294,42 @@ private struct TrendCard: View {
     }
 
     private var trendData: [Double] {
+        // Use real API data if available, fall back to hardcoded
+        let apiKey: String
         switch metric {
-        case .sleepEfficiency: [82, 85, 88, 84, 91, 87, 91]
-        case .hrv: [52, 55, 58, 62, 58, 64, 68]
-        case .restingHR: [64, 62, 63, 60, 61, 59, 58]
-        case .consistency: [3, 4, 5, 4, 5, 5, 5]
+        case .sleepEfficiency: apiKey = "sleep_efficiency"
+        case .hrv: apiKey = "hrv"
+        case .restingHR: apiKey = "resting_hr"
+        case .consistency: apiKey = "readiness"
+        }
+        if let values = apiData?.metrics[apiKey]?.values, !values.isEmpty {
+            return values
+        }
+        // Fallback (only used if API hasn't loaded yet)
+        switch metric {
+        case .sleepEfficiency: return [82, 85, 88, 84, 91, 87, 91]
+        case .hrv: return [52, 55, 58, 62, 58, 64, 68]
+        case .restingHR: return [64, 62, 63, 60, 61, 59, 58]
+        case .consistency: return [3, 4, 5, 4, 5, 5, 5]
         }
     }
 
     private var baselineValue: Double {
+        let apiKey: String
         switch metric {
-        case .sleepEfficiency: 85
-        case .hrv: 58
-        case .restingHR: 62
-        case .consistency: 4
+        case .sleepEfficiency: apiKey = "sleep_efficiency"
+        case .hrv: apiKey = "hrv"
+        case .restingHR: apiKey = "resting_hr"
+        case .consistency: apiKey = "readiness"
+        }
+        if let baseline = apiData?.metrics[apiKey]?.baseline, baseline > 0 {
+            return baseline
+        }
+        switch metric {
+        case .sleepEfficiency: return 85
+        case .hrv: return 58
+        case .restingHR: return 62
+        case .consistency: return 4
         }
     }
 

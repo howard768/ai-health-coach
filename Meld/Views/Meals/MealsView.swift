@@ -42,7 +42,7 @@ struct MealsView: View {
                 }
                 .padding(.horizontal, M)
                 .padding(.top, DSSpacing.md)
-                .padding(.bottom, 100) // Room for FAB
+                .padding(.bottom, 160) // Room for FAB + tab bar
             }
             .background(DSColor.Background.primary)
 
