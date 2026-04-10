@@ -8,6 +8,7 @@ import logging
 from datetime import datetime
 
 from fastapi import APIRouter, Request, Query, Depends
+from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -26,17 +27,21 @@ USER_ID = "default"  # TODO: replace with real auth
 
 
 @router.get("/oura")
-async def oura_webhook_verification(verification_token: str = Query(None)):
+async def oura_webhook_verification(
+    verification_token: str = Query(None),
+    challenge: str = Query(None),
+):
     """Oura webhook verification handshake.
 
-    When registering a webhook, Oura sends a GET request to verify
-    the callback URL. We must echo back the verification_token.
+    Oura sends GET with verification_token + challenge.
+    We verify the token matches ours, then echo back the challenge.
     """
-    if verification_token == WEBHOOK_VERIFICATION_TOKEN:
-        logger.info("Oura webhook verification successful")
-        return verification_token
-    logger.warning("Oura webhook verification failed — token mismatch")
-    return {"error": "Invalid verification token"}
+    if verification_token == WEBHOOK_VERIFICATION_TOKEN and challenge:
+        logger.info("Oura webhook verification successful, challenge=%s", challenge)
+        # Oura expects JSON response with the challenge value
+        return {"challenge": challenge}
+    logger.warning("Oura webhook verification failed — token=%s challenge=%s", verification_token, challenge)
+    return {"error": "Invalid verification"}
 
 
 @router.post("/oura")

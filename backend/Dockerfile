@@ -5,16 +5,13 @@ WORKDIR /app
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Copy project files
-COPY pyproject.toml uv.lock ./
-COPY app/ app/
-COPY keys/ keys/
+# Copy everything (no multi-stage caching — ensure fresh code every deploy)
+COPY . .
 
 # Install dependencies
 RUN uv sync --frozen --no-dev
 
-# Railway sets PORT env var — default 8000 for local
+# Railway sets PORT env var
 ENV PORT=8000
 
-# Shell form so $PORT gets expanded at runtime
 CMD uv run uvicorn app.main:app --host 0.0.0.0 --port $PORT
