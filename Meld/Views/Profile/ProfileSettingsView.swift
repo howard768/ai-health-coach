@@ -222,7 +222,7 @@ struct ProfileSettingsView: View {
             if let sources = profile?.data_sources {
                 return sources.contains { $0.name == source.rawValue && $0.connected }
             }
-            return source == .oura
+            return false
         }
     }
 
@@ -296,7 +296,7 @@ struct ProfileSettingsView: View {
         settingsCard {
             DSSectionHeader(title: "ACCOUNT")
 
-            settingsRow(title: "Email", value: "howard.768@gmail.com")
+            settingsRow(title: "Email", value: profile?.email ?? "--")
 
             DSDivider()
 
@@ -316,7 +316,7 @@ struct ProfileSettingsView: View {
         settingsCard {
             DSSectionHeader(title: "ABOUT")
 
-            settingsRow(title: "Version", value: "0.1.0 (1)")
+            settingsRow(title: "Version", value: appVersion)
             DSDivider()
             navigationRow(title: "Help & Support", subtitle: nil)
             DSDivider()
@@ -347,6 +347,12 @@ struct ProfileSettingsView: View {
     }
 
     // MARK: - Helpers
+
+    private var appVersion: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
+        return "\(version) (\(build))"
+    }
 
     private func settingsCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 0) {
