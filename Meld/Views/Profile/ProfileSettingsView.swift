@@ -52,6 +52,14 @@ struct ProfileSettingsView: View {
         .background(DSColor.Background.primary)
         .navigationTitle("Profile")
         .task {
+            // Check HealthKit auth: try a lightweight query — if data comes back, we're authorized
+            if HealthKitService.shared.isAvailable {
+                let steps = await HealthKitService.shared.queryTodaySteps()
+                if steps != nil {
+                    HealthKitService.shared.isAuthorized = true
+                }
+            }
+            // Load profile from backend
             do {
                 profile = try await APIClient.shared.fetchUserProfile()
             } catch {
@@ -158,30 +166,34 @@ struct ProfileSettingsView: View {
     }
 
     private func handleDataSourceTap(_ source: DataSourceType) {
-        let connected = isSourceConnected(source)
-
-        if connected {
-            // Show detail view for connected sources
-            selectedDataSource = source
-        } else {
-            // Show connection flow for unconnected sources
-            switch source {
-            case .oura:
-                // Oura OAuth — show detail with reconnect option
-                selectedDataSource = source
-            case .appleHealth:
-                Task {
+        switch source {
+        case .appleHealth:
+            // Apple Health: always show detail. If not yet authorized, trigger auth first.
+            Task {
+                if !HealthKitService.shared.isAuthorized {
                     let granted = await HealthKitService.shared.requestAuthorization()
                     if granted {
                         await HealthKitService.shared.syncToBackend()
                         DSHaptic.success()
                     }
                 }
-            case .peloton:
+                selectedDataSource = source
+            }
+        case .peloton:
+            if isSourceConnected(source) {
+                selectedDataSource = source
+            } else {
                 showPelotonLogin = true
-            case .garmin:
+            }
+        case .garmin:
+            if isSourceConnected(source) {
+                selectedDataSource = source
+            } else {
                 showGarminLogin = true
             }
+        default:
+            // Oura and others — show detail view
+            selectedDataSource = source
         }
     }
 
@@ -201,11 +213,17 @@ struct ProfileSettingsView: View {
     }
 
     private func isSourceConnected(_ source: DataSourceType) -> Bool {
-        // Check from profile API data
-        if let sources = profile?.data_sources {
-            return sources.contains { $0.name == source.rawValue && $0.connected }
+        switch source {
+        case .appleHealth:
+            // HealthKit is local — check authorization status, not backend
+            return HealthKitService.shared.isAuthorized
+        default:
+            // Check backend profile for token-based sources
+            if let sources = profile?.data_sources {
+                return sources.contains { $0.name == source.rawValue && $0.connected }
+            }
+            return source == .oura
         }
-        return source == .oura // Default: assume Oura connected
     }
 
     // MARK: - Section 3: Coaching
