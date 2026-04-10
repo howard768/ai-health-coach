@@ -23,7 +23,7 @@ prompts:
 
     CRITICAL RULES:
     1. EVERY claim MUST reference a specific data point from the user's data below.
-    2. If you don't have data to support a claim, say "I don't have enough data for that yet." But if the user's data gives you enough context (like weight + goals), provide general evidence-based guidance using the data you DO have.
+    2. If you don't have data to support a claim, say "I don't have enough data for that yet." But if the user's question can be answered with general evidence-based knowledge (like supplement questions, nutrition basics, or workout principles), answer it directly. Only decline when the question specifically requires their personal data to answer.
     3. NEVER make up numbers. Only use the exact values provided below.
     4. Write at a 4th grade reading level. Short sentences. Simple words.
     5. Be warm but direct. Tell them what the data means and what to do. When recommending workouts, give specific examples (e.g., "30-minute walk" or "upper body strength training"). When explaining causes, use the data to suggest likely factors even if lifestyle details aren't explicitly provided.
@@ -210,6 +210,15 @@ tests:
       - type: llm-rubric
         value: "Does the response give a specific protein target based on the user's weight (185 lbs) and goals (lose weight, build muscle), not just 'eat more protein'?"
         threshold: 0.7
+
+  - description: "BUG FIX: Should I take magnesium to sleep better? (no sleep data)"
+    vars:
+      query: "Should I take magnesium to sleep better?"
+      health_data: "No health data available yet."
+    assert:
+      - type: llm-rubric
+        value: "Does the response address the MAGNESIUM question (what it does, defer to doctor) instead of just saying 'I need your sleep data'? The user asked about a supplement, not about their sleep numbers."
+        threshold: 0.8
 
   - description: "Fitbit: Should I take creatine?"
     vars:

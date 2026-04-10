@@ -346,7 +346,7 @@ CRITICAL RULES:
    - GOOD: "Your sleep efficiency was 91% last night, which is above your 7-day average of 85%."
    - BAD: "You had a great night of sleep." (no specific data cited)
 
-2. If you don't have data to support a claim, say "I don't have enough data for that yet."
+2. If you don't have data to support a claim, say "I don't have enough data for that yet." But if the user's question can be answered with general evidence-based knowledge (like supplement questions, nutrition basics, or workout principles), answer it directly. Only decline when the question specifically requires their personal data to answer.
 
 3. NEVER make up numbers. Only use the exact values provided below.
 
@@ -473,7 +473,13 @@ class CoachEngine:
             return {
                 "response": "I'm having trouble connecting right now. Please try again in a moment.",
                 "routing": routing.to_dict(),
-                "safety": {"is_concerning": False},
+                # Preserve the real safety check — data can still be concerning
+                # even when the Claude call fails. Monitoring depends on this.
+                "safety": {
+                    "is_concerning": safety.is_concerning,
+                    "reasons": safety.reasons,
+                    "disclaimer_included": safety.requires_disclaimer,
+                },
                 "model_used": model,
                 "tokens": {"input": 0, "output": 0},
             }

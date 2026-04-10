@@ -7,6 +7,7 @@ from sqlalchemy import select, desc
 
 from app.database import get_db
 from app.models.chat import Conversation, ChatMessageRecord
+from app.models.user import User
 from app.services.coach_engine import CoachEngine
 from app.services.health_data import get_latest_health_data
 
@@ -73,6 +74,9 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
     # Load reconciled health data (multi-source: Oura + Apple Health + Garmin)
     health_data = await get_latest_health_data(db, user_id)
 
+    # Load user profile for personalized name + goals
+    user_name, user_goals = await _load_user_context(db, user_id)
+
     # Process through coach engine (with conversation history)
     # Wrap in to_thread because process_query() calls synchronous Anthropic SDK
     import asyncio
@@ -81,8 +85,8 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
         engine.process_query,
         request.message,
         health_data,
-        "Brock",
-        ["Lose weight", "Build muscle"],
+        user_name,
+        user_goals,
         history,
     )
     latency_ms = int((time.monotonic() - start_time) * 1000)
@@ -111,8 +115,8 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
         model_used=result.get("model_used"),
         safety_flagged=result.get("safety", {}).get("is_concerning", False),
         latency_ms=latency_ms,
-        input_tokens=result.get("usage", {}).get("input"),
-        output_tokens=result.get("usage", {}).get("output"),
+        input_tokens=result.get("tokens", {}).get("input"),
+        output_tokens=result.get("tokens", {}).get("output"),
         health_context=health_context_str,
         prompt_version="v1",  # Increment for A/B tests
     )
@@ -201,10 +205,14 @@ async def get_history(db: AsyncSession = Depends(get_db)):
 @router.post("/insight")
 async def generate_insight(db: AsyncSession = Depends(get_db)):
     """Generate daily dashboard insight via the engine pipeline."""
+    import asyncio
     health_data = await get_latest_health_data(db, "default")
-    result = engine.generate_daily_insight(
-        health_data=health_data,
-        user_goals=["Lose weight", "Build muscle"],
+    _, user_goals = await _load_user_context(db, "default")
+    # generate_daily_insight calls the sync Anthropic SDK — must offload
+    result = await asyncio.to_thread(
+        engine.generate_daily_insight,
+        health_data,
+        user_goals,
     )
     return result
 
@@ -238,7 +246,14 @@ async def get_analytics(days: int = 7, db: AsyncSession = Depends(get_db)):
 
     latencies = [m.latency_ms for m in messages if m.latency_ms]
     avg_latency = round(sum(latencies) / len(latencies)) if latencies else None
-    p95_latency = sorted(latencies)[int(len(latencies) * 0.95)] if len(latencies) >= 20 else None
+    # Nearest-rank p95 — clamp index to valid range so it works for any n >= 1
+    if latencies:
+        sorted_latencies = sorted(latencies)
+        import math
+        p95_index = max(0, min(len(sorted_latencies) - 1, math.ceil(0.95 * len(sorted_latencies)) - 1))
+        p95_latency = sorted_latencies[p95_index]
+    else:
+        p95_latency = None
 
     tokens_in = [m.input_tokens for m in messages if m.input_tokens]
     tokens_out = [m.output_tokens for m in messages if m.output_tokens]
@@ -316,6 +331,32 @@ async def _get_or_create_conversation(db: AsyncSession, user_id: str) -> Convers
         db.add(conv)
         await db.flush()
     return conv
+
+
+async def _load_user_context(db: AsyncSession, user_id: str) -> tuple[str, list[str]]:
+    """Load the user's first name and goals from the profile.
+
+    Falls back to sensible defaults if no profile exists (e.g. after DB reset).
+    """
+    import json
+    result = await db.execute(select(User).where(User.apple_user_id == user_id))
+    user = result.scalar_one_or_none()
+
+    if not user:
+        return "there", []  # Neutral greeting, no assumed goals
+
+    first_name = (user.name.split()[0] if user.name else "there")
+
+    goals: list[str] = []
+    if user.goals:
+        try:
+            parsed = json.loads(user.goals) if isinstance(user.goals, str) else user.goals
+            if isinstance(parsed, list):
+                goals = [str(g) for g in parsed]
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    return first_name, goals
 
 
 async def _get_recent_messages(db: AsyncSession, conversation_id: int, limit: int = 20) -> list[ChatMessageRecord]:

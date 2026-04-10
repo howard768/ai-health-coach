@@ -28,13 +28,35 @@ class APNsClient:
         self._private_key: str | None = None
 
     def _load_private_key(self) -> str:
+        """Load the APNs .p8 private key.
+
+        Priority:
+        1. `APNS_KEY_CONTENT` env var — raw .p8 contents (production via Railway)
+        2. `APNS_KEY_PATH` env var — on-disk .p8 file (local development)
+
+        The image must NOT bake the .p8 file in. `.dockerignore` excludes `keys/`.
+        """
         if self._private_key:
             return self._private_key
-        key_path = Path(settings.apns_key_path)
-        if not key_path.exists():
-            raise FileNotFoundError(f"APNs .p8 key not found at {key_path}")
-        self._private_key = key_path.read_text()
-        return self._private_key
+
+        # Production path: key injected via env var
+        if settings.apns_key_content:
+            # Unescape newlines if the env var was set with literal \n (common Railway pattern)
+            self._private_key = settings.apns_key_content.replace("\\n", "\n")
+            return self._private_key
+
+        # Local dev path: read from on-disk file
+        if settings.apns_key_path:
+            key_path = Path(settings.apns_key_path)
+            if not key_path.exists():
+                raise FileNotFoundError(f"APNs .p8 key not found at {key_path}")
+            self._private_key = key_path.read_text()
+            return self._private_key
+
+        raise ValueError(
+            "APNs key not configured — set APNS_KEY_CONTENT (production) "
+            "or APNS_KEY_PATH (local dev)"
+        )
 
     def _get_jwt_token(self) -> str:
         """Generate or return cached JWT. Refresh hourly per Apple requirement."""

@@ -12,16 +12,22 @@ actor APIClient {
     private let session: URLSession
 
     private init() {
-        // Environment-aware URL:
-        // - Simulator: localhost (same machine)
-        // - Physical device: Mac's LAN IP (same network)
-        // - Production: Railway deployment
+        // URL resolution priority:
+        // 1. Simulator: always localhost (same machine as backend)
+        // 2. Device: API_BASE_URL from Info.plist (injected per Debug/Release config)
+        // 3. Last-resort fallback: Railway production URL
         #if targetEnvironment(simulator)
         self.baseURL = URL(string: "http://localhost:8000/api")!
         #else
-        // TODO: Switch to Railway URL for production release
-        // "https://zippy-forgiveness-production-0704.up.railway.app/api"
-        self.baseURL = URL(string: "http://192.168.86.27:8000/api")!
+        let plistURL = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String
+        let resolvedURL: String = {
+            if let plistURL, !plistURL.isEmpty, let _ = URL(string: plistURL) {
+                return plistURL
+            }
+            // Fallback — should never hit in a properly configured build
+            return "https://zippy-forgiveness-production-0704.up.railway.app/api"
+        }()
+        self.baseURL = URL(string: resolvedURL)!
         #endif
         self.decoder = JSONDecoder()
         self.session = URLSession.shared
@@ -29,7 +35,7 @@ actor APIClient {
 
     /// Build a URL from a path relative to the server root (e.g., "/api/meals").
     /// Handles the baseURL already containing "/api" — strips it to get server root.
-    private var serverRoot: URL {
+    var serverRoot: URL {
         // baseURL is like "http://host:8000/api" — go up one to get "http://host:8000"
         baseURL.deletingLastPathComponent()
     }

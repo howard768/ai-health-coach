@@ -6,12 +6,24 @@ options:
   xcodeVersion: "16.0"
   generateEmptyDirectories: true
 
+configs:
+  Debug: debug
+  Release: release
+
 settings:
   base:
     SWIFT_VERSION: "6.0"
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: 1
     DEVELOPMENT_TEAM: "8HA7S8AFF7"
+  configs:
+    Debug:
+      # Debug builds on a physical device talk to the Mac's LAN IP.
+      # Override per developer by setting API_BASE_URL in the scheme env.
+      API_BASE_URL: "http:/$()/192.168.86.27:8000/api"
+    Release:
+      # TestFlight + App Store builds hit Railway.
+      API_BASE_URL: "https:/$()/zippy-forgiveness-production-0704.up.railway.app/api"
 
 targets:
   Meld:
@@ -48,6 +60,7 @@ targets:
       path: Meld/Info.plist
       properties:
         CFBundleDisplayName: Meld
+        API_BASE_URL: $(API_BASE_URL)
         UIAppFonts:
           - Roboto-Thin.ttf
           - Roboto-Light.ttf

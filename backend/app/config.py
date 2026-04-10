@@ -33,9 +33,12 @@ class Settings(BaseSettings):
     usda_api_key: str = "DEMO_KEY"
 
     # APNs (Push Notifications)
+    # Production: set APNS_KEY_CONTENT to the raw .p8 contents via Railway env var.
+    # Local dev: set APNS_KEY_PATH to the on-disk .p8 file.
     apns_key_id: str = ""
     apns_team_id: str = ""
-    apns_key_path: str = ""  # Path to .p8 file
+    apns_key_path: str = ""  # Local dev: path to .p8 file on disk
+    apns_key_content: str = ""  # Production: raw .p8 contents injected via env var
     apns_bundle_id: str = "com.heymeld.app"
     apns_environment: str = "sandbox"  # "sandbox" or "production"
 

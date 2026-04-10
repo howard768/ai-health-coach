@@ -229,8 +229,13 @@ async def delete_food_item(
 @router.post("/food/recognize", response_model=FoodRecognitionResponse)
 async def recognize_food(request: FoodRecognitionRequest):
     """Recognize food items from a photo using Claude Vision."""
-    items = food_recognition.recognize_from_photo(
-        request.image_base64, request.media_type
+    import asyncio
+    # food_recognition uses the synchronous Anthropic SDK — must offload
+    # to a thread to avoid blocking the event loop for the full API call.
+    items = await asyncio.to_thread(
+        food_recognition.recognize_from_photo,
+        request.image_base64,
+        request.media_type,
     )
 
     meal_type = request.meal_type or _meal_type_from_time()

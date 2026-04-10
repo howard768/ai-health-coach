@@ -40,7 +40,9 @@ class FoodSearchService:
         # Step 3: AI fallback if no database results
         if not all_results:
             logger.info("No database results — falling back to AI estimation for '%s'", query)
-            ai_results = food_recognition.recognize_from_text(query)
+            # food_recognition uses the sync Anthropic SDK — offload to a thread
+            import asyncio
+            ai_results = await asyncio.to_thread(food_recognition.recognize_from_text, query)
             all_results = ai_results
 
         return all_results[:15]  # Cap at 15 results

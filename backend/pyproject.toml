@@ -19,6 +19,7 @@ dependencies = [
     "pillow>=11.0.0",
     "garminconnect>=0.2.0",
     "pylotoncycle>=0.9.1",
+    "textstat>=0.7.0",
 ]
 
 [tool.uv]

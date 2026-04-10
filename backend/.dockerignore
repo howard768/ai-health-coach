@@ -3,3 +3,8 @@ __pycache__/
 *.pyc
 meld.db
 .env
+# Never bake secrets into the image — inject via Railway env vars
+keys/
+*.p8
+*.key
+*.pem

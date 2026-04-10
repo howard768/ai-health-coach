@@ -68,8 +68,8 @@ struct DataSourceDetailView: View {
                         .clipShape(RoundedRectangle(cornerRadius: DSRadius.md))
                     }
 
-                    // Sync button
                     if isConnected {
+                        // Sync button
                         DSButton(
                             title: isSyncing ? "Syncing..." : (syncMessage ?? "Sync now"),
                             style: .secondary,
@@ -78,12 +78,10 @@ struct DataSourceDetailView: View {
                         ) {
                             Task { await syncData() }
                         }
-                    }
 
-                    Spacer().frame(height: DSSpacing.xxl)
+                        Spacer().frame(height: DSSpacing.xxl)
 
-                    // Disconnect
-                    if isConnected {
+                        // Disconnect
                         Button {
                             showDisconnectConfirm = true
                         } label: {
@@ -91,6 +89,15 @@ struct DataSourceDetailView: View {
                                 .font(DSTypography.body)
                                 .foregroundStyle(DSColor.Status.error)
                                 .frame(maxWidth: .infinity)
+                        }
+                    } else {
+                        // Connect button
+                        DSButton(
+                            title: "Connect \(source.rawValue)",
+                            style: .primary,
+                            size: .lg
+                        ) {
+                            connectSource()
                         }
                     }
                 }
@@ -177,6 +184,22 @@ struct DataSourceDetailView: View {
         let relative = RelativeDateTimeFormatter()
         relative.unitsStyle = .full
         return relative.localizedString(for: parsed, relativeTo: Date())
+    }
+
+    private func connectSource() {
+        switch source {
+        case .oura:
+            // Open Oura OAuth flow in Safari
+            let url = APIClient.shared.serverRoot.appendingPathComponent("auth/oura")
+            UIApplication.shared.open(url)
+        case .appleHealth:
+            Task {
+                await HealthKitService.shared.requestAuthorization()
+            }
+        case .peloton, .garmin:
+            // These use login sheets — handled by ProfileSettingsView
+            break
+        }
     }
 
     private func syncData() async {

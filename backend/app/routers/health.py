@@ -5,10 +5,20 @@ from sqlalchemy import select, desc
 
 from app.database import get_db
 from app.models.health import SleepRecord
+from app.models.user import User
 from app.schemas.health import DashboardResponse, MetricResponse, RecoveryResponse, CoachInsightResponse
 from app.services.claude import ClaudeClient
 from app.services.oura_sync import sync_user_data
 from app.services.health_data import get_latest_health_data
+
+
+async def _get_first_name(db: AsyncSession, user_id: str = "default") -> str:
+    """Get the user's first name for greetings, or empty string if no profile."""
+    result = await db.execute(select(User).where(User.apple_user_id == user_id))
+    user = result.scalar_one_or_none()
+    if user and user.name:
+        return user.name.split()[0]
+    return ""
 
 router = APIRouter(prefix="/api", tags=["health"])
 
@@ -121,12 +131,15 @@ async def get_dashboard(db: AsyncSession = Depends(get_db)):
     hour = datetime.now().hour
     time_of_day = "morning" if 5 <= hour < 12 else "afternoon" if 12 <= hour < 17 else "evening" if 17 <= hour < 22 else "night"
 
+    first_name = await _get_first_name(db)
+    greeting = f"Good {time_of_day}, {first_name}" if first_name else f"Good {time_of_day}"
+
     # Load reconciled data (multi-source: Oura + Apple Health + Garmin + Peloton)
     health_data = await get_latest_health_data(db, "default")
 
     if not health_data:
         return DashboardResponse(
-            greeting=f"Good {time_of_day}, Brock",
+            greeting=greeting,
             date=datetime.now().strftime("%A, %B %-d"),
             metrics=[],
             recovery=RecoveryResponse(level="High", description="Connect a data source to start"),
@@ -215,7 +228,7 @@ async def get_dashboard(db: AsyncSession = Depends(get_db)):
         ))
 
     return DashboardResponse(
-        greeting=f"Good {time_of_day}, Brock",
+        greeting=greeting,
         date=datetime.now().strftime("%A, %B %-d"),
         metrics=metrics,
         recovery=RecoveryResponse(level=readiness_level, description=readiness_desc),

@@ -214,8 +214,9 @@ async def streak_saver_job():
         # This is a proxy — real workout tracking will replace this when
         # Peloton/Apple Health integrations are added.
         from sqlalchemy import func as sqlfunc
-        week_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-        week_start = week_start.replace(day=week_start.day - week_start.weekday())
+        from datetime import timedelta
+        today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        week_start = today - timedelta(days=today.weekday())  # Handles month/year boundaries correctly
         result = await db.execute(
             select(sqlfunc.count(SleepRecord.id)).where(
                 SleepRecord.user_id == USER_ID,
