@@ -19,6 +19,7 @@ from app.models import meal  # noqa: F401
 from app.models import peloton  # noqa: F401
 from app.models import garmin  # noqa: F401
 from app.models import correlation  # noqa: F401
+from app.models import refresh_token  # noqa: F401
 
 # Load app settings to get the real DATABASE_URL
 from app.config import settings

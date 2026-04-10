@@ -1,8 +1,9 @@
 from datetime import datetime, date, timedelta
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 
+from app.api.deps import CurrentUser
 from app.database import get_db
 from app.models.health import SleepRecord
 from app.models.user import User
@@ -12,11 +13,9 @@ from app.services.oura_sync import sync_user_data
 from app.services.health_data import get_latest_health_data
 
 
-async def _get_first_name(db: AsyncSession, user_id: str = "default") -> str:
-    """Get the user's first name for greetings, or empty string if no profile."""
-    result = await db.execute(select(User).where(User.apple_user_id == user_id))
-    user = result.scalar_one_or_none()
-    if user and user.name:
+def _first_name_of(user: User) -> str:
+    """Get the user's first name for greetings, or empty string if no name."""
+    if user.name:
         return user.name.split()[0]
     return ""
 
@@ -24,7 +23,11 @@ router = APIRouter(prefix="/api", tags=["health"])
 
 
 @router.get("/trends")
-async def get_trends(range: int = 7, db: AsyncSession = Depends(get_db)):
+async def get_trends(
+    current_user: CurrentUser,
+    range: int = 7,
+    db: AsyncSession = Depends(get_db),
+):
     """Historical health metric trends for a given number of days.
 
     Returns arrays of values, dates, baselines, and personal ranges per metric.
@@ -33,7 +36,7 @@ async def get_trends(range: int = 7, db: AsyncSession = Depends(get_db)):
 
     result = await db.execute(
         select(SleepRecord)
-        .where(SleepRecord.user_id == "default", SleepRecord.date >= start_date)
+        .where(SleepRecord.user_id == current_user.apple_user_id, SleepRecord.date >= start_date)
         .order_by(SleepRecord.date)
     )
     records = list(result.scalars().all())
@@ -75,7 +78,11 @@ async def get_trends(range: int = 7, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/health/apple-health")
-async def sync_apple_health(metrics: list[dict], db: AsyncSession = Depends(get_db)):
+async def sync_apple_health(
+    metrics: list[dict],
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
     """Batch sync HealthKit data from iOS device.
 
     Each metric: {date, metric_type, value, unit, source}
@@ -83,12 +90,17 @@ async def sync_apple_health(metrics: list[dict], db: AsyncSession = Depends(get_
     """
     from app.models.health import HealthMetricRecord
 
+    # Cap at 1000 metrics per request to prevent DoS (P1-5 fix)
+    if len(metrics) > 1000:
+        raise HTTPException(status_code=413, detail="Max 1000 metrics per request")
+
+    user_id = current_user.apple_user_id
     saved = 0
     for m in metrics:
         # Check for existing record (dedup by user+date+metric+source)
         existing = await db.execute(
             select(HealthMetricRecord).where(
-                HealthMetricRecord.user_id == "default",
+                HealthMetricRecord.user_id == user_id,
                 HealthMetricRecord.date == m.get("date", ""),
                 HealthMetricRecord.metric_type == m.get("metric_type", ""),
                 HealthMetricRecord.source == m.get("source", "apple_health"),
@@ -98,7 +110,7 @@ async def sync_apple_health(metrics: list[dict], db: AsyncSession = Depends(get_
             continue
 
         record = HealthMetricRecord(
-            user_id="default",
+            user_id=user_id,
             date=m.get("date", ""),
             metric_type=m.get("metric_type", ""),
             value=float(m.get("value", 0)),
@@ -113,29 +125,35 @@ async def sync_apple_health(metrics: list[dict], db: AsyncSession = Depends(get_
         # Run reconciliation for today
         from app.services.data_reconciliation import reconcile_day
         today = datetime.now().strftime("%Y-%m-%d")
-        await reconcile_day(db, "default", today)
+        await reconcile_day(db, user_id, today)
 
     return {"status": "ok", "records_saved": saved}
 
 
 @router.post("/sync/oura")
-async def sync_oura(db: AsyncSession = Depends(get_db)):
+async def sync_oura(
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
     """Pull latest data from Oura API and store in DB."""
-    return await sync_user_data(db, "default")
+    return await sync_user_data(db, current_user.apple_user_id)
 
 
 @router.get("/dashboard", response_model=DashboardResponse)
-async def get_dashboard(db: AsyncSession = Depends(get_db)):
+async def get_dashboard(
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
     """Dashboard data — reads from reconciled multi-source health data."""
 
     hour = datetime.now().hour
     time_of_day = "morning" if 5 <= hour < 12 else "afternoon" if 12 <= hour < 17 else "evening" if 17 <= hour < 22 else "night"
 
-    first_name = await _get_first_name(db)
+    first_name = _first_name_of(current_user)
     greeting = f"Good {time_of_day}, {first_name}" if first_name else f"Good {time_of_day}"
 
     # Load reconciled data (multi-source: Oura + Apple Health + Garmin + Peloton)
-    health_data = await get_latest_health_data(db, "default")
+    health_data = await get_latest_health_data(db, current_user.apple_user_id)
 
     if not health_data:
         return DashboardResponse(

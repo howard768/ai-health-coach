@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import CurrentUser
 from app.database import get_db
 from app.models.notification import DeviceToken, NotificationRecord, NotificationPreference
 from app.services.apns import apns_client
@@ -22,7 +23,12 @@ logger = logging.getLogger("meld.notifications")
 
 router = APIRouter(prefix="/api/notifications", tags=["notifications"])
 
-USER_ID = "default"  # TODO: replace with real auth
+
+def _user_display_name(current_user) -> str:
+    """Get the user's first name for notification templates."""
+    if current_user.name:
+        return current_user.name.split()[0]
+    return "there"
 
 
 # ── Request/Response Models ─────────────────────────────────
@@ -61,9 +67,12 @@ class TestNotificationResponse(BaseModel):
 
 @router.post("/register", response_model=RegisterTokenResponse)
 async def register_device_token(
-    request: RegisterTokenRequest, db: AsyncSession = Depends(get_db)
+    request: RegisterTokenRequest,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
 ):
-    """Register or update an APNs device token."""
+    """Register or update an APNs device token for the current user."""
+    user_id = current_user.apple_user_id
     # Check if token already exists
     result = await db.execute(
         select(DeviceToken).where(DeviceToken.token == request.device_token)
@@ -71,13 +80,13 @@ async def register_device_token(
     existing = result.scalar_one_or_none()
 
     if existing:
-        existing.user_id = USER_ID
+        existing.user_id = user_id
         existing.is_active = True
         existing.updated_at = datetime.utcnow()
         logger.info("Updated device token %s...%s", request.device_token[:8], request.device_token[-4:])
     else:
         token = DeviceToken(
-            user_id=USER_ID,
+            user_id=user_id,
             token=request.device_token,
             platform=request.platform,
         )
@@ -89,12 +98,16 @@ async def register_device_token(
 
 
 @router.post("/test", response_model=TestNotificationResponse)
-async def send_test_notification(db: AsyncSession = Depends(get_db)):
+async def send_test_notification(
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
     """Send a test morning brief notification (dev endpoint)."""
+    user_id = current_user.apple_user_id
     # Get active device token (skip test tokens)
     result = await db.execute(
         select(DeviceToken).where(
-            DeviceToken.user_id == USER_ID,
+            DeviceToken.user_id == user_id,
             DeviceToken.is_active == True,
             DeviceToken.token != "test_token_abc123",
         )
@@ -112,7 +125,7 @@ async def send_test_notification(db: AsyncSession = Depends(get_db)):
 
     sleep_result = await db.execute(
         select(SleepRecord)
-        .where(SleepRecord.user_id == USER_ID)
+        .where(SleepRecord.user_id == user_id)
         .order_by(desc(SleepRecord.date))
         .limit(1)
     )
@@ -129,7 +142,7 @@ async def send_test_notification(db: AsyncSession = Depends(get_db)):
         }
 
     # Generate content
-    content = notification_engine.generate_morning_brief(health_data, user_name="Brock")
+    content = notification_engine.generate_morning_brief(health_data, user_name=_user_display_name(current_user))
 
     # Send via APNs
     apns_result = await apns_client.send_push(
@@ -147,7 +160,7 @@ async def send_test_notification(db: AsyncSession = Depends(get_db)):
 
     # Log the notification
     record = NotificationRecord(
-        user_id=USER_ID,
+        user_id=user_id,
         device_token_id=token_row.id,
         category=content["category"],
         title=content["title"],
@@ -167,14 +180,21 @@ async def send_test_notification(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/test/{category}")
-async def send_test_by_category(category: str, db: AsyncSession = Depends(get_db)):
+async def send_test_by_category(
+    category: str,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
     """Send a test notification for any category (dev endpoint)."""
     from sqlalchemy import desc
     from app.models.health import SleepRecord
 
+    user_id = current_user.apple_user_id
+    user_name = _user_display_name(current_user)
+
     result = await db.execute(
         select(DeviceToken).where(
-            DeviceToken.user_id == USER_ID,
+            DeviceToken.user_id == user_id,
             DeviceToken.is_active == True,
             DeviceToken.token != "test_token_abc123",
         )
@@ -184,29 +204,33 @@ async def send_test_by_category(category: str, db: AsyncSession = Depends(get_db
         return {"status": "error", "message": "No device token"}
 
     sleep_result = await db.execute(
-        select(SleepRecord).where(SleepRecord.user_id == USER_ID).order_by(desc(SleepRecord.date)).limit(1)
+        select(SleepRecord).where(SleepRecord.user_id == user_id).order_by(desc(SleepRecord.date)).limit(1)
     )
     sr = sleep_result.scalar_one_or_none()
+    # Only build health_data from a real record — no fabricated fallbacks
+    # (Original code used hardcoded 85/65/58/80 which is mock data in prod.)
+    if sr is None:
+        return {"status": "error", "message": "No sleep data available"}
     health_data = {
-        "sleep_efficiency": sr.efficiency if sr else 85,
-        "hrv_average": sr.hrv_average if sr else 65,
-        "resting_hr": sr.resting_hr if sr else 58,
-        "readiness_score": sr.readiness_score if sr else 80,
+        "sleep_efficiency": sr.efficiency,
+        "hrv_average": sr.hrv_average,
+        "resting_hr": sr.resting_hr,
+        "readiness_score": sr.readiness_score,
     }
 
     if category == "coaching_nudge":
-        content = content_generator.generate_coaching_nudge(health_data, user_name="Brock")
+        content = content_generator.generate_coaching_nudge(health_data, user_name=user_name)
     elif category == "bedtime_coaching":
-        content = content_generator.generate_bedtime_coaching(health_data, user_name="Brock")
+        content = content_generator.generate_bedtime_coaching(health_data, user_name=user_name)
     elif category == "morning_brief":
-        content = notification_engine.generate_morning_brief(health_data, user_name="Brock")
+        content = notification_engine.generate_morning_brief(health_data, user_name=user_name)
     elif category == "streak_saver":
-        content = content_generator.generate_streak_saver(3, 5, user_name="Brock")
+        content = content_generator.generate_streak_saver(3, 5, user_name=user_name)
         if not content:
             return {"status": "skipped", "message": "No streak at risk"}
     elif category == "weekly_review":
         content = content_generator.generate_weekly_review(
-            {"workout_days": 4, "sleep_trend": "improving"}, user_name="Brock"
+            {"workout_days": 4, "sleep_trend": "improving"}, user_name=user_name
         )
     elif category == "health_alert":
         content = content_generator.generate_health_alert(
@@ -229,7 +253,7 @@ async def send_test_by_category(category: str, db: AsyncSession = Depends(get_db
     )
 
     record = NotificationRecord(
-        user_id=USER_ID, device_token_id=token_row.id,
+        user_id=user_id, device_token_id=token_row.id,
         category=content["category"], title=content["title"],
         body=content["body"], payload_json=content,
     )
@@ -244,10 +268,13 @@ async def send_test_by_category(category: str, db: AsyncSession = Depends(get_db
 
 
 @router.get("/preferences", response_model=NotificationPreferencesResponse)
-async def get_notification_preferences(db: AsyncSession = Depends(get_db)):
+async def get_notification_preferences(
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
     """Get notification preferences for the current user."""
     result = await db.execute(
-        select(NotificationPreference).where(NotificationPreference.user_id == USER_ID)
+        select(NotificationPreference).where(NotificationPreference.user_id == current_user.apple_user_id)
     )
     pref = result.scalar_one_or_none()
 
@@ -271,11 +298,14 @@ async def get_notification_preferences(db: AsyncSession = Depends(get_db)):
 
 @router.put("/preferences", response_model=NotificationPreferencesResponse)
 async def update_notification_preferences(
-    prefs: NotificationPreferencesResponse, db: AsyncSession = Depends(get_db)
+    prefs: NotificationPreferencesResponse,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
 ):
     """Update notification preferences. Creates row if it doesn't exist."""
+    user_id = current_user.apple_user_id
     result = await db.execute(
-        select(NotificationPreference).where(NotificationPreference.user_id == USER_ID)
+        select(NotificationPreference).where(NotificationPreference.user_id == user_id)
     )
     pref = result.scalar_one_or_none()
 
@@ -292,7 +322,7 @@ async def update_notification_preferences(
         pref.quiet_hours_end = prefs.quiet_hours_end
     else:
         pref = NotificationPreference(
-            user_id=USER_ID,
+            user_id=user_id,
             morning_brief=prefs.morning_brief,
             coaching_nudge=prefs.coaching_nudge,
             bedtime_coaching=prefs.bedtime_coaching,
@@ -307,18 +337,23 @@ async def update_notification_preferences(
         db.add(pref)
 
     await db.commit()
-    logger.info("Updated notification preferences for user %s", USER_ID)
+    logger.info("Updated notification preferences for user %s", user_id[:12])
 
     return prefs
 
 
 @router.post("/opened")
 async def report_notification_opened(
-    notification_id: int, db: AsyncSession = Depends(get_db)
+    notification_id: int,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
 ):
     """Track when a user opens a notification (for anti-fatigue metrics)."""
     result = await db.execute(
-        select(NotificationRecord).where(NotificationRecord.id == notification_id)
+        select(NotificationRecord).where(
+            NotificationRecord.id == notification_id,
+            NotificationRecord.user_id == current_user.apple_user_id,
+        )
     )
     record = result.scalar_one_or_none()
     if record:

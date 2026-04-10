@@ -335,6 +335,20 @@ actor APIClient {
         return try decoder.decode(APIUserProfile.self, from: data)
     }
 
+    func updateUserProfile(_ update: APIUserProfileUpdate) async throws -> APIUserProfile {
+        let url = serverRoot.appendingPathComponent("api/user/profile")
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(update)
+
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw APIError.serverError
+        }
+        return try decoder.decode(APIUserProfile.self, from: data)
+    }
+
     func reportNotificationOpened(notificationId: Int) async throws {
         let url = baseURL.deletingLastPathComponent()
             .appendingPathComponent("api/notifications/opened")
@@ -597,6 +611,20 @@ struct APIDataSource: Codable {
     let name: String
     let connected: Bool
     let last_synced: String?
+}
+
+/// Payload for PUT /api/user/profile. Mirrors backend UserProfileUpdate schema.
+/// All fields optional — the backend merges onto the existing record.
+struct APIUserProfileUpdate: Codable {
+    var name: String?
+    var email: String?
+    var age: Int?
+    var height_inches: Int?
+    var weight_lbs: Double?
+    var target_weight_lbs: Double?
+    var goals: [String]?
+    var training_experience: String?
+    var training_days_per_week: Int?
 }
 
 struct APINotificationPreferences: Codable {

@@ -20,6 +20,7 @@ dependencies = [
     "garminconnect>=0.2.0",
     "pylotoncycle>=0.9.1",
     "textstat>=0.7.0",
+    "pyjwt[crypto]>=2.10.1",
 ]
 
 [tool.uv]

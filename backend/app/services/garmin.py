@@ -18,7 +18,12 @@ class GarminClient:
         self._client = None
 
     async def login(self, username: str, password: str) -> dict:
-        """Authenticate with Garmin Connect via SSO."""
+        """Authenticate with Garmin Connect via SSO.
+
+        Returns a dict including `session_data` — a serialized garth session
+        (OAuth1 + OAuth2 tokens). Store THIS, not the password. Restore via
+        `login_from_session()` for subsequent API calls.
+        """
         try:
             from garminconnect import Garmin
         except ImportError:
@@ -31,7 +36,40 @@ class GarminClient:
             return client
 
         self._client = await asyncio.to_thread(_login)
-        return {"status": "connected", "display_name": self._client.display_name}
+
+        # Serialize the garth session so we don't need the password on refresh.
+        # garth.dumps() returns a JSON string containing OAuth1 + OAuth2 tokens.
+        session_data: str | None = None
+        try:
+            session_data = await asyncio.to_thread(self._client.garth.dumps)
+        except Exception as e:
+            logger.warning("Failed to serialize garth session: %s", e)
+
+        return {
+            "status": "connected",
+            "display_name": self._client.display_name,
+            "session_data": session_data,
+        }
+
+    async def login_from_session(self, session_data: str) -> bool:
+        """Restore a previously-serialized garth session."""
+        try:
+            from garminconnect import Garmin
+        except ImportError:
+            raise RuntimeError("garminconnect package not installed")
+
+        def _restore():
+            # Empty-string credentials — garth.loads() supplies the tokens.
+            client = Garmin()
+            client.garth.loads(session_data)
+            return client
+
+        try:
+            self._client = await asyncio.to_thread(_restore)
+            return True
+        except Exception as e:
+            logger.error("Garmin session restore failed: %s", e)
+            return False
 
     async def get_steps(self, target_date: date) -> dict | None:
         """Get daily step count."""

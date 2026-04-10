@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import CurrentUser
 from app.database import get_db
 from app.models.meal import MealRecord, FoodItemRecord
 from app.schemas.meal import (
@@ -26,8 +27,6 @@ from app.services.openfoodfacts import off_client
 logger = logging.getLogger("meld.meals")
 
 router = APIRouter(prefix="/api", tags=["meals"])
-
-USER_ID = "default"  # TODO: replace with real auth
 
 
 def _meal_type_from_time() -> str:
@@ -78,10 +77,14 @@ def _meal_to_response(meal: MealRecord, items: list[FoodItemRecord]) -> MealResp
 # ── Meal CRUD ───────────────────────────────────────────────
 
 @router.post("/meals", response_model=MealResponse)
-async def create_meal(meal_data: MealCreate, db: AsyncSession = Depends(get_db)):
+async def create_meal(
+    meal_data: MealCreate,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
     """Log a new meal with food items."""
     meal = MealRecord(
-        user_id=USER_ID,
+        user_id=current_user.apple_user_id,
         date=datetime.now().strftime("%Y-%m-%d"),
         meal_type=meal_data.meal_type or _meal_type_from_time(),
         source=meal_data.source,
@@ -118,13 +121,17 @@ async def create_meal(meal_data: MealCreate, db: AsyncSession = Depends(get_db))
 
 
 @router.get("/meals", response_model=DailyMealsResponse)
-async def get_meals(date: str | None = None, db: AsyncSession = Depends(get_db)):
+async def get_meals(
+    current_user: CurrentUser,
+    date: str | None = None,
+    db: AsyncSession = Depends(get_db),
+):
     """Get all meals for a date (defaults to today)."""
     target_date = date or datetime.now().strftime("%Y-%m-%d")
 
     result = await db.execute(
         select(MealRecord)
-        .where(MealRecord.user_id == USER_ID, MealRecord.date == target_date)
+        .where(MealRecord.user_id == current_user.apple_user_id, MealRecord.date == target_date)
         .order_by(MealRecord.created_at)
     )
     meals = result.scalars().all()
@@ -155,10 +162,17 @@ async def get_meals(date: str | None = None, db: AsyncSession = Depends(get_db))
 
 
 @router.delete("/meals/{meal_id}")
-async def delete_meal(meal_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_meal(
+    meal_id: int,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
     """Delete a meal and its food items."""
     result = await db.execute(
-        select(MealRecord).where(MealRecord.id == meal_id, MealRecord.user_id == USER_ID)
+        select(MealRecord).where(
+            MealRecord.id == meal_id,
+            MealRecord.user_id == current_user.apple_user_id,
+        )
     )
     meal = result.scalar_one_or_none()
     if not meal:
@@ -178,9 +192,23 @@ async def delete_meal(meal_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.put("/meals/{meal_id}/items/{item_id}")
 async def update_food_item(
-    meal_id: int, item_id: int, item_data: FoodItemCreate, db: AsyncSession = Depends(get_db)
+    meal_id: int,
+    item_id: int,
+    item_data: FoodItemCreate,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
 ):
-    """Update an individual food item within a meal."""
+    """Update an individual food item within a meal owned by the caller."""
+    # Verify the meal belongs to current user BEFORE touching the item
+    meal_result = await db.execute(
+        select(MealRecord).where(
+            MealRecord.id == meal_id,
+            MealRecord.user_id == current_user.apple_user_id,
+        )
+    )
+    if meal_result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="Meal not found")
+
     result = await db.execute(
         select(FoodItemRecord).where(
             FoodItemRecord.id == item_id, FoodItemRecord.meal_id == meal_id
@@ -207,9 +235,22 @@ async def update_food_item(
 
 @router.delete("/meals/{meal_id}/items/{item_id}")
 async def delete_food_item(
-    meal_id: int, item_id: int, db: AsyncSession = Depends(get_db)
+    meal_id: int,
+    item_id: int,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
 ):
-    """Remove an individual food item from a meal."""
+    """Remove an individual food item from a meal owned by the caller."""
+    # Verify the meal belongs to current user first
+    meal_result = await db.execute(
+        select(MealRecord).where(
+            MealRecord.id == meal_id,
+            MealRecord.user_id == current_user.apple_user_id,
+        )
+    )
+    if meal_result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=404, detail="Meal not found")
+
     result = await db.execute(
         select(FoodItemRecord).where(
             FoodItemRecord.id == item_id, FoodItemRecord.meal_id == meal_id
@@ -227,8 +268,15 @@ async def delete_food_item(
 # ── Food Recognition ────────────────────────────────────────
 
 @router.post("/food/recognize", response_model=FoodRecognitionResponse)
-async def recognize_food(request: FoodRecognitionRequest):
-    """Recognize food items from a photo using Claude Vision."""
+async def recognize_food(
+    request: FoodRecognitionRequest,
+    current_user: CurrentUser,
+):
+    """Recognize food items from a photo using Claude Vision.
+
+    Auth-gated to prevent Claude API budget exhaustion by unauthenticated
+    actors (cost-exhaustion DoS, P1-4).
+    """
     import asyncio
     # food_recognition uses the synchronous Anthropic SDK — must offload
     # to a thread to avoid blocking the event loop for the full API call.
@@ -262,12 +310,17 @@ async def recognize_food(request: FoodRecognitionRequest):
 # ── Food Search (DOVA: USDA → OFF → AI) ────────────────────
 
 @router.post("/food/search")
-async def search_food(request: FoodSearchRequest):
+async def search_food(
+    request: FoodSearchRequest,
+    current_user: CurrentUser,
+):
     """Search for food items using DOVA cascade.
 
     1. USDA FoodData Central (lab-analyzed, highest confidence)
     2. Open Food Facts (crowdsourced, good coverage)
     3. AI estimation fallback (Claude, lowest confidence)
+
+    Auth-gated to prevent upstream API quota abuse (P1-4).
     """
     items = await food_search.search(request.query)
     return {
@@ -291,7 +344,10 @@ async def search_food(request: FoodSearchRequest):
 # ── Barcode Lookup (Open Food Facts) ────────────────────────
 
 @router.get("/food/barcode/{code}")
-async def lookup_barcode(code: str):
+async def lookup_barcode(
+    code: str,
+    current_user: CurrentUser,
+):
     """Look up a food product by barcode via Open Food Facts."""
     item = await off_client.get_by_barcode(code)
     if not item:

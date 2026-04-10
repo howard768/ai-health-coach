@@ -19,11 +19,11 @@ from app.services.oura_webhooks import (
     list_subscriptions,
 )
 
+from app.api.deps import CurrentUser
+
 logger = logging.getLogger("meld.webhooks")
 
 router = APIRouter(prefix="/api/webhooks", tags=["webhooks"])
-
-USER_ID = "default"  # TODO: replace with real auth
 
 
 @router.get("/oura")
@@ -49,7 +49,12 @@ async def oura_webhook_receiver(request: Request, db: AsyncSession = Depends(get
     """Receive Oura webhook events.
 
     Oura POSTs here when new data is available (sleep, readiness, activity, etc.).
-    We trigger a sync to pull the latest data and optionally send a coaching notification.
+    Oura does not send a bearer token, so this endpoint cannot use the normal
+    auth dependency. We identify the target Meld user by looking up which user
+    owns an Oura token — single-user safe for MVP.
+
+    TODO (multi-user): add `oura_user_id` column to OuraToken and match on
+    `body["user_id"]` to route events to the correct Meld user.
     """
     body = await request.json()
     event_type = body.get("event_type")
@@ -62,8 +67,19 @@ async def oura_webhook_receiver(request: Request, db: AsyncSession = Depends(get
         event_type, data_type, user_oura_id, timestamp,
     )
 
+    # MVP: find the user who owns an Oura token. In multi-user mode we would
+    # match on the Oura user ID from the webhook body.
+    from app.models.health import OuraToken
+    from sqlalchemy import select
+    token_result = await db.execute(select(OuraToken).limit(1))
+    token = token_result.scalar_one_or_none()
+    if not token:
+        logger.warning("Oura webhook received but no users have connected Oura — ignoring")
+        return {"status": "no_user"}
+    meld_user_id = token.user_id
+
     # Trigger sync to pull latest data
-    result = await sync_user_data(db, USER_ID)
+    result = await sync_user_data(db, meld_user_id)
     logger.info("Webhook-triggered sync: %s", result)
 
     # If this is a readiness update, trigger the morning brief notification
@@ -73,12 +89,20 @@ async def oura_webhook_receiver(request: Request, db: AsyncSession = Depends(get
             from app.services.apns import apns_client
             from app.models.notification import DeviceToken
             from app.models.health import SleepRecord
-            from sqlalchemy import select, desc
+            from app.models.user import User
+            from sqlalchemy import desc
+
+            # Load user for personalized greeting
+            user_result = await db.execute(
+                select(User).where(User.apple_user_id == meld_user_id)
+            )
+            user = user_result.scalar_one_or_none()
+            user_name = (user.name.split()[0] if user and user.name else "there")
 
             # Get latest health data
             sleep_result = await db.execute(
                 select(SleepRecord)
-                .where(SleepRecord.user_id == USER_ID)
+                .where(SleepRecord.user_id == meld_user_id)
                 .order_by(desc(SleepRecord.date))
                 .limit(1)
             )
@@ -94,13 +118,13 @@ async def oura_webhook_receiver(request: Request, db: AsyncSession = Depends(get
 
                 # Generate morning brief
                 content = notification_engine.generate_morning_brief(
-                    health_data, user_name="Brock"
+                    health_data, user_name=user_name
                 )
 
                 # Send push notification
                 token_result = await db.execute(
                     select(DeviceToken).where(
-                        DeviceToken.user_id == USER_ID,
+                        DeviceToken.user_id == meld_user_id,
                         DeviceToken.is_active == True,
                         DeviceToken.token != "test_token_abc123",
                     )
@@ -128,19 +152,37 @@ async def oura_webhook_receiver(request: Request, db: AsyncSession = Depends(get
 # ── Admin Endpoints ─────────────────────────────────────────
 
 @router.post("/oura/register")
-async def register_webhooks(base_url: str = Query(...)):
+async def register_webhooks(
+    current_user: CurrentUser,
+    base_url: str = Query(...),
+):
     """Register all Oura webhook subscriptions.
 
     Call once with your public backend URL:
     POST /api/webhooks/oura/register?base_url=https://your-domain.com
+
+    Auth-gated to prevent attackers redirecting your webhooks to their servers (P1-3).
     """
+    # Validate base_url is one of our known domains to prevent SSRF-style abuse
+    allowed_prefixes = (
+        "http://localhost",
+        "http://192.168.",
+        "https://zippy-forgiveness-production-0704.up.railway.app",
+    )
+    if not any(base_url.startswith(p) for p in allowed_prefixes):
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=400,
+            detail=f"base_url must start with one of: {allowed_prefixes}",
+        )
+
     results = await register_all_webhooks(base_url)
     return {"status": "ok", "subscriptions": len(results), "details": results}
 
 
 @router.get("/oura/subscriptions")
-async def get_subscriptions():
-    """List all active Oura webhook subscriptions."""
+async def get_subscriptions(current_user: CurrentUser):
+    """List all active Oura webhook subscriptions (admin endpoint)."""
     try:
         subs = await list_subscriptions()
         return {"subscriptions": subs}

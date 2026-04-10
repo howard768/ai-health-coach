@@ -1,10 +1,11 @@
 import time
 from datetime import datetime
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 
+from app.api.deps import CurrentUser
 from app.database import get_db
 from app.models.chat import Conversation, ChatMessageRecord
 from app.models.user import User
@@ -48,10 +49,14 @@ class HistoryResponse(BaseModel):
 # ============================================================
 
 @router.post("/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
+async def chat(
+    request: ChatRequest,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
     """Send a message, get AI response, persist both to DB."""
 
-    user_id = "default"  # TODO: from auth
+    user_id = current_user.apple_user_id
 
     # Get or create conversation
     conv = await _get_or_create_conversation(db, user_id)
@@ -148,20 +153,25 @@ class FeedbackRequest(BaseModel):
 
 
 @router.post("/feedback")
-async def submit_feedback(request: FeedbackRequest, db: AsyncSession = Depends(get_db)):
-    """Record thumbs up/down on a coach message."""
+async def submit_feedback(
+    request: FeedbackRequest,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Record thumbs up/down on a coach message owned by the caller."""
     if request.feedback not in ("up", "down"):
-        return {"error": "feedback must be 'up' or 'down'"}
+        raise HTTPException(status_code=400, detail="feedback must be 'up' or 'down'")
 
     result = await db.execute(
         select(ChatMessageRecord).where(
             ChatMessageRecord.id == request.message_id,
             ChatMessageRecord.role == "coach",
+            ChatMessageRecord.user_id == current_user.apple_user_id,
         )
     )
     msg = result.scalar_one_or_none()
     if not msg:
-        return {"error": "message not found"}
+        raise HTTPException(status_code=404, detail="message not found")
 
     msg.feedback = request.feedback
     msg.feedback_at = datetime.utcnow()
@@ -175,10 +185,13 @@ async def submit_feedback(request: FeedbackRequest, db: AsyncSession = Depends(g
 # ============================================================
 
 @router.get("/history", response_model=HistoryResponse)
-async def get_history(db: AsyncSession = Depends(get_db)):
+async def get_history(
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
     """Retrieve full conversation history for the current user."""
 
-    user_id = "default"
+    user_id = current_user.apple_user_id
 
     conv = await _get_or_create_conversation(db, user_id)
     records = await _get_recent_messages(db, conv.id, limit=100)
@@ -203,11 +216,15 @@ async def get_history(db: AsyncSession = Depends(get_db)):
 # ============================================================
 
 @router.post("/insight")
-async def generate_insight(db: AsyncSession = Depends(get_db)):
+async def generate_insight(
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
     """Generate daily dashboard insight via the engine pipeline."""
     import asyncio
-    health_data = await get_latest_health_data(db, "default")
-    _, user_goals = await _load_user_context(db, "default")
+    user_id = current_user.apple_user_id
+    health_data = await get_latest_health_data(db, user_id)
+    _, user_goals = await _load_user_context(db, user_id)
     # generate_daily_insight calls the sync Anthropic SDK — must offload
     result = await asyncio.to_thread(
         engine.generate_daily_insight,
@@ -222,15 +239,23 @@ async def generate_insight(db: AsyncSession = Depends(get_db)):
 # ============================================================
 
 @router.get("/analytics")
-async def get_analytics(days: int = 7, db: AsyncSession = Depends(get_db)):
-    """Production monitoring: feedback rates, latency, model usage, safety flags."""
-    from sqlalchemy import func
-    cutoff = datetime.utcnow() - __import__("datetime").timedelta(days=days)
+async def get_analytics(
+    current_user: CurrentUser,
+    days: int = 7,
+    db: AsyncSession = Depends(get_db),
+):
+    """Production monitoring: feedback rates, latency, model usage, safety flags.
 
-    # All coach messages in the window
+    Scoped to the current user's own coach messages.
+    """
+    from datetime import timedelta
+    cutoff = datetime.utcnow() - timedelta(days=days)
+
+    # Only the current user's coach messages in the window
     result = await db.execute(
         select(ChatMessageRecord).where(
             ChatMessageRecord.role == "coach",
+            ChatMessageRecord.user_id == current_user.apple_user_id,
             ChatMessageRecord.created_at >= cutoff,
         )
     )

@@ -1,0 +1,345 @@
+"""Sign in with Apple authentication endpoints.
+
+Flow overview:
+
+1. POST /auth/apple         — verify Apple identity token, upsert user, issue tokens
+2. POST /auth/refresh       — rotate refresh token, issue new access token
+3. POST /auth/logout        — revoke the caller's refresh token
+4. POST /auth/delete        — call Apple /auth/revoke, delete user + all data
+5. POST /auth/apple/revoked — Apple server-to-server notification endpoint
+
+All endpoints are unauthenticated EXCEPT /auth/logout and /auth/delete, which
+require a valid access token via `CurrentUser`.
+"""
+
+from __future__ import annotations
+
+import logging
+from datetime import datetime, timezone
+
+import jwt
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel, Field
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.deps import CurrentUser
+from app.core.apple import (
+    is_private_relay_email,
+    revoke_apple_token,
+    verify_apple_identity_token,
+)
+from app.core.security import (
+    REFRESH_TOKEN_EXPIRE_DAYS,
+    create_access_token,
+    create_refresh_token,
+    hash_refresh_token,
+)
+from app.database import get_db
+from app.models.refresh_token import RefreshToken
+from app.models.user import User
+
+router = APIRouter(prefix="/auth", tags=["auth"])
+logger = logging.getLogger("meld.auth")
+
+
+# ── Request / Response Schemas ───────────────────────────────────────────────
+
+
+class AppleSignInRequest(BaseModel):
+    identity_token: str = Field(..., description="JWT from ASAuthorizationAppleIDCredential")
+    raw_nonce: str | None = Field(None, description="Raw nonce whose SHA256 was sent to Apple")
+    # Full name & email only arrive on FIRST sign-in. Persist if present.
+    full_name: str | None = None
+    email: str | None = None
+    device_id: str | None = Field(None, description="iOS identifierForVendor for session tracking")
+    # If Apple returned an authorizationCode, we can exchange it for an Apple
+    # refresh token via /auth/token (required for /auth/revoke on deletion).
+    # MVP skip: we'll capture this in a later iteration.
+    authorization_code: str | None = None
+
+
+class TokenPair(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int  # seconds until access_token expiry
+    user: dict
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+class DeleteRequest(BaseModel):
+    # Optional confirmation string — iOS client can send the user's email or
+    # a UI-generated challenge to prevent accidental deletions.
+    confirmation: str | None = None
+
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+
+def _user_to_dict(user: User) -> dict:
+    """Serialize a User into the minimal shape the iOS client needs post-auth."""
+    return {
+        "id": user.apple_user_id,
+        "name": user.name,
+        "email": user.email,
+        "is_private_email": user.is_private_email,
+    }
+
+
+async def _issue_token_pair(
+    db: AsyncSession, user: User, device_id: str | None
+) -> TokenPair:
+    """Issue a new access + refresh pair, persist the refresh hash, return."""
+    access_token, access_expires = create_access_token(user.apple_user_id)
+    raw_refresh, refresh_hash, refresh_expires = create_refresh_token()
+
+    token_row = RefreshToken(
+        id=refresh_hash,
+        user_id=user.apple_user_id,
+        device_id=device_id,
+        expires_at=refresh_expires,
+    )
+    db.add(token_row)
+
+    user.last_login_at = datetime.utcnow()
+    await db.commit()
+
+    expires_in = int((access_expires - datetime.now(timezone.utc)).total_seconds())
+    return TokenPair(
+        access_token=access_token,
+        refresh_token=raw_refresh,
+        expires_in=expires_in,
+        user=_user_to_dict(user),
+    )
+
+
+async def _revoke_chain(db: AsyncSession, start_hash: str) -> None:
+    """Walk the `replaced_by` chain starting at `start_hash` and revoke every
+    token. Used when a revoked token is presented for refresh — indicates the
+    refresh token was stolen and replayed after rotation.
+    """
+    now = datetime.utcnow()
+    current = start_hash
+    visited: set[str] = set()
+    while current and current not in visited:
+        visited.add(current)
+        row = await db.get(RefreshToken, current)
+        if row is None:
+            break
+        if row.revoked_at is None:
+            row.revoked_at = now
+        current = row.replaced_by or ""
+    await db.flush()
+
+
+# ── POST /auth/apple ─────────────────────────────────────────────────────────
+
+
+@router.post("/apple", response_model=TokenPair)
+async def sign_in_with_apple(
+    request: AppleSignInRequest,
+    db: AsyncSession = Depends(get_db),
+) -> TokenPair:
+    """Verify an Apple identity token, upsert the user, and issue our tokens."""
+    try:
+        claims = verify_apple_identity_token(request.identity_token, request.raw_nonce)
+    except jwt.InvalidTokenError as e:
+        logger.warning("Apple identity token verification failed: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid Apple identity token: {e}",
+        )
+
+    apple_sub = claims["sub"]  # source of truth — NOT request.user_identifier
+    claim_email = claims.get("email")  # Apple puts email in claims on first sign-in
+    # The iOS client may also provide full_name/email directly (first time only).
+
+    # Find or create user
+    result = await db.execute(select(User).where(User.apple_user_id == apple_sub))
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        logger.info("Creating new user for Apple sub=%s", apple_sub[:12] + "...")
+        user = User(
+            apple_user_id=apple_sub,
+            email=request.email or claim_email,
+            name=request.full_name,
+            is_active=True,
+            is_private_email=is_private_relay_email(request.email or claim_email),
+        )
+        db.add(user)
+        await db.flush()
+    else:
+        # Subsequent sign-ins: update name/email ONLY if we have new info.
+        # Apple only returns these on the first sign-in, so if iOS sent them
+        # again it's probably a fresh re-auth after credential deletion.
+        if request.full_name and not user.name:
+            user.name = request.full_name
+        if (request.email or claim_email) and not user.email:
+            email_to_set = request.email or claim_email
+            user.email = email_to_set
+            user.is_private_email = is_private_relay_email(email_to_set)
+
+    return await _issue_token_pair(db, user, request.device_id)
+
+
+# ── POST /auth/refresh ───────────────────────────────────────────────────────
+
+
+@router.post("/refresh", response_model=TokenPair)
+async def refresh_token(
+    request: RefreshRequest,
+    db: AsyncSession = Depends(get_db),
+) -> TokenPair:
+    """Rotate a refresh token and issue a new access + refresh pair.
+
+    Reuse detection: if a revoked token is presented, we walk the replacement
+    chain and revoke every descendant for the user. This is the primary
+    defense against refresh token theft — once the attacker uses a stolen
+    token, the legitimate client's next refresh will be rejected.
+    """
+    token_hash = hash_refresh_token(request.refresh_token)
+    row = await db.get(RefreshToken, token_hash)
+
+    if row is None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Unknown refresh token")
+
+    # Reuse detection — revoked token presented again means the chain is compromised.
+    if row.revoked_at is not None:
+        logger.warning(
+            "Refresh token reuse detected for user=%s — revoking chain",
+            row.user_id,
+        )
+        await _revoke_chain(db, token_hash)
+        # Also revoke every other active refresh token for this user as a precaution.
+        result = await db.execute(
+            select(RefreshToken).where(
+                RefreshToken.user_id == row.user_id,
+                RefreshToken.revoked_at.is_(None),
+            )
+        )
+        for t in result.scalars():
+            t.revoked_at = datetime.utcnow()
+        await db.commit()
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            "Refresh token reuse detected — please sign in again",
+        )
+
+    # Expiry check (accept both naive UTC and aware for legacy rows)
+    now_naive = datetime.utcnow()
+    if row.expires_at < now_naive:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Refresh token expired")
+
+    # Load user and verify active
+    user = await db.execute(select(User).where(User.apple_user_id == row.user_id))
+    user = user.scalar_one_or_none()
+    if user is None or not user.is_active:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found or inactive")
+
+    # Mark old token revoked, issue new pair, link via replaced_by
+    row.revoked_at = now_naive
+    access_token, access_expires = create_access_token(user.apple_user_id)
+    new_raw, new_hash, new_expires = create_refresh_token()
+    row.replaced_by = new_hash
+
+    new_row = RefreshToken(
+        id=new_hash,
+        user_id=user.apple_user_id,
+        device_id=row.device_id,
+        expires_at=new_expires,
+    )
+    db.add(new_row)
+    await db.commit()
+
+    expires_in = int((access_expires - datetime.now(timezone.utc)).total_seconds())
+    return TokenPair(
+        access_token=access_token,
+        refresh_token=new_raw,
+        expires_in=expires_in,
+        user=_user_to_dict(user),
+    )
+
+
+# ── POST /auth/logout ────────────────────────────────────────────────────────
+
+
+@router.post("/logout")
+async def logout(
+    user: CurrentUser,
+    request: RefreshRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Revoke the caller's refresh token. Access token remains valid until
+    its 15-minute expiry, but without a refresh token the client can't
+    extend the session.
+    """
+    token_hash = hash_refresh_token(request.refresh_token)
+    row = await db.get(RefreshToken, token_hash)
+    if row is not None and row.user_id == user.apple_user_id and row.revoked_at is None:
+        row.revoked_at = datetime.utcnow()
+        await db.commit()
+    return {"status": "logged_out"}
+
+
+# ── POST /auth/delete ────────────────────────────────────────────────────────
+
+
+@router.post("/delete")
+async def delete_account(
+    user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Permanently delete the user's account.
+
+    Required by App Store guideline 5.1.1(v) since June 30, 2022.
+
+    Steps:
+    1. Call Apple's /auth/revoke with the user's Apple refresh token (if we
+       have one captured from the original sign-in).
+    2. DELETE the user row — CASCADE removes all tenant data across the 13
+       tables per the FK migration in c0518b5194eb.
+    """
+    apple_id = user.apple_user_id
+    apple_refresh = user.apple_refresh_token
+
+    # Best-effort: call Apple's revoke endpoint. If this fails we still
+    # delete local data — the user can manually revoke in Apple ID Settings.
+    if apple_refresh:
+        try:
+            await revoke_apple_token(apple_refresh)
+            logger.info("Apple token revoked for user=%s", apple_id[:12] + "...")
+        except Exception as e:
+            logger.error("Apple token revocation failed for user=%s: %s", apple_id[:12], e)
+
+    # Delete the user — CASCADE handles all tenant data + refresh tokens.
+    await db.delete(user)
+    await db.commit()
+    logger.info("Deleted user account: %s", apple_id[:12] + "...")
+
+    return {"status": "deleted", "user_id": apple_id}
+
+
+# ── POST /auth/apple/revoked ─────────────────────────────────────────────────
+
+
+@router.post("/apple/revoked")
+async def apple_server_notification(request: Request, db: AsyncSession = Depends(get_db)):
+    """Handle Apple's server-to-server consent-revoked notifications.
+
+    When a user revokes Sign in with Apple from Settings, Apple POSTs a
+    signed JWT here so we can clean up. Full impl needs to verify the JWT
+    signature against Apple's JWKS and parse the `events` claim.
+
+    MVP: log and accept. Full verification in a follow-up.
+
+    Reference: https://developer.apple.com/documentation/technotes/tn3194-handling-account-deletions-and-revoking-tokens-for-sign-in-with-apple
+    """
+    body = await request.body()
+    logger.info("Apple server notification received: %d bytes", len(body))
+    # TODO: verify signature, parse events, deactivate/delete affected users
+    return {"status": "received"}

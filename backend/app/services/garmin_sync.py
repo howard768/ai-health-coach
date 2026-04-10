@@ -29,9 +29,14 @@ async def sync_user_data(db: AsyncSession, user_id: str) -> dict:
 
     client = GarminClient()
     try:
-        await client.login(token.username, token.session_data or "")
+        if not token.session_data:
+            # Legacy tokens may have empty session_data — force reconnect
+            return {"status": "error", "message": "Garmin session expired. Please re-connect."}
+        restored = await client.login_from_session(token.session_data)
+        if not restored:
+            return {"status": "error", "message": "Garmin session invalid. Please re-connect."}
     except Exception as e:
-        logger.error("Garmin login failed: %s", e)
+        logger.error("Garmin session restore failed: %s", e)
         return {"status": "error", "message": "Garmin login failed. Please re-connect."}
 
     records_saved = 0

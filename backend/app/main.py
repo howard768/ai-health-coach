@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import init_db
-from app.routers import auth, health, coach, notifications, meals, user, peloton_auth, garmin_auth, webhooks
+from app.routers import auth, auth_apple, health, coach, notifications, meals, user, peloton_auth, garmin_auth, webhooks
 from app.tasks.scheduler import start_scheduler, stop_scheduler
 
 
@@ -48,7 +48,8 @@ media_dir.mkdir(exist_ok=True)
 app.mount("/media", StaticFiles(directory=str(media_dir)), name="media")
 
 # Mount routers
-app.include_router(auth.router)
+app.include_router(auth.router)          # Legacy Oura OAuth callback
+app.include_router(auth_apple.router)    # Sign in with Apple + JWT refresh
 app.include_router(health.router)
 app.include_router(coach.router)
 app.include_router(notifications.router)

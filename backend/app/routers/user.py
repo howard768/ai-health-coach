@@ -1,5 +1,6 @@
-"""User profile endpoints."""
+"""User profile endpoints. All routes require authentication via CurrentUser."""
 
+import json
 import logging
 from datetime import datetime
 
@@ -8,6 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import CurrentUser
 from app.database import get_db
 from app.models.user import User
 from app.models.health import OuraToken
@@ -15,8 +17,6 @@ from app.models.health import OuraToken
 logger = logging.getLogger("meld.user")
 
 router = APIRouter(prefix="/api/user", tags=["user"])
-
-USER_ID = "default"  # TODO: replace with real auth
 
 
 class UserProfileResponse(BaseModel):
@@ -45,17 +45,11 @@ class UserProfileUpdate(BaseModel):
     training_days_per_week: int | None = None
 
 
-@router.get("/profile", response_model=UserProfileResponse)
-async def get_profile(db: AsyncSession = Depends(get_db)):
-    """Get user profile with connected data sources."""
-    result = await db.execute(
-        select(User).where(User.apple_user_id == USER_ID)
-    )
-    user = result.scalar_one_or_none()
-
-    # Check connected data sources
+async def _build_profile_response(user: User, db: AsyncSession) -> UserProfileResponse:
+    """Build a profile response from a User row. Shared by GET and PUT handlers."""
+    # Data sources are tenant-scoped
     oura_result = await db.execute(
-        select(OuraToken).where(OuraToken.user_id == USER_ID).limit(1)
+        select(OuraToken).where(OuraToken.user_id == user.apple_user_id).limit(1)
     )
     oura_token = oura_result.scalar_one_or_none()
 
@@ -67,10 +61,6 @@ async def get_profile(db: AsyncSession = Depends(get_db)):
             "last_synced": oura_token.created_at.isoformat() if oura_token.created_at else None,
         })
 
-    if not user:
-        return UserProfileResponse(data_sources=data_sources)
-
-    import json
     goals = []
     if user.goals:
         try:
@@ -93,53 +83,42 @@ async def get_profile(db: AsyncSession = Depends(get_db)):
     )
 
 
+@router.get("/profile", response_model=UserProfileResponse)
+async def get_profile(
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Get the current user's profile with connected data sources."""
+    return await _build_profile_response(current_user, db)
+
+
 @router.put("/profile", response_model=UserProfileResponse)
 async def update_profile(
-    update: UserProfileUpdate, db: AsyncSession = Depends(get_db)
+    update: UserProfileUpdate,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
 ):
-    """Update user profile fields."""
-    result = await db.execute(
-        select(User).where(User.apple_user_id == USER_ID)
-    )
-    user = result.scalar_one_or_none()
-
-    if not user:
-        # Create user if doesn't exist
-        import json
-        user = User(
-            apple_user_id=USER_ID,
-            name=update.name,
-            email=update.email,
-            age=update.age,
-            height_inches=update.height_inches,
-            weight_lbs=update.weight_lbs,
-            target_weight_lbs=update.target_weight_lbs,
-            goals=json.dumps(update.goals) if update.goals else None,
-            training_experience=update.training_experience,
-            training_days_per_week=update.training_days_per_week,
-        )
-        db.add(user)
-    else:
-        import json
-        if update.name is not None:
-            user.name = update.name
-        if update.email is not None:
-            user.email = update.email
-        if update.age is not None:
-            user.age = update.age
-        if update.height_inches is not None:
-            user.height_inches = update.height_inches
-        if update.weight_lbs is not None:
-            user.weight_lbs = update.weight_lbs
-        if update.target_weight_lbs is not None:
-            user.target_weight_lbs = update.target_weight_lbs
-        if update.goals is not None:
-            user.goals = json.dumps(update.goals)
-        if update.training_experience is not None:
-            user.training_experience = update.training_experience
-        if update.training_days_per_week is not None:
-            user.training_days_per_week = update.training_days_per_week
-        user.updated_at = datetime.utcnow()
+    """Update the current user's profile fields."""
+    if update.name is not None:
+        current_user.name = update.name
+    if update.email is not None:
+        current_user.email = update.email
+    if update.age is not None:
+        current_user.age = update.age
+    if update.height_inches is not None:
+        current_user.height_inches = update.height_inches
+    if update.weight_lbs is not None:
+        current_user.weight_lbs = update.weight_lbs
+    if update.target_weight_lbs is not None:
+        current_user.target_weight_lbs = update.target_weight_lbs
+    if update.goals is not None:
+        current_user.goals = json.dumps(update.goals)
+    if update.training_experience is not None:
+        current_user.training_experience = update.training_experience
+    if update.training_days_per_week is not None:
+        current_user.training_days_per_week = update.training_days_per_week
+    current_user.updated_at = datetime.utcnow()
 
     await db.commit()
-    return await get_profile(db)
+    await db.refresh(current_user)
+    return await _build_profile_response(current_user, db)

@@ -1,17 +1,18 @@
 """Peloton authentication endpoints.
 
 Session-cookie auth (NOT OAuth). User provides username/password,
-we get a session_id from Peloton's API.
+we exchange them for a session_id via Peloton's API and store ONLY
+the session token — never the password.
 """
 
 import logging
-from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import CurrentUser
 from app.database import get_db
 from app.models.peloton import PelotonToken
 from app.services.peloton import PelotonClient
@@ -19,8 +20,6 @@ from app.services.peloton import PelotonClient
 logger = logging.getLogger("meld.peloton_auth")
 
 router = APIRouter(prefix="/auth/peloton", tags=["auth"])
-
-USER_ID = "default"
 
 
 class PelotonLoginRequest(BaseModel):
@@ -30,9 +29,11 @@ class PelotonLoginRequest(BaseModel):
 
 @router.post("/login")
 async def login_peloton(
-    request: PelotonLoginRequest, db: AsyncSession = Depends(get_db)
+    request: PelotonLoginRequest,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
 ):
-    """Authenticate with Peloton and store session."""
+    """Authenticate with Peloton and store the session token for the current user."""
     client = PelotonClient()
 
     try:
@@ -40,9 +41,14 @@ async def login_peloton(
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Peloton login failed: {str(e)}")
 
-    # Store session
+    user_id = current_user.apple_user_id
+    # Delete any existing token for this user before inserting
+    existing = await db.execute(select(PelotonToken).where(PelotonToken.user_id == user_id))
+    for t in existing.scalars():
+        await db.delete(t)
+
     token = PelotonToken(
-        user_id=USER_ID,
+        user_id=user_id,
         peloton_user_id=result["user_id"],
         session_id=result["session_id"],
         username=request.username,
@@ -50,15 +56,18 @@ async def login_peloton(
     db.add(token)
     await db.commit()
 
-    logger.info("Peloton connected for user %s", USER_ID)
+    logger.info("Peloton connected for user %s", user_id[:12])
     return {"status": "connected", "peloton_user_id": result["user_id"]}
 
 
 @router.get("/status")
-async def peloton_status(db: AsyncSession = Depends(get_db)):
-    """Check if Peloton is connected."""
+async def peloton_status(
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Check if Peloton is connected for the current user."""
     result = await db.execute(
-        select(PelotonToken).where(PelotonToken.user_id == USER_ID).limit(1)
+        select(PelotonToken).where(PelotonToken.user_id == current_user.apple_user_id).limit(1)
     )
     token = result.scalar_one_or_none()
     return {

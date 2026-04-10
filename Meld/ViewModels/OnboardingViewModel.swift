@@ -112,22 +112,40 @@ final class OnboardingViewModel {
         syncProgress = 0
         Analytics.Onboarding.syncStarted()
 
-        // Simulate sync steps
-        let steps = [
-            "Connecting to your data...",
-            "Reading your sleep patterns...",
-            "Computing your baseline...",
-            "Getting your first insight ready..."
-        ]
+        // Step 1: Persist the assessment to the backend. This creates the
+        // User record that coach greetings, goals, and personalization read from.
+        // Failing silently is OK — the user can retry from Profile settings
+        // later. But we log it so we can spot repeated failures.
+        do {
+            let update = APIUserProfileUpdate(
+                name: nil,  // Not collected during onboarding yet — filled in later
+                email: nil,
+                age: assessment.age,
+                height_inches: assessment.heightInches,
+                weight_lbs: assessment.weightLbs,
+                target_weight_lbs: assessment.targetWeightLbs,
+                goals: assessment.goals.map(\.rawValue),
+                training_experience: assessment.trainingExperience?.rawValue,
+                training_days_per_week: assessment.trainingDaysPerWeek
+            )
+            _ = try await APIClient.shared.updateUserProfile(update)
+        } catch {
+            // Non-fatal — continue the sync flow. User can retry from settings.
+            print("[Onboarding] Profile save failed: \(error)")
+        }
+        withAnimation(DSMotion.standard) { syncProgress = 0.25 }
 
-        for (i, _) in steps.enumerated() {
-            try? await Task.sleep(for: .seconds(0.8))
+        // Step 2: Animate the remaining progress so the user sees forward motion
+        // while their data syncs in the background (Oura webhooks, HealthKit, etc.).
+        let remainingSteps = 3
+        for i in 0..<remainingSteps {
+            try? await Task.sleep(for: .seconds(0.6))
             withAnimation(DSMotion.standard) {
-                syncProgress = Double(i + 1) / Double(steps.count)
+                syncProgress = 0.25 + Double(i + 1) / Double(remainingSteps) * 0.75
             }
         }
 
-        try? await Task.sleep(for: .seconds(0.5))
+        try? await Task.sleep(for: .seconds(0.3))
         isSyncing = false
         Analytics.Onboarding.syncCompleted()
 

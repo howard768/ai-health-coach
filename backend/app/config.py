@@ -42,5 +42,16 @@ class Settings(BaseSettings):
     apns_bundle_id: str = "com.heymeld.app"
     apns_environment: str = "sandbox"  # "sandbox" or "production"
 
+    # Auth — Sign in with Apple + backend JWTs
+    jwt_secret_key: str = ""  # HS256 secret for our own access tokens; from env
+    apple_team_id: str = ""
+    apple_bundle_id: str = "com.heymeld.app"
+    # Sign in with Apple key (separate from APNs). Used to sign the ES256 client
+    # secret for calls to Apple's /auth/revoke endpoint. Same file/content pattern
+    # as APNs: SIWA_KEY_PATH for local dev, SIWA_KEY_CONTENT for production.
+    siwa_key_id: str = ""
+    siwa_key_path: str = ""
+    siwa_key_content: str = ""
+
 
 settings = Settings()
