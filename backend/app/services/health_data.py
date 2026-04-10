@@ -19,22 +19,41 @@ from app.models.health import HealthMetricRecord, SleepRecord
 logger = logging.getLogger("meld.health_data")
 
 
+SLEEP_METRIC_KEYS = ("sleep_efficiency", "sleep_duration", "hrv", "resting_hr", "readiness")
+
+
 async def get_latest_health_data(db: AsyncSession, user_id: str) -> dict:
     """Get the latest reconciled health data for coaching and display.
 
     Reads canonical values from HealthMetricRecord (multi-source reconciled),
     falls back to SleepRecord if no reconciled data exists.
 
+    Merges today's data (e.g. live step count from Apple Health) with last
+    night's sleep data so the dashboard doesn't show 0% sleep efficiency when
+    today's step record arrives before tonight's sleep.
+
     Returns dict with all metrics the coach engine needs.
     """
     today = date.today().isoformat()
     yesterday = (date.today() - timedelta(days=1)).isoformat()
 
-    # Try reconciled data first (the value differentiator)
-    reconciled = await _get_reconciled_metrics(db, user_id, today)
-    if not reconciled:
-        # Try yesterday if today isn't available yet
-        reconciled = await _get_reconciled_metrics(db, user_id, yesterday)
+    # Today may only have step data from Apple Health (no sleep until tomorrow morning).
+    # Always merge yesterday's record on top when today lacks sleep metrics.
+    today_metrics = await _get_reconciled_metrics(db, user_id, today) or {}
+    yesterday_metrics = await _get_reconciled_metrics(db, user_id, yesterday) or {}
+
+    # Start from yesterday (sleep + recovery baseline) and overlay today
+    # (steps, active calories, anything that accumulates during the day).
+    reconciled: dict = {}
+    if yesterday_metrics:
+        reconciled.update(yesterday_metrics)
+    if today_metrics:
+        reconciled.update(today_metrics)
+        # If today is overwriting yesterday's sleep metrics with stale/missing
+        # values, restore yesterday's sleep fields.
+        for key in SLEEP_METRIC_KEYS:
+            if key not in today_metrics and key in yesterday_metrics:
+                reconciled[key] = yesterday_metrics[key]
 
     if reconciled:
         # Get 7-day baselines from reconciled data
