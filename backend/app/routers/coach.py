@@ -6,41 +6,12 @@ from sqlalchemy import select, desc
 
 from app.database import get_db
 from app.models.chat import Conversation, ChatMessageRecord
-from app.models.health import SleepRecord
 from app.services.coach_engine import CoachEngine
+from app.services.health_data import get_latest_health_data
 
 router = APIRouter(prefix="/api/coach", tags=["coach"])
 
 engine = CoachEngine()
-
-
-async def _get_real_health_data(db: AsyncSession, user_id: str) -> dict:
-    """Load real health data from the latest SleepRecord for coach context."""
-    result = await db.execute(
-        select(SleepRecord)
-        .where(SleepRecord.user_id == user_id)
-        .order_by(desc(SleepRecord.date))
-        .limit(7)
-    )
-    records = list(result.scalars().all())
-    if not records:
-        return {}
-
-    latest = records[0]
-    avg_eff = sum(r.efficiency or 0 for r in records) / len(records)
-    avg_rhr = sum(r.resting_hr or 0 for r in records if r.resting_hr) / max(1, sum(1 for r in records if r.resting_hr))
-    avg_hrv = sum(r.hrv_average or 0 for r in records if r.hrv_average) / max(1, sum(1 for r in records if r.hrv_average))
-
-    return {
-        "sleep_efficiency": latest.efficiency or 0,
-        "sleep_duration_hours": round((latest.total_sleep_seconds or 0) / 3600, 1),
-        "deep_sleep_minutes": round((latest.deep_sleep_seconds or 0) / 60),
-        "hrv_average": latest.hrv_average or 0,
-        "baseline_hrv": round(avg_hrv, 1),
-        "resting_hr": latest.resting_hr or 0,
-        "baseline_rhr": round(avg_rhr, 1),
-        "readiness_score": latest.readiness_score or 0,
-    }
 
 
 class ChatRequest(BaseModel):
@@ -98,8 +69,8 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
     db.add(user_msg)
     await db.flush()
 
-    # Load real health data for context
-    health_data = await _get_real_health_data(db, user_id)
+    # Load reconciled health data (multi-source: Oura + Apple Health + Garmin)
+    health_data = await get_latest_health_data(db, user_id)
 
     # Process through coach engine (with conversation history)
     # Wrap in to_thread because process_query() calls synchronous Anthropic SDK
@@ -186,7 +157,7 @@ async def get_history(db: AsyncSession = Depends(get_db)):
 @router.post("/insight")
 async def generate_insight(db: AsyncSession = Depends(get_db)):
     """Generate daily dashboard insight via the engine pipeline."""
-    health_data = await _get_real_health_data(db, "default")
+    health_data = await get_latest_health_data(db, "default")
     result = engine.generate_daily_insight(
         health_data=health_data,
         user_goals=["Lose weight", "Build muscle"],

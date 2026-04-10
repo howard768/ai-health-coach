@@ -25,6 +25,19 @@ final class AppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUser
             }
         }
 
+        // Auto-sync HealthKit data on every launch
+        Task {
+            if HealthKitService.shared.isAvailable {
+                let steps = await HealthKitService.shared.queryTodaySteps()
+                if steps != nil {
+                    // HealthKit is authorized — sync data to backend
+                    HealthKitService.shared.isAuthorized = true
+                    await HealthKitService.shared.syncToBackend()
+                    print("[HealthKit] Auto-synced on launch")
+                }
+            }
+        }
+
         return true
     }
 
