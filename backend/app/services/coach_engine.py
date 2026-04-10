@@ -249,9 +249,9 @@ class Deliberator:
         "readiness_low": "Your body needs rest. Take it easy today.",
         "hrv_above_baseline": "Your HRV is above your average. Your body is handling stress well.",
         "hrv_below_baseline": "Your HRV is below your average. Your body may need more recovery.",
-        "rhr_stable": "Your resting heart rate is stable. Your fitness level is consistent.",
-        "rhr_dropping": "Your resting heart rate is dropping. Your fitness is improving.",
-        "rhr_rising": "Your resting heart rate is going up. Watch your recovery and stress.",
+        "rhr_stable": "Your resting heart rate is holding steady. That means your fitness level is consistent right now.",
+        "rhr_dropping": "Your resting heart rate is trending down. That's a good sign — your cardiovascular fitness is improving.",
+        "rhr_rising": "Your resting heart rate is trending up. This can mean stress, poor sleep, or overtraining. Give your body some extra recovery time.",
     }
 
     @staticmethod
@@ -260,9 +260,22 @@ class Deliberator:
 
         query_lower = query.lower()
 
-        # Readiness queries
+        # Resting heart rate queries (check BEFORE readiness to avoid "rest" substring match)
+        rhr = health_data.get("resting_hr")
+        baseline_rhr = health_data.get("baseline_rhr")
+        if rhr and any(w in query_lower for w in ["resting heart rate", "resting hr", "rhr"]):
+            if baseline_rhr and abs(rhr - baseline_rhr) < 2:
+                return True, Deliberator.RULES["rhr_stable"]
+            elif baseline_rhr and rhr < baseline_rhr:
+                return True, Deliberator.RULES["rhr_dropping"]
+            elif baseline_rhr and rhr > baseline_rhr:
+                return True, Deliberator.RULES["rhr_rising"]
+            # No baseline — let AI handle with full context
+            return False, None
+
+        # Readiness queries (use full words to avoid matching "resting")
         readiness = health_data.get("readiness_score", 0)
-        if any(w in query_lower for w in ["readiness", "recovery", "ready", "push hard", "rest"]):
+        if any(w in query_lower for w in ["readiness", "recovery", "ready", "push hard", "should i rest"]):
             if readiness >= 67:
                 return True, Deliberator.RULES["readiness_high"]
             elif readiness >= 34:
