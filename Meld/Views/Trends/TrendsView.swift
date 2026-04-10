@@ -110,17 +110,47 @@ struct TrendsView: View {
     }
 
     private var summaryText: String {
-        switch selectedRange {
-        case .week:
-            "Your sleep and HRV are both trending up. Resting heart rate is stable. You trained 5 of 7 days. Strong week."
-        case .month:
-            "Your sleep got better over the last 30 days. HRV is up 8% from where you started. Your body is adapting to your training."
-        case .quarter:
-            "Big picture: your fitness is improving. Resting HR dropped 4 bpm, HRV is up 15%, and you've been consistent 80% of the time."
+        guard let data = trendsData else {
+            // Pre-load fallback
+            switch selectedRange {
+            case .week:
+                return "Your sleep and HRV are both trending up. Resting heart rate is stable. You trained 5 of 7 days. Strong week."
+            case .month:
+                return "Your sleep got better over the last 30 days. HRV is up 8% from where you started. Your body is adapting to your training."
+            case .quarter:
+                return "Big picture: your fitness is improving. Resting HR dropped 4 bpm, HRV is up 15%, and you've been consistent 80% of the time."
+            }
         }
+        var parts: [String] = []
+        if let sleep = data.metrics["sleep_efficiency"], sleep.values.count >= 2,
+           let first = sleep.values.first, first > 0 {
+            let last = sleep.values.last!
+            let pct = Int((last - first) / first * 100)
+            if pct > 0 { parts.append("Sleep is up \(pct)%.") }
+            else if pct < 0 { parts.append("Sleep is down \(abs(pct))%.") }
+            else { parts.append("Sleep is stable.") }
+        }
+        if let hrv = data.metrics["hrv"], hrv.values.count >= 2,
+           let first = hrv.values.first, first > 0 {
+            let last = hrv.values.last!
+            let pct = Int((last - first) / first * 100)
+            if pct > 0 { parts.append("HRV is up \(pct)%.") }
+            else if pct < 0 { parts.append("HRV is down \(abs(pct))%.") }
+            else { parts.append("HRV is stable.") }
+        }
+        if let hr = data.metrics["resting_hr"], hr.values.count >= 2 {
+            let first = hr.values.first!, last = hr.values.last!
+            let diff = Int(first - last)
+            if diff > 0 { parts.append("Resting HR dropped \(diff) bpm.") }
+            else if diff < 0 { parts.append("Resting HR is up \(abs(diff)) bpm.") }
+            else { parts.append("Resting heart rate is stable.") }
+        }
+        return parts.isEmpty ? "Loading your trends..." : parts.joined(separator: " ")
     }
 
     // MARK: - Cross-Domain Trend
+    // TODO: Blocked on backend — needs GET /api/trends/patterns returning correlation text.
+    //       Hardcoded until that endpoint exists.
 
     private var crossDomainTrendInsight: some View {
         DSCard(style: .data) {
@@ -144,6 +174,9 @@ struct TrendsView: View {
     }
 
     // MARK: - Nutrition Trend
+    // TODO: Blocked on backend — needs GET /api/trends/nutrition (or nutrition keys added
+    //       to the existing /api/trends response) returning avg protein, avg calories, days logged.
+    //       Values below are hardcoded until that endpoint exists.
 
     private var nutritionTrendCard: some View {
         DSCard(style: .metric) {
@@ -276,11 +309,21 @@ private struct TrendCard: View {
     // MARK: - Per-Metric Data
 
     private var currentValue: String {
+        let key: String
         switch metric {
-        case .sleepEfficiency: "91"
-        case .hrv: "68"
-        case .restingHR: "58"
-        case .consistency: "5/7"
+        case .sleepEfficiency: key = "sleep_efficiency"
+        case .hrv: key = "hrv"
+        case .restingHR: key = "resting_hr"
+        case .consistency: key = "readiness"
+        }
+        if let last = apiData?.metrics[key]?.values.last {
+            return "\(Int(last))"
+        }
+        switch metric {
+        case .sleepEfficiency: return "91"
+        case .hrv: return "68"
+        case .restingHR: return "58"
+        case .consistency: return "5"
         }
     }
 
@@ -348,11 +391,35 @@ private struct TrendCard: View {
     }
 
     private var trendText: String {
+        let key: String
         switch metric {
-        case .sleepEfficiency: "+6% this \(range.label.lowercased())"
-        case .hrv: "+17% this \(range.label.lowercased())"
-        case .restingHR: "-4 bpm this \(range.label.lowercased())"
-        case .consistency: "On track"
+        case .sleepEfficiency: key = "sleep_efficiency"
+        case .hrv: key = "hrv"
+        case .restingHR: key = "resting_hr"
+        case .consistency: key = "readiness"
+        }
+        if let values = apiData?.metrics[key]?.values, values.count >= 2,
+           let first = values.first, first > 0, let last = values.last {
+            switch metric {
+            case .sleepEfficiency, .hrv:
+                let pct = Int((last - first) / first * 100)
+                let sign = pct >= 0 ? "+" : ""
+                return "\(sign)\(pct)% this \(range.label.lowercased())"
+            case .restingHR:
+                let diff = Int(first - last)
+                if diff == 0 { return "Stable this \(range.label.lowercased())" }
+                let sign = diff > 0 ? "-" : "+"
+                return "\(sign)\(abs(diff)) bpm this \(range.label.lowercased())"
+            case .consistency:
+                let avg = values.reduce(0, +) / Double(values.count)
+                return String(format: "%.1f avg/week", avg)
+            }
+        }
+        switch metric {
+        case .sleepEfficiency: return "+6% this \(range.label.lowercased())"
+        case .hrv: return "+17% this \(range.label.lowercased())"
+        case .restingHR: return "-4 bpm this \(range.label.lowercased())"
+        case .consistency: return "On track"
         }
     }
 
@@ -384,11 +451,31 @@ private struct TrendCard: View {
     }
 
     private var contextText: String {
+        let key: String
         switch metric {
-        case .sleepEfficiency: "Avg: 85% · Best: 91% · Dashed line = your average"
-        case .hrv: "Avg: 58ms · Today: 68ms · Trending up"
-        case .restingHR: "Avg: 62 bpm · Today: 58 bpm · Getting lower (good)"
-        case .consistency: "4.4 avg days/week · Target: 5 days"
+        case .sleepEfficiency: key = "sleep_efficiency"
+        case .hrv: key = "hrv"
+        case .restingHR: key = "resting_hr"
+        case .consistency: key = "readiness"
+        }
+        if let m = apiData?.metrics[key], let last = m.values.last {
+            let avg = Int(m.personal_average)
+            switch metric {
+            case .sleepEfficiency:
+                return "Avg: \(avg)% · Today: \(Int(last))% · Dashed line = your average"
+            case .hrv:
+                return "Avg: \(avg)ms · Today: \(Int(last))ms · Dashed line = your average"
+            case .restingHR:
+                return "Avg: \(avg) bpm · Today: \(Int(last)) bpm · Getting lower (good)"
+            case .consistency:
+                return String(format: "%.1f avg days/week · Target: 5 days", m.personal_average)
+            }
+        }
+        switch metric {
+        case .sleepEfficiency: return "Avg: 85% · Best: 91% · Dashed line = your average"
+        case .hrv: return "Avg: 58ms · Today: 68ms · Trending up"
+        case .restingHR: return "Avg: 62 bpm · Today: 58 bpm · Getting lower (good)"
+        case .consistency: return "4.4 avg days/week · Target: 5 days"
         }
     }
 }
