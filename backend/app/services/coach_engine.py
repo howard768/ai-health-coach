@@ -260,18 +260,10 @@ class Deliberator:
 
         query_lower = query.lower()
 
-        # Resting heart rate queries (check BEFORE readiness to avoid "rest" substring match)
-        rhr = health_data.get("resting_hr")
-        baseline_rhr = health_data.get("baseline_rhr")
-        if rhr and any(w in query_lower for w in ["resting heart rate", "resting hr", "rhr"]):
-            if baseline_rhr and abs(rhr - baseline_rhr) < 2:
-                return True, Deliberator.RULES["rhr_stable"]
-            elif baseline_rhr and rhr < baseline_rhr:
-                return True, Deliberator.RULES["rhr_dropping"]
-            elif baseline_rhr and rhr > baseline_rhr:
-                return True, Deliberator.RULES["rhr_rising"]
-            # No baseline — let AI handle with full context
-            return False, None
+        # Resting heart rate, HRV, sleep — these need AI with real data, not canned rules.
+        # The user wants their actual numbers with context, not generic advice.
+        if any(w in query_lower for w in ["resting heart rate", "resting hr", "rhr", "heart rate"]):
+            return False, None  # Route to AI with full health data context
 
         # Readiness queries (use full words to avoid matching "resting")
         readiness = health_data.get("readiness_score", 0)
