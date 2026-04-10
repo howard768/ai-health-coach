@@ -110,8 +110,12 @@ async def sync_user_data(db: AsyncSession, user_id: str) -> dict:
                 readiness_score = r.get("score")
                 break
 
-        # Get session data for durations (daily_sleep only has contributor scores)
+        # Get session data for durations AND true efficiency percentage.
+        # daily_sleep.contributors.efficiency is a 0-100 score that contributes
+        # to the daily sleep score — NOT the actual sleep efficiency percentage.
+        # The real percentage comes from the sleep_sessions endpoint.
         session = session_by_day.get(day_date, {})
+        session_efficiency = session.get("efficiency")  # 0-100 percentage
 
         # Parse bedtime timestamps from session data
         contributors = day.get("contributors", {})
@@ -121,7 +125,7 @@ async def sync_user_data(db: AsyncSession, user_id: str) -> dict:
         record = SleepRecord(
             user_id=user_id,
             date=day_date,
-            efficiency=contributors.get("efficiency"),
+            efficiency=session_efficiency,
             total_sleep_seconds=session.get("total_sleep_duration"),
             deep_sleep_seconds=session.get("deep_sleep_duration"),
             rem_sleep_seconds=session.get("rem_sleep_duration"),
@@ -137,8 +141,8 @@ async def sync_user_data(db: AsyncSession, user_id: str) -> dict:
         records_saved += 1
 
         # Also write to unified HealthMetricRecord for reconciliation
-        if contributors.get("efficiency"):
-            db.add(HealthMetricRecord(user_id=user_id, date=day_date, metric_type="sleep_efficiency", value=contributors["efficiency"], unit="%", source="oura"))
+        if session_efficiency is not None:
+            db.add(HealthMetricRecord(user_id=user_id, date=day_date, metric_type="sleep_efficiency", value=session_efficiency, unit="%", source="oura"))
         # Sleep duration comes from session data, not daily_sleep
         sleep_duration_secs = session.get("total_sleep_duration")
         if sleep_duration_secs:
