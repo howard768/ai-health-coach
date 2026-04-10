@@ -35,7 +35,8 @@ actor APIClient {
 
     /// Build a URL from a path relative to the server root (e.g., "/api/meals").
     /// Handles the baseURL already containing "/api" — strips it to get server root.
-    var serverRoot: URL {
+    /// nonisolated: only reads the immutable `let baseURL`, safe across actor boundaries.
+    nonisolated var serverRoot: URL {
         // baseURL is like "http://host:8000/api" — go up one to get "http://host:8000"
         baseURL.deletingLastPathComponent()
     }
@@ -347,6 +348,18 @@ actor APIClient {
             throw APIError.serverError
         }
         return try decoder.decode(APIUserProfile.self, from: data)
+    }
+
+    func disconnectOura() async throws {
+        let url = serverRoot.appendingPathComponent("api/user/oura")
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+
+        let (_, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 204 else {
+            throw APIError.serverError
+        }
     }
 
     func reportNotificationOpened(notificationId: Int) async throws {
