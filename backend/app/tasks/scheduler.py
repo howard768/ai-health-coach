@@ -26,6 +26,7 @@ from app.services.garmin_sync import sync_user_data as garmin_sync
 from app.services.data_reconciliation import reconcile_day
 from app.services.correlation_engine import compute_correlations
 from app.services.literature import literature_service
+from app.services.oura_webhooks import list_subscriptions, renew_subscription
 
 logger = logging.getLogger("meld.scheduler")
 
@@ -356,6 +357,23 @@ async def garmin_sync_job():
             await reconcile_day(db, USER_ID, today)
 
 
+async def webhook_renewal_job():
+    """Monthly: renew Oura webhook subscriptions before they expire (90-day TTL)."""
+    logger.info("Running webhook_renewal_job")
+    try:
+        subs = await list_subscriptions()
+        renewed = 0
+        for sub in subs:
+            try:
+                await renew_subscription(sub["id"])
+                renewed += 1
+            except Exception as e:
+                logger.error("Failed to renew webhook %s: %s", sub["id"], e)
+        logger.info("Renewed %d/%d webhook subscriptions", renewed, len(subs))
+    except Exception as e:
+        logger.error("Webhook renewal failed: %s", e)
+
+
 async def correlation_engine_job():
     """Weekly: discover cross-domain health correlations from user data."""
     logger.info("Running correlation_engine_job")
@@ -613,6 +631,15 @@ def start_scheduler():
         trigger=CronTrigger(day_of_week="sun", hour=4, minute=0),
         id="correlation_engine",
         name="Cross-Domain Correlation Discovery",
+        replace_existing=True,
+    )
+
+    # Webhook renewal: 1st of each month at 02:00 UTC (90-day TTL, renew monthly)
+    scheduler.add_job(
+        webhook_renewal_job,
+        trigger=CronTrigger(day=1, hour=2, minute=0),
+        id="webhook_renewal",
+        name="Oura Webhook Renewal",
         replace_existing=True,
     )
 
