@@ -326,6 +326,16 @@ actor APIClient {
         return try decoder.decode(APITrendsResponse.self, from: data)
     }
 
+    func fetchTrendPatterns() async throws -> APITrendPatternsResponse {
+        let url = serverRoot.appendingPathComponent("api/trends/patterns")
+        let request = URLRequest(url: url)
+        let (data, response) = try await authedData(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw APIError.serverError
+        }
+        return try decoder.decode(APITrendPatternsResponse.self, from: data)
+    }
+
     // MARK: - Notifications
 
     func registerDeviceToken(_ token: String) async throws {
@@ -715,6 +725,7 @@ struct APIMealResponse: Codable {
 struct APITrendsResponse: Codable {
     let range_days: Int
     let metrics: [String: APIMetricTrend]
+    let nutrition: APITrendsNutrition?
 }
 
 struct APIMetricTrend: Codable {
@@ -724,6 +735,26 @@ struct APIMetricTrend: Codable {
     let personal_min: Double
     let personal_max: Double
     let personal_average: Double
+}
+
+struct APITrendsNutrition: Codable {
+    let avg_protein_g: Double
+    let avg_calories: Double
+    let target_protein_g: Double
+    let target_calories: Double
+    let days_logged: Int
+    let days_in_range: Int
+}
+
+struct APIPatternInsight: Codable {
+    let pattern_text: String
+    let confidence: Double
+    let days_matched: Int
+    let days_total: Int
+}
+
+struct APITrendPatternsResponse: Codable {
+    let patterns: [APIPatternInsight]
 }
 
 struct APIUserProfile: Codable {

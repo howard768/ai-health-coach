@@ -14,6 +14,7 @@ struct TrendsView: View {
     @State private var selectedRange: TimeRange = .week
     @State private var selectedMetric: MetricCategory? = nil
     @State private var trendsData: APITrendsResponse?
+    @State private var patterns: [APIPatternInsight] = []
     private let M: CGFloat = 20
 
     var body: some View {
@@ -44,7 +45,10 @@ struct TrendsView: View {
         .background(DSColor.Background.primary)
         .navigationTitle("Trends")
         .navigationBarTitleDisplayMode(.large)
-        .task { await loadTrends() }
+        .task {
+            await loadTrends()
+            await loadPatterns()
+        }
         .onChange(of: selectedRange) { _, _ in Task { await loadTrends() } }
     }
 
@@ -59,6 +63,15 @@ struct TrendsView: View {
             trendsData = try await APIClient.shared.fetchTrends(rangeDays: days)
         } catch {
             // Keep existing data on error
+        }
+    }
+
+    private func loadPatterns() async {
+        do {
+            let result = try await APIClient.shared.fetchTrendPatterns()
+            patterns = result.patterns
+        } catch {
+            // Keep existing patterns on error
         }
     }
 
@@ -123,16 +136,23 @@ struct TrendsView: View {
     // MARK: - Cross-Domain Trend
 
     private var crossDomainTrendInsight: some View {
-        DSCard(style: .data) {
+        let topPattern = patterns.first
+        return DSCard(style: .data) {
             VStack(alignment: .leading, spacing: DSSpacing.md) {
                 Text("Pattern Found")
                     .font(DSTypography.h3)
                     .foregroundStyle(DSColor.Text.primary)
 
-                Text("Your HRV tends to be higher on days after you eat dinner before 7pm. This pattern showed up 5 out of the last 7 times.")
+                Text(topPattern?.pattern_text ?? "Your HRV tends to be higher on days after you eat dinner before 7pm. This pattern showed up 5 out of the last 7 times.")
                     .font(DSTypography.body)
                     .foregroundStyle(DSColor.Text.secondary)
                     .lineSpacing(4)
+
+                if let pattern = topPattern {
+                    Text("\(pattern.days_matched) of \(pattern.days_total) days · \(Int(pattern.confidence * 100))% confidence")
+                        .font(DSTypography.caption)
+                        .foregroundStyle(DSColor.Text.tertiary)
+                }
 
                 DSChip(title: "Ask coach about this") {
                     NotificationCenter.default.post(name: .init("MeldSwitchTab"), object: nil, userInfo: ["tab": "coach"])
