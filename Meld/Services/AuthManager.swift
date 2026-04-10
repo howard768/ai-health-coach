@@ -1,0 +1,167 @@
+import Foundation
+
+// MARK: - AuthManager
+//
+// Orchestrates the session lifecycle — Sign in with Apple exchange, token
+// refresh on 401, logout, and account deletion. Isolated as an actor so
+// concurrent callers serialize on refresh (single-flight pattern).
+//
+// Design (per research in Audits/Full Codebase Audit 2026-04-10.md):
+// - Single-flight refresh: if a refresh is in progress, every other 401
+//   handler awaits the same Task (Donny Wals' pattern).
+// - On refresh failure, wipe Keychain and broadcast `meldSessionExpired`
+//   so the UI can kick to Welcome.
+// - Never preemptively refresh — only refresh on 401 from the API.
+
+@MainActor
+final class AuthSessionState: ObservableObject {
+    static let shared = AuthSessionState()
+
+    @Published var isSignedIn: Bool = false
+    @Published var userDisplayName: String? = nil
+
+    func setSignedIn(_ signedIn: Bool, name: String? = nil) {
+        self.isSignedIn = signedIn
+        if let name { self.userDisplayName = name }
+    }
+}
+
+actor AuthManager {
+    static let shared = AuthManager()
+
+    private var refreshTask: Task<TokenPair, Error>?
+
+    struct TokenPair: Sendable {
+        let accessToken: String
+        let refreshToken: String
+        let expiresIn: Int  // seconds from issuance
+        let user: UserInfo
+    }
+
+    struct UserInfo: Sendable, Codable {
+        let id: String
+        let name: String?
+        let email: String?
+        let is_private_email: Bool
+    }
+
+    /// Return a valid access token, refreshing if needed. Callers should
+    /// retry the originating request once after calling this.
+    func validAccessToken() async throws -> String {
+        // If a refresh is already in flight, await it
+        if let task = refreshTask {
+            let pair = try await task.value
+            return pair.accessToken
+        }
+        // Return the stored token as-is; we refresh only on 401
+        return try await KeychainStore.shared.readAccessToken()
+    }
+
+    /// Force a refresh. Cached in-flight Task ensures concurrent callers
+    /// share a single network round-trip.
+    @discardableResult
+    func refresh() async throws -> TokenPair {
+        if let task = refreshTask {
+            return try await task.value
+        }
+
+        let task = Task<TokenPair, Error> {
+            defer { Task { await self.clearRefreshTask() } }
+            let stored = try await KeychainStore.shared.readRefreshToken()
+            let pair = try await APIClient.shared.refreshSession(refreshToken: stored)
+            try await self.persistTokens(pair)
+            return pair
+        }
+        self.refreshTask = task
+        return try await task.value
+    }
+
+    private func clearRefreshTask() {
+        refreshTask = nil
+    }
+
+    // MARK: - Sign in with Apple
+
+    /// Called by the Sign in with Apple completion handler. Exchanges Apple's
+    /// identity token for our own access + refresh tokens and persists them.
+    func signInWithApple(
+        identityToken: String,
+        rawNonce: String,
+        fullName: String?,
+        email: String?,
+        deviceId: String?
+    ) async throws {
+        let pair = try await APIClient.shared.signInWithApple(
+            identityToken: identityToken,
+            rawNonce: rawNonce,
+            fullName: fullName,
+            email: email,
+            deviceId: deviceId
+        )
+        try await persistTokens(pair)
+        let displayName = pair.user.name
+        await MainActor.run {
+            AuthSessionState.shared.setSignedIn(true, name: displayName)
+        }
+    }
+
+    // MARK: - Logout
+
+    func logout() async {
+        // Best-effort backend call
+        do {
+            let refresh = try await KeychainStore.shared.readRefreshToken()
+            try? await APIClient.shared.logoutSession(refreshToken: refresh)
+        } catch {
+            // No refresh token stored — nothing to tell the backend about
+        }
+        try? await KeychainStore.shared.wipe()
+        await MainActor.run {
+            AuthSessionState.shared.setSignedIn(false)
+        }
+    }
+
+    // MARK: - Account Deletion
+
+    func deleteAccount() async throws {
+        try await APIClient.shared.deleteAccount()
+        try? await KeychainStore.shared.wipe()
+        await MainActor.run {
+            AuthSessionState.shared.setSignedIn(false)
+        }
+    }
+
+    // MARK: - Session bootstrapping
+
+    /// Called at app launch. If a token is stored, mark the session active
+    /// and trust it until the first 401 forces a refresh.
+    func bootstrapSession() async {
+        let hasSession = await KeychainStore.shared.hasStoredSession()
+        await MainActor.run {
+            AuthSessionState.shared.setSignedIn(hasSession)
+        }
+    }
+
+    /// Called when an API request returns 401. Tries one refresh; if that
+    /// fails, wipes the session and signals the UI to return to login.
+    func handleUnauthorized() async {
+        do {
+            _ = try await refresh()
+            // Success — caller should retry the original request
+        } catch {
+            // Refresh failed — treat as signed out
+            try? await KeychainStore.shared.wipe()
+            await MainActor.run {
+                AuthSessionState.shared.setSignedIn(false)
+            }
+        }
+    }
+
+    // MARK: - Private
+
+    private func persistTokens(_ pair: TokenPair) async throws {
+        try await KeychainStore.shared.saveAccessToken(pair.accessToken)
+        try await KeychainStore.shared.saveRefreshToken(pair.refreshToken)
+        try await KeychainStore.shared.saveAppleUserId(pair.user.id)
+    }
+}

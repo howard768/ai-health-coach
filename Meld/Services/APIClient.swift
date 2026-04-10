@@ -40,11 +40,155 @@ actor APIClient {
         baseURL.deletingLastPathComponent()
     }
 
+    // MARK: - Authed request helpers
+    //
+    // These wrap URLSession.data(for:) with:
+    // 1. Automatic Authorization: Bearer <token> header attachment
+    // 2. Single-flight refresh on 401 via AuthManager
+    // 3. One retry of the original request with a fresh token
+    //
+    // On second 401, we throw .unauthorized and AuthManager wipes the session.
+
+    private func attachAuth(_ request: inout URLRequest) async {
+        // Read token from Keychain directly (AuthManager's validAccessToken also reads it).
+        // We don't refresh preemptively — only on 401.
+        if let token = try? await KeychainStore.shared.readAccessToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+    }
+
+    /// Send an HTTP request with automatic auth + 401 retry.
+    /// On second 401, AuthManager wipes the session and this throws `.unauthorized`.
+    private func authedData(for request: URLRequest) async throws -> (Data, URLResponse) {
+        var req = request
+        await attachAuth(&req)
+        let (data, response) = try await session.data(for: req)
+
+        if let http = response as? HTTPURLResponse, http.statusCode == 401 {
+            // Try a single refresh + retry
+            do {
+                _ = try await AuthManager.shared.refresh()
+            } catch {
+                await AuthManager.shared.handleUnauthorized()
+                throw APIError.unauthorized
+            }
+            // Rebuild request with fresh token
+            var retry = request
+            await attachAuth(&retry)
+            let (retryData, retryResponse) = try await session.data(for: retry)
+            if let retryHttp = retryResponse as? HTTPURLResponse, retryHttp.statusCode == 401 {
+                await AuthManager.shared.handleUnauthorized()
+                throw APIError.unauthorized
+            }
+            return (retryData, retryResponse)
+        }
+        return (data, response)
+    }
+
+    // MARK: - Auth endpoints
+    //
+    // These hit /auth/* which does NOT go through authedData — they either
+    // don't need a bearer token (signInWithApple) or use a different auth
+    // mechanism (refreshSession passes refresh_token in the body).
+
+    func signInWithApple(
+        identityToken: String,
+        rawNonce: String,
+        fullName: String?,
+        email: String?,
+        deviceId: String?
+    ) async throws -> AuthManager.TokenPair {
+        let url = serverRoot.appendingPathComponent("auth/apple")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any?] = [
+            "identity_token": identityToken,
+            "raw_nonce": rawNonce,
+            "full_name": fullName,
+            "email": email,
+            "device_id": deviceId,
+        ]
+        // Strip nils so the backend's Pydantic validator doesn't get confused
+        let cleanBody = body.compactMapValues { $0 }
+        request.httpBody = try JSONSerialization.data(withJSONObject: cleanBody)
+
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            if let body = String(data: data, encoding: .utf8) {
+                print("[APIClient] /auth/apple failed: \(body)")
+            }
+            throw APIError.serverError
+        }
+        return try decodeTokenPair(from: data)
+    }
+
+    func refreshSession(refreshToken: String) async throws -> AuthManager.TokenPair {
+        let url = serverRoot.appendingPathComponent("auth/refresh")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let body = ["refresh_token": refreshToken]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw APIError.unauthorized
+        }
+        return try decodeTokenPair(from: data)
+    }
+
+    func logoutSession(refreshToken: String) async throws {
+        let url = serverRoot.appendingPathComponent("auth/logout")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let body = ["refresh_token": refreshToken]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        // logout requires bearer token (CurrentUser dependency), so use authedData
+        _ = try await authedData(for: request)
+    }
+
+    func deleteAccount() async throws {
+        let url = serverRoot.appendingPathComponent("auth/delete")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        _ = try await authedData(for: request)
+    }
+
+    /// Decode a TokenPair from the backend's JSON response.
+    private func decodeTokenPair(from data: Data) throws -> AuthManager.TokenPair {
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let accessToken = json["access_token"] as? String,
+              let refreshToken = json["refresh_token"] as? String,
+              let expiresIn = json["expires_in"] as? Int,
+              let userDict = json["user"] as? [String: Any],
+              let userId = userDict["id"] as? String
+        else {
+            throw APIError.serverError
+        }
+        let user = AuthManager.UserInfo(
+            id: userId,
+            name: userDict["name"] as? String,
+            email: userDict["email"] as? String,
+            is_private_email: (userDict["is_private_email"] as? Bool) ?? false
+        )
+        return AuthManager.TokenPair(
+            accessToken: accessToken,
+            refreshToken: refreshToken,
+            expiresIn: expiresIn,
+            user: user
+        )
+    }
+
     // MARK: - Dashboard
 
     func fetchDashboard() async throws -> APIDashboardResponse {
         let url = baseURL.appendingPathComponent("dashboard")
-        let (data, response) = try await session.data(from: url)
+        let request = URLRequest(url: url)
+        let (data, response) = try await authedData(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw APIError.serverError
@@ -64,7 +208,7 @@ actor APIClient {
         let body = APIChatRequest(message: message)
         request.httpBody = try JSONEncoder().encode(body)
 
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await authedData(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw APIError.serverError
@@ -84,7 +228,7 @@ actor APIClient {
         let body = ["message_id": messageId, "feedback": feedback] as [String: Any]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (_, response) = try await session.data(for: request)
+        let (_, response) = try await authedData(for: request)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw APIError.serverError
         }
@@ -94,7 +238,8 @@ actor APIClient {
 
     func fetchChatHistory() async throws -> [APIHistoryMessage] {
         let url = baseURL.appendingPathComponent("coach/history")
-        let (data, response) = try await session.data(from: url)
+        let request = URLRequest(url: url)
+        let (data, response) = try await authedData(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw APIError.serverError
@@ -111,7 +256,7 @@ actor APIClient {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
 
-        let (_, response) = try await session.data(for: request)
+        let (_, response) = try await authedData(for: request)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw APIError.serverError
         }
@@ -128,7 +273,7 @@ actor APIClient {
         let body = ["username": username, "password": password]
         request.httpBody = try JSONEncoder().encode(body)
 
-        let (_, response) = try await session.data(for: request)
+        let (_, response) = try await authedData(for: request)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw APIError.serverError
         }
@@ -145,7 +290,7 @@ actor APIClient {
         let body = ["username": username, "password": password]
         request.httpBody = try JSONEncoder().encode(body)
 
-        let (_, response) = try await session.data(for: request)
+        let (_, response) = try await authedData(for: request)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw APIError.serverError
         }
@@ -160,7 +305,7 @@ actor APIClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(metrics)
 
-        let (_, response) = try await session.data(for: request)
+        let (_, response) = try await authedData(for: request)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw APIError.serverError
         }
@@ -173,7 +318,8 @@ actor APIClient {
         var components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
         components.queryItems = [URLQueryItem(name: "range", value: "\(rangeDays)")]
 
-        let (data, response) = try await session.data(from: components.url!)
+        let request = URLRequest(url: components.url!)
+        let (data, response) = try await authedData(for: request)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw APIError.serverError
         }
@@ -192,7 +338,7 @@ actor APIClient {
         let body = ["device_token": token, "platform": "ios"]
         request.httpBody = try JSONEncoder().encode(body)
 
-        let (_, response) = try await session.data(for: request)
+        let (_, response) = try await authedData(for: request)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw APIError.serverError
         }
@@ -201,7 +347,8 @@ actor APIClient {
     func fetchNotificationPreferences() async throws -> APINotificationPreferences {
         let url = baseURL.deletingLastPathComponent()
             .appendingPathComponent("api/notifications/preferences")
-        let (data, response) = try await session.data(from: url)
+        let request = URLRequest(url: url)
+        let (data, response) = try await authedData(for: request)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw APIError.serverError
         }
@@ -216,7 +363,7 @@ actor APIClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(prefs)
 
-        let (_, response) = try await session.data(for: request)
+        let (_, response) = try await authedData(for: request)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw APIError.serverError
         }
@@ -235,7 +382,7 @@ actor APIClient {
         let body: [String: String] = ["image_base64": base64, "media_type": "image/jpeg"]
         request.httpBody = try JSONEncoder().encode(body)
 
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await authedData(for: request)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw APIError.serverError
         }
@@ -271,7 +418,7 @@ actor APIClient {
         )
         request.httpBody = try JSONEncoder().encode(body)
 
-        let (_, response) = try await session.data(for: request)
+        let (_, response) = try await authedData(for: request)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw APIError.serverError
         }
@@ -283,7 +430,8 @@ actor APIClient {
         var components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
         components.queryItems = [URLQueryItem(name: "date", value: date)]
 
-        let (data, response) = try await session.data(from: components.url!)
+        let request = URLRequest(url: components.url!)
+        let (data, response) = try await authedData(for: request)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw APIError.serverError
         }
@@ -301,7 +449,7 @@ actor APIClient {
         let body = ["query": query]
         request.httpBody = try JSONEncoder().encode(body)
 
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await authedData(for: request)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw APIError.serverError
         }
@@ -313,7 +461,8 @@ actor APIClient {
     func lookupBarcode(_ code: String) async throws -> FoodItem? {
         let url = baseURL.deletingLastPathComponent()
             .appendingPathComponent("api/food/barcode/\(code)")
-        let (data, response) = try await session.data(from: url)
+        let request = URLRequest(url: url)
+        let (data, response) = try await authedData(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.serverError
         }
@@ -328,7 +477,8 @@ actor APIClient {
 
     func fetchUserProfile() async throws -> APIUserProfile {
         let url = serverRoot.appendingPathComponent("api/user/profile")
-        let (data, response) = try await session.data(from: url)
+        let request = URLRequest(url: url)
+        let (data, response) = try await authedData(for: request)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw APIError.serverError
         }
@@ -342,7 +492,7 @@ actor APIClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(update)
 
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await authedData(for: request)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw APIError.serverError
         }
@@ -359,7 +509,7 @@ actor APIClient {
         let body = ["notification_id": notificationId]
         request.httpBody = try JSONEncoder().encode(body)
 
-        let (_, response) = try await session.data(for: request)
+        let (_, response) = try await authedData(for: request)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw APIError.serverError
         }
@@ -368,6 +518,7 @@ actor APIClient {
     // MARK: - Health Check
 
     func healthCheck() async -> Bool {
+        // Unauthenticated — root endpoint is public
         let url = baseURL.deletingLastPathComponent()
         do {
             let (_, response) = try await session.data(from: url)
@@ -384,12 +535,14 @@ enum APIError: Error, LocalizedError {
     case serverError
     case networkError
     case decodingError
+    case unauthorized  // 401 — refresh failed, session is dead
 
     var errorDescription: String? {
         switch self {
         case .serverError: "Something went wrong. Try again in a bit."
         case .networkError: "Can't connect. Check your internet."
         case .decodingError: "Got unexpected data from the server."
+        case .unauthorized: "Please sign in again."
         }
     }
 }

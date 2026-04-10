@@ -1,3 +1,4 @@
+import AuthenticationServices
 import SwiftUI
 
 // MARK: - Screen 1: Welcome + Apple Sign In
@@ -9,6 +10,10 @@ import SwiftUI
 struct WelcomeView: View {
     let viewModel: OnboardingViewModel
     private let M = OnboardingLayout.margin
+
+    @State private var signInCoordinator = AppleSignInCoordinator()
+    @State private var signInError: String?
+    @State private var isSigningIn = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -70,19 +75,26 @@ struct WelcomeView: View {
 
             // CTA anchored at bottom
             VStack(spacing: DSSpacing.sm) {
-                Button(action: {
-                    Analytics.Onboarding.appleSignInTapped()
-                    // Apple Sign In would go here — for now skip to goals
-                    Analytics.Onboarding.appleSignInCompleted()
-                    viewModel.next()
-                }) {
-                    Text("Sign in with Apple")
-                        .font(DSTypography.bodyEmphasis)
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 52)
-                        .background(DSColor.Text.primary)
-                        .dsCornerRadius(DSRadius.lg)
+                SignInWithAppleButton(
+                    onRequest: { request in
+                        signInCoordinator.prepareRequest(request)
+                        Analytics.Onboarding.appleSignInTapped()
+                    },
+                    onCompletion: { result in
+                        handleSignInResult(result)
+                    }
+                )
+                .signInWithAppleButtonStyle(.black)
+                .frame(height: 52)
+                .dsCornerRadius(DSRadius.lg)
+                .disabled(isSigningIn)
+                .opacity(isSigningIn ? 0.6 : 1.0)
+
+                if let signInError {
+                    Text(signInError)
+                        .font(DSTypography.caption)
+                        .foregroundStyle(DSColor.Status.error)
+                        .multilineTextAlignment(.center)
                 }
 
                 Text("By signing in, you agree to our Terms & Privacy Policy.")
@@ -95,6 +107,62 @@ struct WelcomeView: View {
         }
         .background(DSColor.Background.primary)
         .onAppear { Analytics.Onboarding.welcomeViewed() }
+    }
+
+    // MARK: - Sign in handling
+
+    private func handleSignInResult(_ result: Result<ASAuthorization, Error>) {
+        switch result {
+        case .success(let authorization):
+            guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
+                  let identityTokenData = credential.identityToken,
+                  let identityToken = String(data: identityTokenData, encoding: .utf8)
+            else {
+                signInError = "Sign in failed. Please try again."
+                return
+            }
+
+            // Capture name/email — only arrive on first sign-in
+            let nameComponents = credential.fullName
+            let fullName: String? = {
+                guard let nc = nameComponents else { return nil }
+                let parts = [nc.givenName, nc.familyName].compactMap { $0 }
+                return parts.isEmpty ? nil : parts.joined(separator: " ")
+            }()
+
+            guard let rawNonce = signInCoordinator.currentRawNonce else {
+                signInError = "Sign in nonce was lost. Please try again."
+                return
+            }
+
+            isSigningIn = true
+            signInError = nil
+            Task {
+                do {
+                    try await AuthManager.shared.signInWithApple(
+                        identityToken: identityToken,
+                        rawNonce: rawNonce,
+                        fullName: fullName,
+                        email: credential.email,
+                        deviceId: UIDevice.current.identifierForVendor?.uuidString
+                    )
+                    signInCoordinator.clearNonce()
+                    Analytics.Onboarding.appleSignInCompleted()
+                    isSigningIn = false
+                    viewModel.next()
+                } catch {
+                    isSigningIn = false
+                    signInError = "Couldn't sign in: \(error.localizedDescription)"
+                }
+            }
+
+        case .failure(let error):
+            if (error as NSError).code == ASAuthorizationError.canceled.rawValue {
+                // User cancelled — don't show an error
+                return
+            }
+            signInError = "Sign in failed: \(error.localizedDescription)"
+        }
     }
 
     // MARK: - Insight Card

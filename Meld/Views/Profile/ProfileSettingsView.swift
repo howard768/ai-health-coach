@@ -13,8 +13,11 @@ import SwiftUI
 
 struct ProfileSettingsView: View {
     @State private var showDeleteConfirmation = false
+    @State private var showDeleteConfirmation2 = false  // Second confirmation step
     @State private var showSignOutConfirmation = false
     @State private var profile: APIUserProfile?
+    @State private var isDeletingAccount = false
+    @State private var deleteError: String?
     private let M: CGFloat = 20
 
     var body: some View {
@@ -70,11 +73,46 @@ struct ProfileSettingsView: View {
         .alert("Sign out?", isPresented: $showSignOutConfirmation) {
             Button("Cancel", role: .cancel) {}
             Button("Sign Out", role: .destructive) {
-                // Sign out action
+                Task {
+                    await AuthManager.shared.logout()
+                }
             }
         } message: {
             Text("Your data stays safe. You can sign back in any time.")
         }
+        .alert("Delete your account?", isPresented: $showDeleteConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Continue", role: .destructive) {
+                showDeleteConfirmation2 = true
+            }
+        } message: {
+            Text("This permanently removes your account and all of your health data. This cannot be undone.")
+        }
+        .alert("Are you sure?", isPresented: $showDeleteConfirmation2) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete Forever", role: .destructive) {
+                Task {
+                    await performAccountDeletion()
+                }
+            }
+        } message: {
+            Text("Your sleep history, chat history, and all connected data will be gone forever. There is no way to recover it.")
+        }
+    }
+
+    // MARK: - Account Deletion
+
+    private func performAccountDeletion() async {
+        isDeletingAccount = true
+        deleteError = nil
+        do {
+            try await AuthManager.shared.deleteAccount()
+            // AuthManager clears session + flips AuthSessionState, which routes
+            // back to WelcomeView at the app root.
+        } catch {
+            deleteError = "Couldn't delete account: \(error.localizedDescription)"
+        }
+        isDeletingAccount = false
     }
 
     // MARK: - Profile Header
@@ -331,17 +369,30 @@ struct ProfileSettingsView: View {
     private var deleteAccountSection: some View {
         VStack(spacing: DSSpacing.sm) {
             Button(action: {
-                // Delete account flow — escalating friction
+                showDeleteConfirmation = true
             }) {
-                Text("Delete Account")
-                    .font(DSTypography.bodySM)
-                    .foregroundStyle(DSColor.Status.error)
+                if isDeletingAccount {
+                    ProgressView()
+                        .tint(DSColor.Status.error)
+                } else {
+                    Text("Delete Account")
+                        .font(DSTypography.bodySM)
+                        .foregroundStyle(DSColor.Status.error)
+                }
             }
+            .disabled(isDeletingAccount)
 
             Text("This permanently removes your account and all data.")
                 .font(DSTypography.caption)
                 .foregroundStyle(DSColor.Text.disabled)
                 .multilineTextAlignment(.center)
+
+            if let deleteError {
+                Text(deleteError)
+                    .font(DSTypography.caption)
+                    .foregroundStyle(DSColor.Status.error)
+                    .multilineTextAlignment(.center)
+            }
         }
         .padding(.top, DSSpacing.huge)
     }
