@@ -92,6 +92,21 @@ async def get_profile(
     return await _build_profile_response(current_user, db)
 
 
+@router.delete("/oura", status_code=204)
+async def disconnect_oura(
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Remove the current user's Oura token, revoking the connection."""
+    existing = await db.execute(
+        select(OuraToken).where(OuraToken.user_id == current_user.apple_user_id)
+    )
+    tokens = existing.scalars().all()
+    for token in tokens:
+        await db.delete(token)
+    await db.commit()
+
+
 @router.put("/profile", response_model=UserProfileResponse)
 async def update_profile(
     update: UserProfileUpdate,

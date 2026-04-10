@@ -114,8 +114,12 @@ struct DataSourceDetailView: View {
             }
             .alert("Disconnect \(source.rawValue)?", isPresented: $showDisconnectConfirm) {
                 Button("Disconnect", role: .destructive) {
-                    // TODO: remove token from backend
-                    dismiss()
+                    Task {
+                        if source == .oura {
+                            try? await APIClient.shared.disconnectOura()
+                        }
+                        dismiss()
+                    }
                 }
                 Button("Cancel", role: .cancel) {}
             } message: {
