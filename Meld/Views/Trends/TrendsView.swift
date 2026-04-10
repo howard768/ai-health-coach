@@ -166,7 +166,15 @@ struct TrendsView: View {
     // MARK: - Nutrition Trend
 
     private var nutritionTrendCard: some View {
-        DSCard(style: .metric) {
+        let n = trendsData?.nutrition
+        let avgProtein = n.map { Int($0.avg_protein_g) }
+        let targetProtein = n.map { Int($0.target_protein_g) } ?? 100
+        let avgCalories = n.map { Int($0.avg_calories) }
+        let targetCalories = n.map { Int($0.target_calories) } ?? 2000
+        let daysLogged = n?.days_logged
+        let rangeDays = trendsData?.range_days ?? selectedRange.days
+
+        return DSCard(style: .metric) {
             VStack(alignment: .leading, spacing: DSSpacing.md) {
                 Text("NUTRITION")
                     .dsLabel()
@@ -177,22 +185,26 @@ struct TrendsView: View {
                         Text("Avg Protein")
                             .font(DSTypography.caption)
                             .foregroundStyle(DSColor.Text.tertiary)
-                        Text("138g")
+                        Text(avgProtein.map { "\($0)g" } ?? "—")
                             .font(DSTypography.h3)
                             .foregroundStyle(DSColor.Text.primary)
-                        Text("Target: 150g")
+                        Text("Target: \(targetProtein)g")
                             .font(DSTypography.caption)
-                            .foregroundStyle(DSColor.Status.warning)
+                            .foregroundStyle(
+                                (avgProtein ?? 0) >= targetProtein
+                                    ? DSColor.Accessible.greenText
+                                    : DSColor.Status.warning
+                            )
                     }
 
                     VStack(alignment: .leading, spacing: DSSpacing.xxs) {
                         Text("Avg Calories")
                             .font(DSTypography.caption)
                             .foregroundStyle(DSColor.Text.tertiary)
-                        Text("2,050")
+                        Text(avgCalories.map { $0.formatted() } ?? "—")
                             .font(DSTypography.h3)
                             .foregroundStyle(DSColor.Text.primary)
-                        Text("Target: 2,200")
+                        Text("Target: \(targetCalories.formatted())")
                             .font(DSTypography.caption)
                             .foregroundStyle(DSColor.Accessible.greenText)
                     }
@@ -201,7 +213,7 @@ struct TrendsView: View {
                         Text("Logged")
                             .font(DSTypography.caption)
                             .foregroundStyle(DSColor.Text.tertiary)
-                        Text("12/14")
+                        Text(daysLogged.map { "\($0)/\(rangeDays)" } ?? "—")
                             .font(DSTypography.h3)
                             .foregroundStyle(DSColor.Text.primary)
                         Text("days")

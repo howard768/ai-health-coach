@@ -43,7 +43,7 @@ async def get_trends(
     records = list(result.scalars().all())
 
     if not records:
-        return {"range_days": range, "metrics": {}}
+        return {"range_days": range, "metrics": {}, "nutrition": None}
 
     def build_metric(values):
         clean = [v for v in values if v is not None]
@@ -67,6 +67,40 @@ async def get_trends(
     hrv = build_metric([r.hrv_average for r in records])
     hrv["dates"] = dates
 
+    # Nutrition summary over the same window
+    nutrition_result = await db.execute(
+        select(
+            MealRecord.date,
+            func.sum(FoodItemRecord.protein).label("total_protein"),
+            func.sum(FoodItemRecord.calories).label("total_calories"),
+        )
+        .join(FoodItemRecord, FoodItemRecord.meal_id == MealRecord.id)
+        .where(MealRecord.user_id == current_user.apple_user_id, MealRecord.date >= start_date)
+        .group_by(MealRecord.date)
+    )
+    nutrition_rows = list(nutrition_result)
+
+    target_calories = 2000.0
+    target_protein = 100.0
+    if nutrition_rows:
+        days_logged = len(nutrition_rows)
+        avg_protein = round(sum(float(r.total_protein or 0) for r in nutrition_rows) / days_logged, 1)
+        avg_calories = round(sum(float(r.total_calories or 0) for r in nutrition_rows) / days_logged, 1)
+        days_in_range = sum(
+            1 for r in nutrition_rows
+            if r.total_calories and abs(float(r.total_calories) - target_calories) / target_calories <= 0.15
+        )
+        nutrition = {
+            "avg_protein_g": avg_protein,
+            "avg_calories": avg_calories,
+            "target_protein_g": target_protein,
+            "target_calories": target_calories,
+            "days_logged": days_logged,
+            "days_in_range": days_in_range,
+        }
+    else:
+        nutrition = None
+
     return {
         "range_days": range,
         "metrics": {
@@ -75,6 +109,7 @@ async def get_trends(
             "readiness": readiness,
             "hrv": hrv,
         },
+        "nutrition": nutrition,
     }
 
 
