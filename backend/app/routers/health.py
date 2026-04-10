@@ -192,11 +192,27 @@ async def get_dashboard(
     eff_trend = "positive" if efficiency > 75 else "negative" if efficiency < 60 else "neutral"
     rhr_diff = baseline_rhr - rhr
     rhr_trend = "positive" if rhr_diff > 1 else "negative" if rhr_diff < -1 else "neutral"
-    rhr_subtitle = f"{'Down' if rhr_diff > 0 else 'Up'} {abs(int(rhr_diff))} bpm vs avg" if abs(rhr_diff) >= 1 else "Stable"
+    rhr_delta = (
+        f"{'Down' if rhr_diff > 0 else 'Up'} {abs(int(rhr_diff))} bpm vs avg"
+        if abs(rhr_diff) >= 1 else "Stable"
+    )
 
-    # Source attribution for subtitle
-    sleep_source = sources.get("sleep_efficiency", "")
-    source_label = f" via {sleep_source.replace('_', ' ').title()}" if sleep_source else ""
+    # Source attribution — pretty labels we reuse in every metric subtitle
+    def _pretty_source(raw: str) -> str:
+        return raw.replace("_", " ").title() if raw else ""
+
+    sleep_source = _pretty_source(sources.get("sleep_efficiency", ""))
+    rhr_source = _pretty_source(sources.get("resting_hr", ""))
+    hrv_source = _pretty_source(sources.get("hrv", ""))
+    steps_source = _pretty_source(sources.get("steps", "device"))
+
+    def _with_source(primary: str, source: str) -> str:
+        """Append ' · via Source' to a subtitle, skipping if source is empty."""
+        if not source:
+            return primary
+        if not primary:
+            return f"via {source}"
+        return f"{primary} · via {source}"
 
     # Generate coaching insight
     insight_context = {
@@ -219,30 +235,34 @@ async def get_dashboard(
         MetricResponse(
             category="sleepEfficiency", label="Sleep Efficiency",
             value=str(int(efficiency)), unit="%",
-            subtitle=f"{hours}h {mins}m total{source_label}", trend=eff_trend,
+            subtitle=_with_source(f"{hours}h {mins}m total", sleep_source), trend=eff_trend,
         ),
     ]
     if hrv:
         hrv_diff = hrv - baseline_hrv
         hrv_pct = int(abs(hrv_diff) / max(baseline_hrv, 1) * 100)
         hrv_trend = "positive" if hrv_diff > 0 else "negative" if hrv_diff < 0 else "neutral"
-        hrv_subtitle = f"{'Up' if hrv_diff > 0 else 'Down'} {hrv_pct}% vs baseline" if hrv_pct > 2 else "Stable"
+        hrv_delta = (
+            f"{'Up' if hrv_diff > 0 else 'Down'} {hrv_pct}% vs baseline"
+            if hrv_pct > 2 else "Stable"
+        )
         metrics.append(MetricResponse(
             category="hrv", label="HRV Status",
             value=str(int(hrv)), unit="ms",
-            subtitle=hrv_subtitle, trend=hrv_trend,
+            subtitle=_with_source(hrv_delta, hrv_source), trend=hrv_trend,
         ))
     if rhr:
         metrics.append(MetricResponse(
             category="restingHR", label="Resting HR",
             value=str(int(rhr)), unit="bpm",
-            subtitle=rhr_subtitle, trend=rhr_trend,
+            subtitle=_with_source(rhr_delta, rhr_source), trend=rhr_trend,
         ))
     if steps:
         metrics.append(MetricResponse(
             category="consistency", label="Steps",
             value=f"{int(steps):,}", unit="steps",
-            subtitle=f"via {sources.get('steps', 'device').replace('_', ' ').title()}", trend="positive" if steps > 5000 else "neutral",
+            subtitle=f"via {steps_source}" if steps_source else "steps",
+            trend="positive" if steps > 5000 else "neutral",
         ))
 
     return DashboardResponse(
