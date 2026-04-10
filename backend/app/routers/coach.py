@@ -1,3 +1,4 @@
+import time
 from datetime import datetime
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -75,6 +76,7 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
     # Process through coach engine (with conversation history)
     # Wrap in to_thread because process_query() calls synchronous Anthropic SDK
     import asyncio
+    start_time = time.monotonic()
     result = await asyncio.to_thread(
         engine.process_query,
         request.message,
@@ -83,6 +85,7 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
         ["Lose weight", "Build muscle"],
         history,
     )
+    latency_ms = int((time.monotonic() - start_time) * 1000)
 
     # Strip markdown formatting — our chat UI renders plain text
     import re
@@ -93,7 +96,11 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
     clean_response = re.sub(r'^- ', '• ', clean_response, flags=re.MULTILINE)  # - bullets → •
     result["response"] = clean_response
 
-    # Save coach response
+    # Serialize health context for replay (offline eval)
+    import json
+    health_context_str = json.dumps(health_data) if health_data else None
+
+    # Save coach response with production monitoring fields
     coach_msg = ChatMessageRecord(
         conversation_id=conv.id,
         user_id=user_id,
@@ -103,6 +110,11 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
         routing_reason=result.get("routing", {}).get("reason"),
         model_used=result.get("model_used"),
         safety_flagged=result.get("safety", {}).get("is_concerning", False),
+        latency_ms=latency_ms,
+        input_tokens=result.get("usage", {}).get("input"),
+        output_tokens=result.get("usage", {}).get("output"),
+        health_context=health_context_str,
+        prompt_version="v1",  # Increment for A/B tests
     )
     db.add(coach_msg)
     await db.commit()
@@ -120,6 +132,38 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
         safety=result.get("safety"),
         model_used=result.get("model_used"),
     )
+
+
+# ============================================================
+# FEEDBACK — Thumbs up/down on coach responses
+# ============================================================
+
+class FeedbackRequest(BaseModel):
+    message_id: int
+    feedback: str  # "up" or "down"
+
+
+@router.post("/feedback")
+async def submit_feedback(request: FeedbackRequest, db: AsyncSession = Depends(get_db)):
+    """Record thumbs up/down on a coach message."""
+    if request.feedback not in ("up", "down"):
+        return {"error": "feedback must be 'up' or 'down'"}
+
+    result = await db.execute(
+        select(ChatMessageRecord).where(
+            ChatMessageRecord.id == request.message_id,
+            ChatMessageRecord.role == "coach",
+        )
+    )
+    msg = result.scalar_one_or_none()
+    if not msg:
+        return {"error": "message not found"}
+
+    msg.feedback = request.feedback
+    msg.feedback_at = datetime.utcnow()
+    await db.commit()
+
+    return {"status": "ok", "message_id": request.message_id, "feedback": request.feedback}
 
 
 # ============================================================
@@ -163,6 +207,95 @@ async def generate_insight(db: AsyncSession = Depends(get_db)):
         user_goals=["Lose weight", "Build muscle"],
     )
     return result
+
+
+# ============================================================
+# ANALYTICS — Production monitoring dashboard
+# ============================================================
+
+@router.get("/analytics")
+async def get_analytics(days: int = 7, db: AsyncSession = Depends(get_db)):
+    """Production monitoring: feedback rates, latency, model usage, safety flags."""
+    from sqlalchemy import func
+    cutoff = datetime.utcnow() - __import__("datetime").timedelta(days=days)
+
+    # All coach messages in the window
+    result = await db.execute(
+        select(ChatMessageRecord).where(
+            ChatMessageRecord.role == "coach",
+            ChatMessageRecord.created_at >= cutoff,
+        )
+    )
+    messages = list(result.scalars().all())
+
+    if not messages:
+        return {"period_days": days, "total_responses": 0}
+
+    thumbs_up = sum(1 for m in messages if m.feedback == "up")
+    thumbs_down = sum(1 for m in messages if m.feedback == "down")
+    no_feedback = sum(1 for m in messages if m.feedback is None)
+    safety_flagged = sum(1 for m in messages if m.safety_flagged)
+
+    latencies = [m.latency_ms for m in messages if m.latency_ms]
+    avg_latency = round(sum(latencies) / len(latencies)) if latencies else None
+    p95_latency = sorted(latencies)[int(len(latencies) * 0.95)] if len(latencies) >= 20 else None
+
+    tokens_in = [m.input_tokens for m in messages if m.input_tokens]
+    tokens_out = [m.output_tokens for m in messages if m.output_tokens]
+
+    # Model usage breakdown
+    model_counts = {}
+    for m in messages:
+        key = m.model_used or "rules"
+        model_counts[key] = model_counts.get(key, 0) + 1
+
+    # Routing tier breakdown
+    tier_counts = {}
+    for m in messages:
+        key = m.routing_tier or "unknown"
+        tier_counts[key] = tier_counts.get(key, 0) + 1
+
+    # Prompt version breakdown (for A/B testing)
+    version_feedback = {}
+    for m in messages:
+        ver = m.prompt_version or "unknown"
+        if ver not in version_feedback:
+            version_feedback[ver] = {"up": 0, "down": 0, "none": 0, "total": 0}
+        version_feedback[ver]["total"] += 1
+        if m.feedback == "up":
+            version_feedback[ver]["up"] += 1
+        elif m.feedback == "down":
+            version_feedback[ver]["down"] += 1
+        else:
+            version_feedback[ver]["none"] += 1
+
+    return {
+        "period_days": days,
+        "total_responses": len(messages),
+        "feedback": {
+            "thumbs_up": thumbs_up,
+            "thumbs_down": thumbs_down,
+            "no_feedback": no_feedback,
+            "satisfaction_rate": round(thumbs_up / max(thumbs_up + thumbs_down, 1) * 100, 1),
+        },
+        "safety": {
+            "flagged_count": safety_flagged,
+            "flagged_rate": round(safety_flagged / len(messages) * 100, 1),
+        },
+        "latency": {
+            "avg_ms": avg_latency,
+            "p95_ms": p95_latency,
+        },
+        "tokens": {
+            "avg_input": round(sum(tokens_in) / len(tokens_in)) if tokens_in else None,
+            "avg_output": round(sum(tokens_out) / len(tokens_out)) if tokens_out else None,
+            "total_input": sum(tokens_in),
+            "total_output": sum(tokens_out),
+        },
+        "model_usage": model_counts,
+        "routing_tiers": tier_counts,
+        "prompt_versions": version_feedback,
+    }
 
 
 # ============================================================

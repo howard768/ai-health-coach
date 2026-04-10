@@ -27,6 +27,7 @@ from app.services.data_reconciliation import reconcile_day
 from app.services.correlation_engine import compute_correlations
 from app.services.literature import literature_service
 from app.services.oura_webhooks import list_subscriptions, renew_subscription
+from app.services.offline_eval import run_offline_eval
 
 logger = logging.getLogger("meld.scheduler")
 
@@ -427,6 +428,20 @@ async def correlation_engine_job():
         logger.info("Correlation engine: %d correlations stored", len(results))
 
 
+async def offline_eval_job():
+    """Weekly: evaluate recent coach responses for quality regressions."""
+    logger.info("Running offline_eval_job")
+    async with async_session() as db:
+        report = await run_offline_eval(db, days=7)
+        logger.info(
+            "Offline eval complete: %d evaluated, reading %.0f%%, grounding %.0f%%, %d flagged",
+            report.get("total_evaluated", 0),
+            report.get("reading_level", {}).get("pass_rate", 0),
+            report.get("data_grounding", {}).get("pass_rate", 0),
+            len(report.get("flagged_for_review", [])),
+        )
+
+
 async def get_personalized_timing(db, user_id: str) -> dict:
     """Calculate rolling 7-day average wake/sleep times from Oura data.
 
@@ -649,6 +664,15 @@ def start_scheduler():
         trigger=CronTrigger(hour=3, minute=0),
         id="timing_refresh",
         name="Personalized Timing Refresh",
+        replace_existing=True,
+    )
+
+    # Offline eval: Sundays at 05:00 UTC (after correlation engine at 04:00)
+    scheduler.add_job(
+        offline_eval_job,
+        trigger=CronTrigger(day_of_week="sun", hour=5, minute=0),
+        id="offline_eval",
+        name="Weekly Offline Eval",
         replace_existing=True,
     )
 

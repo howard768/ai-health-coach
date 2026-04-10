@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import String, Integer, DateTime, Text, JSON
+from sqlalchemy import String, Integer, Float, DateTime, Text, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -28,3 +28,12 @@ class ChatMessageRecord(Base):
     safety_flagged: Mapped[bool] = mapped_column(default=False)
     metadata_json: Mapped[str] = mapped_column(JSON, nullable=True)  # Extra context
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    # Phase 4: Production monitoring
+    feedback: Mapped[str] = mapped_column(String(10), nullable=True)  # "up", "down", or null
+    feedback_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    latency_ms: Mapped[int] = mapped_column(Integer, nullable=True)  # Response time in ms
+    input_tokens: Mapped[int] = mapped_column(Integer, nullable=True)
+    output_tokens: Mapped[int] = mapped_column(Integer, nullable=True)
+    prompt_version: Mapped[str] = mapped_column(String(20), nullable=True)  # A/B test variant
+    health_context: Mapped[str] = mapped_column(Text, nullable=True)  # Health data sent to model

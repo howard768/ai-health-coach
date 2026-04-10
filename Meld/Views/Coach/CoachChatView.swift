@@ -36,8 +36,10 @@ struct CoachChatView: View {
                 ScrollView {
                     LazyVStack(spacing: DSSpacing.lg) {
                         ForEach(viewModel.messages) { message in
-                            MessageView(message: message)
-                                .id(message.id)
+                            MessageView(message: message) { feedback in
+                                viewModel.submitFeedback(for: message, feedback: feedback)
+                            }
+                            .id(message.id)
                         }
 
                         // Typing indicator
@@ -125,6 +127,7 @@ struct CoachChatView: View {
 
 private struct MessageView: View {
     let message: ChatMessage
+    var onFeedback: ((String) -> Void)?
     private let M: CGFloat = 20
 
     var body: some View {
@@ -154,6 +157,28 @@ private struct MessageView: View {
                 // Content blocks
                 ForEach(message.content) { block in
                     contentView(for: block)
+                }
+
+                // Feedback buttons (only for coach messages with a backend ID)
+                if message.messageId != nil {
+                    HStack(spacing: DSSpacing.md) {
+                        Button {
+                            onFeedback?("up")
+                        } label: {
+                            Image(systemName: message.feedback == "up" ? "hand.thumbsup.fill" : "hand.thumbsup")
+                                .font(.system(size: 14))
+                                .foregroundStyle(message.feedback == "up" ? DSColor.Purple.purple500 : DSColor.Text.tertiary)
+                        }
+
+                        Button {
+                            onFeedback?("down")
+                        } label: {
+                            Image(systemName: message.feedback == "down" ? "hand.thumbsdown.fill" : "hand.thumbsdown")
+                                .font(.system(size: 14))
+                                .foregroundStyle(message.feedback == "down" ? DSColor.Status.error : DSColor.Text.tertiary)
+                        }
+                    }
+                    .padding(.top, DSSpacing.xs)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

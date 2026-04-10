@@ -79,6 +79,19 @@ final class CoachViewModel {
         simulateCoachResponse(to: action.prompt)
     }
 
+    // MARK: - Feedback
+
+    func submitFeedback(for message: ChatMessage, feedback: String) {
+        guard let messageId = message.messageId else { return }
+        guard let index = messages.firstIndex(where: { $0.id == message.id }) else { return }
+        messages[index].feedback = feedback
+        DSHaptic.light()
+
+        Task {
+            try? await APIClient.shared.submitFeedback(messageId: messageId, feedback: feedback)
+        }
+    }
+
     // MARK: - Simulated Response
 
     private func simulateCoachResponse(to prompt: String) {
@@ -88,7 +101,7 @@ final class CoachViewModel {
             // Try real backend first
             do {
                 let response = try await APIClient.shared.sendMessage(prompt)
-                let coachMsg = ChatMessage(role: .coach, text: response.content)
+                let coachMsg = ChatMessage(role: .coach, text: response.content, messageId: response.messageId)
                 messages.append(coachMsg)
                 isTyping = false
                 return

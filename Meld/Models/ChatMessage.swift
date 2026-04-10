@@ -11,17 +11,20 @@ struct ChatMessage: Identifiable {
     let role: ChatRole
     let content: [ChatContent]
     let timestamp: Date
+    var messageId: Int?  // Backend DB ID — used for feedback
+    var feedback: String?  // "up", "down", or nil
 
-    init(id: UUID = UUID(), role: ChatRole, content: [ChatContent], timestamp: Date = Date()) {
+    init(id: UUID = UUID(), role: ChatRole, content: [ChatContent], timestamp: Date = Date(), messageId: Int? = nil) {
         self.id = id
         self.role = role
         self.content = content
         self.timestamp = timestamp
+        self.messageId = messageId
     }
 
     // Convenience: simple text message
-    init(role: ChatRole, text: String, timestamp: Date = Date()) {
-        self.init(role: role, content: [.text(text)], timestamp: timestamp)
+    init(role: ChatRole, text: String, timestamp: Date = Date(), messageId: Int? = nil) {
+        self.init(role: role, content: [.text(text)], timestamp: timestamp, messageId: messageId)
     }
 }
 

@@ -67,6 +67,23 @@ actor APIClient {
         return try decoder.decode(APIChatResponse.self, from: data)
     }
 
+    // MARK: - Feedback
+
+    func submitFeedback(messageId: Int, feedback: String) async throws {
+        let url = baseURL.appendingPathComponent("coach/feedback")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body = ["message_id": messageId, "feedback": feedback] as [String: Any]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (_, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            throw APIError.serverError
+        }
+    }
+
     // MARK: - Chat History
 
     func fetchChatHistory() async throws -> [APIHistoryMessage] {
@@ -421,6 +438,9 @@ struct APIChatRequest: Codable {
 struct APIChatResponse: Codable {
     let role: String
     let content: String
+    let message_id: Int?
+
+    var messageId: Int? { message_id }
 }
 
 struct APIHistoryMessage: Codable {
