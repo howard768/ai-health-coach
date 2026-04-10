@@ -139,10 +139,14 @@ async def sync_user_data(db: AsyncSession, user_id: str) -> dict:
         # Also write to unified HealthMetricRecord for reconciliation
         if contributors.get("efficiency"):
             db.add(HealthMetricRecord(user_id=user_id, date=day_date, metric_type="sleep_efficiency", value=contributors["efficiency"], unit="%", source="oura"))
-        if day.get("total_sleep_duration"):
-            db.add(HealthMetricRecord(user_id=user_id, date=day_date, metric_type="sleep_duration", value=day["total_sleep_duration"] / 3600, unit="hours", source="oura"))
-        if day.get("lowest_heart_rate"):
-            db.add(HealthMetricRecord(user_id=user_id, date=day_date, metric_type="resting_hr", value=day["lowest_heart_rate"], unit="bpm", source="oura"))
+        # Sleep duration comes from session data, not daily_sleep
+        sleep_duration_secs = session.get("total_sleep_duration")
+        if sleep_duration_secs:
+            db.add(HealthMetricRecord(user_id=user_id, date=day_date, metric_type="sleep_duration", value=sleep_duration_secs / 3600, unit="hours", source="oura"))
+        # Resting HR comes from session data
+        session_rhr = session.get("lowest_heart_rate")
+        if session_rhr:
+            db.add(HealthMetricRecord(user_id=user_id, date=day_date, metric_type="resting_hr", value=session_rhr, unit="bpm", source="oura"))
         if readiness_score:
             db.add(HealthMetricRecord(user_id=user_id, date=day_date, metric_type="readiness", value=readiness_score, unit="score", source="oura"))
 
