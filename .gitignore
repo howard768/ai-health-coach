@@ -67,3 +67,25 @@ fastlane/test_output
 
 # Backend secrets
 backend/.env
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+
+# SQLite databases
+*.db
+meld.db
+
+# Claude Code
+.claude/
+
+# Playwright
+.playwright-cli/
+
+# Eval results (config is tracked, output is not)
+evals/results.json
+evals/eval-output.txt
+
+# Medium drafts
+medium/

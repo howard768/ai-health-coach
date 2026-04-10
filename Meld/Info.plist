@@ -38,6 +38,16 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Meld uses your camera to take photos of food and scan barcodes.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Meld reads your sleep, activity, and heart rate to provide personalized coaching.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Meld logs meals and workouts to keep your health records in sync.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Meld needs microphone access for voice food logging.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Meld uses speech recognition to log food by voice.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>Roboto-Thin.ttf</string>

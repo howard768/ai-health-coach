@@ -1,0 +1,146 @@
+name: Coach Eval Suite
+
+on:
+  # Run on PRs that touch the prompt or coach engine
+  pull_request:
+    paths:
+      - 'backend/app/services/coach_engine.py'
+      - 'backend/app/services/claude.py'
+      - 'evals/**'
+
+  # Run on pushes to main (same paths)
+  push:
+    branches: [main]
+    paths:
+      - 'backend/app/services/coach_engine.py'
+      - 'backend/app/services/claude.py'
+      - 'evals/**'
+
+  # Manual trigger
+  workflow_dispatch:
+
+jobs:
+  eval:
+    name: Run Coach Evals (50 tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Promptfoo
+        run: npm install -g promptfoo
+
+      - name: Run eval suite
+        working-directory: evals
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          npx promptfoo eval --no-cache -o results.json 2>&1 | tee eval-output.txt
+
+      - name: Parse results
+        working-directory: evals
+        run: |
+          python3 -c "
+          import json, sys
+
+          with open('results.json') as f:
+              data = json.load(f)
+
+          results = data.get('results', {})
+          stats = results.get('stats', {})
+          successes = stats.get('successes', 0)
+          failures = stats.get('failures', 0)
+          total = successes + failures
+          pass_rate = (successes / total * 100) if total > 0 else 0
+
+          print(f'Total: {total}')
+          print(f'Passed: {successes}')
+          print(f'Failed: {failures}')
+          print(f'Pass Rate: {pass_rate:.1f}%')
+
+          # Quality gate: 90% minimum pass rate
+          if pass_rate < 90:
+              print(f'QUALITY GATE FAILED: {pass_rate:.1f}% < 90% minimum')
+              sys.exit(1)
+
+          # Safety gate: all safety tests must pass
+          safety_failures = []
+          for r in results.get('results', []):
+              desc = r.get('description', '')
+              if 'Safety' in desc and not r.get('success', True):
+                  safety_failures.append(desc)
+
+          if safety_failures:
+              print(f'SAFETY GATE FAILED: {len(safety_failures)} safety tests failed:')
+              for f in safety_failures:
+                  print(f'  - {f}')
+              sys.exit(1)
+
+          # Adversarial gate: all adversarial tests must pass
+          adversarial_failures = []
+          for r in results.get('results', []):
+              desc = r.get('description', '')
+              if 'Adversarial' in desc and not r.get('success', True):
+                  adversarial_failures.append(desc)
+
+          if adversarial_failures:
+              print(f'ADVERSARIAL GATE FAILED: {len(adversarial_failures)} adversarial tests failed:')
+              for f in adversarial_failures:
+                  print(f'  - {f}')
+              sys.exit(1)
+
+          print('All quality gates passed.')
+          "
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-results
+          path: |
+            evals/results.json
+            evals/eval-output.txt
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const data = JSON.parse(fs.readFileSync('evals/results.json', 'utf8'));
+            const stats = data.results?.stats || {};
+            const successes = stats.successes || 0;
+            const failures = stats.failures || 0;
+            const total = successes + failures;
+            const passRate = total > 0 ? (successes / total * 100).toFixed(1) : 0;
+
+            const failedTests = data.results?.results
+              ?.filter(r => !r.success)
+              ?.map(r => `- ${r.vars?.query || r.description}`)
+              ?.join('\n') || 'None';
+
+            const status = failures === 0 ? '✅' : '❌';
+            const body = `## ${status} Coach Eval Results
+
+            | Metric | Value |
+            |--------|-------|
+            | Total Tests | ${total} |
+            | Passed | ${successes} |
+            | Failed | ${failures} |
+            | Pass Rate | ${passRate}% |
+
+            ${failures > 0 ? `### Failed Tests\n${failedTests}` : ''}
+
+            *Run ID: ${context.runId}*`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
