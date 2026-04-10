@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import init_db
-from app.routers import auth, health, coach, notifications, meals, user, peloton_auth, garmin_auth
+from app.routers import auth, health, coach, notifications, meals, user, peloton_auth, garmin_auth, webhooks
 from app.tasks.scheduler import start_scheduler, stop_scheduler
 
 
@@ -56,6 +56,7 @@ app.include_router(meals.router)
 app.include_router(user.router)
 app.include_router(peloton_auth.router)
 app.include_router(garmin_auth.router)
+app.include_router(webhooks.router)
 
 
 @app.get("/")
