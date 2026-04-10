@@ -20,6 +20,7 @@ final class DashboardViewModel {
     var dashboardData: DashboardData
     var isLoading: Bool = false
     var error: DashboardError? = nil
+    var userName: String? = nil
 
     enum DashboardError: Error, LocalizedError {
         case networkFailure
@@ -68,6 +69,11 @@ final class DashboardViewModel {
             // If we already have data, keep showing it (stale is better than empty)
         }
 
+        // Fetch user name independently — failure just leaves the greeting generic
+        if let profile = try? await APIClient.shared.fetchUserProfile() {
+            userName = profile.name
+        }
+
         isLoading = false
     }
 
@@ -82,8 +88,8 @@ final class DashboardViewModel {
         case 17..<22: timeOfDay = "evening"
         default: timeOfDay = "night"
         }
-        // TODO: Pull user name from profile/backend
-        return "Good \(timeOfDay), Brock"
+        let firstName = userName?.split(separator: " ").first.map(String.init) ?? "there"
+        return "Good \(timeOfDay), \(firstName)"
     }
 
     var dateString: String {
