@@ -20,8 +20,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  eval:
-    name: Run Coach Evals (50 tests)
+  promptfoo:
+    name: Promptfoo (55 tests)
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -42,7 +42,7 @@ jobs:
         run: |
           npx promptfoo eval --no-cache -o results.json 2>&1 | tee eval-output.txt
 
-      - name: Parse results
+      - name: Quality gates
         working-directory: evals
         run: |
           python3 -c "
@@ -77,8 +77,8 @@ jobs:
 
           if safety_failures:
               print(f'SAFETY GATE FAILED: {len(safety_failures)} safety tests failed:')
-              for f in safety_failures:
-                  print(f'  - {f}')
+              for f_item in safety_failures:
+                  print(f'  - {f_item}')
               sys.exit(1)
 
           # Adversarial gate: all adversarial tests must pass
@@ -90,53 +90,100 @@ jobs:
 
           if adversarial_failures:
               print(f'ADVERSARIAL GATE FAILED: {len(adversarial_failures)} adversarial tests failed:')
-              for f in adversarial_failures:
-                  print(f'  - {f}')
+              for f_item in adversarial_failures:
+                  print(f'  - {f_item}')
               sys.exit(1)
 
           print('All quality gates passed.')
           "
 
-      - name: Upload results
+      - name: Upload Promptfoo results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: eval-results
+          name: promptfoo-results
           path: |
             evals/results.json
             evals/eval-output.txt
 
+  python-quality:
+    name: Quality checks (reading level, faithfulness, uniqueness)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies
+        working-directory: evals
+        run: uv sync
+
+      - name: Run quality tests
+        working-directory: evals
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: uv run python -m pytest test_coach_quality.py -v --tb=short 2>&1 | tee pytest-output.txt
+
+      - name: Upload pytest results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results
+          path: evals/pytest-output.txt
+
+  pr-comment:
+    name: PR Summary
+    needs: [promptfoo, python-quality]
+    if: github.event_name == 'pull_request' && always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Promptfoo results
+        uses: actions/download-artifact@v4
+        with:
+          name: promptfoo-results
+          path: evals/
+
       - name: Comment on PR
-        if: github.event_name == 'pull_request' && always()
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            const data = JSON.parse(fs.readFileSync('evals/results.json', 'utf8'));
-            const stats = data.results?.stats || {};
-            const successes = stats.successes || 0;
-            const failures = stats.failures || 0;
-            const total = successes + failures;
-            const passRate = total > 0 ? (successes / total * 100).toFixed(1) : 0;
+            let body = '## Coach Eval Results\n\n';
 
-            const failedTests = data.results?.results
-              ?.filter(r => !r.success)
-              ?.map(r => `- ${r.vars?.query || r.description}`)
-              ?.join('\n') || 'None';
+            try {
+              const data = JSON.parse(fs.readFileSync('evals/results.json', 'utf8'));
+              const stats = data.results?.stats || {};
+              const successes = stats.successes || 0;
+              const failures = stats.failures || 0;
+              const total = successes + failures;
+              const passRate = total > 0 ? (successes / total * 100).toFixed(1) : 0;
 
-            const status = failures === 0 ? '✅' : '❌';
-            const body = `## ${status} Coach Eval Results
+              const status = failures === 0 ? 'PASS' : 'FAIL';
+              body += `**Promptfoo**: ${status} (${successes}/${total}, ${passRate}%)\n\n`;
 
-            | Metric | Value |
-            |--------|-------|
-            | Total Tests | ${total} |
-            | Passed | ${successes} |
-            | Failed | ${failures} |
-            | Pass Rate | ${passRate}% |
+              if (failures > 0) {
+                const failedTests = data.results?.results
+                  ?.filter(r => !r.success)
+                  ?.map(r => `- ${r.vars?.query || r.description}`)
+                  ?.join('\n') || 'None';
+                body += `### Failed Tests\n${failedTests}\n\n`;
+              }
+            } catch (e) {
+              body += '**Promptfoo**: results not available\n\n';
+            }
 
-            ${failures > 0 ? `### Failed Tests\n${failedTests}` : ''}
+            const promptfooStatus = '${{ needs.promptfoo.result }}';
+            const pytestStatus = '${{ needs.python-quality.result }}';
+            const overall = (promptfooStatus === 'success' && pytestStatus === 'success') ? '✅' : '❌';
 
-            *Run ID: ${context.runId}*`;
+            body += `**Python Quality**: ${pytestStatus === 'success' ? 'PASS' : 'FAIL'} (reading level + faithfulness + uniqueness)\n\n`;
+            body += `${overall} **Overall**: ${overall === '✅' ? 'All gates passed' : 'Some gates failed'}\n\n`;
+            body += `*Run ID: ${context.runId}*`;
 
             github.rest.issues.createComment({
               issue_number: context.issue.number,

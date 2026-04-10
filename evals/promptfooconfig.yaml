@@ -599,3 +599,75 @@ tests:
       - type: llm-rubric
         value: "Does the response explain that readiness depends on more than sleep — the elevated HR (78 vs 60) and low HRV (22 vs 55) suggest other stressors (overtraining, illness, stress) despite good sleep?"
         threshold: 0.7
+
+  # ═══════════════════════════════════════════════
+  # UNIQUENESS — same question, 5 profiles
+  # Must produce DIFFERENT responses (catches canned answers)
+  # ═══════════════════════════════════════════════
+
+  - description: "Uniqueness 1/5: How am I doing? (athlete, excellent)"
+    vars:
+      query: "How am I doing today?"
+      user_name: "Marcus"
+      goals: "Marathon training, improve endurance"
+      health_data: "sleep_efficiency: 96%, sleep_duration: 8.5 hours, deep_sleep: 110 minutes, resting_hr: 48 bpm, hrv_average: 95 ms, readiness_score: 94, steps: 15200"
+    assert:
+      - type: contains
+        value: "Marcus"
+      - type: contains
+        value: "96"
+      - type: llm-rubric
+        value: "Does the response mention marathon training or endurance goals? The response must be specific to THIS athlete's profile, not generic."
+        threshold: 0.7
+
+  - description: "Uniqueness 2/5: How am I doing? (new mom, exhausted)"
+    vars:
+      query: "How am I doing today?"
+      user_name: "Sarah"
+      goals: "Get more sleep, reduce stress"
+      health_data: "sleep_efficiency: 42%, sleep_duration: 3.8 hours, deep_sleep: 15 minutes, resting_hr: 78 bpm, hrv_average: 22 ms, readiness_score: 18, steps: 890"
+    assert:
+      - type: contains
+        value: "Sarah"
+      - type: llm-rubric
+        value: "Does the response show compassion for severe sleep deprivation and focus on stress reduction (the user's goal), not push for exercise?"
+        threshold: 0.7
+
+  - description: "Uniqueness 3/5: How am I doing? (senior, moderate)"
+    vars:
+      query: "How am I doing today?"
+      user_name: "Robert"
+      goals: "Maintain mobility, heart health"
+      health_data: "sleep_efficiency: 71%, sleep_duration: 6.8 hours, deep_sleep: 42 minutes, resting_hr: 72 bpm, hrv_average: 28 ms, readiness_score: 58, steps: 4200"
+    assert:
+      - type: contains
+        value: "Robert"
+      - type: llm-rubric
+        value: "Does the response address heart health and mobility (the user's goals) rather than weight loss or muscle building? Should be appropriate for an older adult."
+        threshold: 0.7
+
+  - description: "Uniqueness 4/5: How am I doing? (student, inconsistent)"
+    vars:
+      query: "How am I doing today?"
+      user_name: "Priya"
+      goals: "Better sleep schedule, manage stress"
+      health_data: "sleep_efficiency: 58%, sleep_duration: 5.2 hours, deep_sleep: 30 minutes, resting_hr: 70 bpm, hrv_average: 45 ms, readiness_score: 42, steps: 3100"
+    assert:
+      - type: contains
+        value: "Priya"
+      - type: llm-rubric
+        value: "Does the response address sleep schedule consistency and stress management (the user's goals)? Should feel relevant to someone trying to build better habits."
+        threshold: 0.7
+
+  - description: "Uniqueness 5/5: How am I doing? (weekend warrior, great recovery)"
+    vars:
+      query: "How am I doing today?"
+      user_name: "Diego"
+      goals: "Lose belly fat, get stronger"
+      health_data: "sleep_efficiency: 88%, sleep_duration: 7.5 hours, deep_sleep: 85 minutes, resting_hr: 60 bpm, hrv_average: 62 ms, readiness_score: 82, steps: 8900"
+    assert:
+      - type: contains
+        value: "Diego"
+      - type: llm-rubric
+        value: "Does the response address losing belly fat and getting stronger (the user's goals)? Should suggest strength training given good recovery metrics."
+        threshold: 0.7
