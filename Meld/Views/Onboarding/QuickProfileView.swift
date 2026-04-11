@@ -8,6 +8,15 @@ import SwiftUI
 
 struct QuickProfileView: View {
     @Bindable var viewModel: OnboardingViewModel
+
+    // String intermediaries for numeric inputs — more reliable than
+    // Binding<Int?> with ParseableFormatStyle on optional types.
+    @State private var ageText: String = ""
+    @State private var heightFtText: String = "5"
+    @State private var heightInText: String = "8"
+    @State private var weightText: String = ""
+    @State private var targetWeightText: String = ""
+
     private let M = OnboardingLayout.margin
 
     var body: some View {
@@ -37,7 +46,7 @@ struct QuickProfileView: View {
 
                     // Age — always required
                     fieldLabel("AGE")
-                    ageField
+                    ageInputField
                     if viewModel.prefilledAge != nil {
                         prefillBadge
                     }
@@ -48,16 +57,15 @@ struct QuickProfileView: View {
                         HStack(spacing: DSSpacing.lg) {
                             VStack(alignment: .leading, spacing: DSSpacing.sm) {
                                 fieldLabel("HEIGHT")
-                                fieldBox(viewModel.prefilledHeightInches != nil
-                                    ? viewModel.heightString(viewModel.prefilledHeightInches!)
-                                    : "")
+                                heightInputField
                             }
                             VStack(alignment: .leading, spacing: DSSpacing.sm) {
                                 fieldLabel("WEIGHT")
-                                fieldBox(viewModel.prefilledWeightLbs != nil
-                                    ? "\(Int(viewModel.prefilledWeightLbs!)) lbs"
-                                    : "")
+                                weightInputField
                             }
+                        }
+                        if viewModel.prefilledHeightInches != nil || viewModel.prefilledWeightLbs != nil {
+                            prefillBadge
                         }
                     }
 
@@ -65,9 +73,7 @@ struct QuickProfileView: View {
                     if viewModel.assessment.needsTargetWeight {
                         Spacer().frame(height: DSSpacing.xxl)
                         fieldLabel("GOAL WEIGHT")
-                        fieldBox(viewModel.assessment.targetWeightLbs != nil
-                            ? "\(Int(viewModel.assessment.targetWeightLbs!)) lbs"
-                            : "170 lbs", dimmed: true)
+                        targetWeightInputField
                     }
 
                     // Training experience — required for muscle
@@ -171,6 +177,7 @@ struct QuickProfileView: View {
         .background(DSColor.Background.primary)
         .onAppear {
             viewModel.applyPrefill()
+            initTextFields()
             Analytics.Onboarding.profileViewed()
             let prefilled = [viewModel.prefilledAge, viewModel.prefilledHeightInches].compactMap { $0 }.count
                 + (viewModel.prefilledWeightLbs != nil ? 1 : 0)
@@ -178,32 +185,29 @@ struct QuickProfileView: View {
         }
     }
 
-    // MARK: - Subviews
+    // MARK: - Initialize text fields from assessment (after HealthKit prefill)
 
-    private func fieldLabel(_ text: String) -> some View {
-        Text(text)
-            .dsLabel()
-            .foregroundStyle(DSColor.Text.tertiary)
-    }
-
-    private func fieldBox(_ value: String, dimmed: Bool = false) -> some View {
-        HStack {
-            Text(value)
-                .font(DSTypography.body)
-                .foregroundStyle(dimmed ? DSColor.Text.tertiary : DSColor.Text.primary)
-            Spacer()
+    private func initTextFields() {
+        if let age = viewModel.assessment.age { ageText = "\(age)" }
+        if let h = viewModel.assessment.heightInches {
+            heightFtText = "\(h / 12)"
+            heightInText = "\(h % 12)"
         }
-        .frame(height: 48)
-        .padding(.horizontal, DSSpacing.lg)
-        .background(DSColor.Surface.secondary)
-        .dsCornerRadius(DSRadius.md)
+        if let w = viewModel.assessment.weightLbs { weightText = "\(Int(w))" }
+        if let tw = viewModel.assessment.targetWeightLbs { targetWeightText = "\(Int(tw))" }
     }
 
-    private var ageField: some View {
+    // MARK: - Editable Input Fields
+
+    private var ageInputField: some View {
         HStack {
-            Text(viewModel.assessment.age != nil ? "\(viewModel.assessment.age!)" : "")
+            TextField("—", text: $ageText)
+                .keyboardType(.numberPad)
                 .font(DSTypography.body)
                 .foregroundStyle(DSColor.Text.primary)
+                .onChange(of: ageText) { _, newValue in
+                    viewModel.assessment.age = Int(newValue)
+                }
             Spacer()
             if viewModel.prefilledAge != nil {
                 Circle()
@@ -221,6 +225,104 @@ struct QuickProfileView: View {
         .background(DSColor.Surface.secondary)
         .dsCornerRadius(DSRadius.md)
         .padding(.top, DSSpacing.sm)
+    }
+
+    private var heightInputField: some View {
+        HStack(spacing: DSSpacing.xs) {
+            TextField("5", text: $heightFtText)
+                .keyboardType(.numberPad)
+                .font(DSTypography.body)
+                .foregroundStyle(DSColor.Text.primary)
+                .frame(width: 28)
+                .onChange(of: heightFtText) { _, _ in syncHeight() }
+            Text("ft")
+                .font(DSTypography.caption)
+                .foregroundStyle(DSColor.Text.tertiary)
+            TextField("8", text: $heightInText)
+                .keyboardType(.numberPad)
+                .font(DSTypography.body)
+                .foregroundStyle(DSColor.Text.primary)
+                .frame(width: 28)
+                .onChange(of: heightInText) { _, _ in syncHeight() }
+            Text("in")
+                .font(DSTypography.caption)
+                .foregroundStyle(DSColor.Text.tertiary)
+            Spacer()
+        }
+        .frame(height: 48)
+        .padding(.horizontal, DSSpacing.lg)
+        .background(DSColor.Surface.secondary)
+        .dsCornerRadius(DSRadius.md)
+    }
+
+    private var weightInputField: some View {
+        HStack {
+            TextField("—", text: $weightText)
+                .keyboardType(.decimalPad)
+                .font(DSTypography.body)
+                .foregroundStyle(DSColor.Text.primary)
+                .onChange(of: weightText) { _, newValue in
+                    if newValue.isEmpty {
+                        viewModel.assessment.weightLbs = nil
+                    } else if let w = Double(newValue) {
+                        viewModel.assessment.weightLbs = w
+                        // Auto-set default target weight on first entry
+                        if viewModel.assessment.targetWeightLbs == nil && targetWeightText.isEmpty {
+                            let defaultTarget = max(w - 15, 100)
+                            viewModel.assessment.targetWeightLbs = defaultTarget
+                            targetWeightText = "\(Int(defaultTarget))"
+                        }
+                    }
+                }
+            Text("lbs")
+                .font(DSTypography.caption)
+                .foregroundStyle(DSColor.Text.tertiary)
+        }
+        .frame(height: 48)
+        .padding(.horizontal, DSSpacing.lg)
+        .background(DSColor.Surface.secondary)
+        .dsCornerRadius(DSRadius.md)
+    }
+
+    private var targetWeightInputField: some View {
+        HStack {
+            TextField("—", text: $targetWeightText)
+                .keyboardType(.decimalPad)
+                .font(DSTypography.body)
+                .foregroundStyle(DSColor.Text.primary)
+                .onChange(of: targetWeightText) { _, newValue in
+                    if newValue.isEmpty {
+                        viewModel.assessment.targetWeightLbs = nil
+                    } else if let tw = Double(newValue) {
+                        viewModel.assessment.targetWeightLbs = tw
+                    }
+                }
+            Text("lbs")
+                .font(DSTypography.caption)
+                .foregroundStyle(DSColor.Text.tertiary)
+        }
+        .frame(height: 48)
+        .padding(.horizontal, DSSpacing.lg)
+        .background(DSColor.Surface.secondary)
+        .dsCornerRadius(DSRadius.md)
+        .padding(.top, DSSpacing.sm)
+    }
+
+    // MARK: - Helpers
+
+    private func syncHeight() {
+        let ft = Int(heightFtText) ?? 0
+        let inch = Int(heightInText) ?? 0
+        let total = ft * 12 + inch
+        if total > 0 {
+            viewModel.assessment.heightInches = total
+        }
+    }
+
+    private func fieldLabel(_ text: String) -> some View {
+        Text(text)
+            .dsLabel()
+            .foregroundStyle(DSColor.Text.tertiary)
     }
 
     private var prefillBadge: some View {
