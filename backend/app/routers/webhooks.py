@@ -108,9 +108,15 @@ async def oura_webhook_receiver(request: Request, db: AsyncSession = Depends(get
         return {"status": "no_user"}
     meld_user_id = token.user_id
 
-    # Trigger sync to pull latest data
-    result = await sync_user_data(db, meld_user_id)
-    logger.info("Webhook-triggered sync: %s", result)
+    # Trigger sync to pull latest data. Return 200 even on sync failure so
+    # Oura doesn't retry — their retry budget is scarce and a failed sync
+    # will be picked up by the scheduled job within 6 hours. P2-16.
+    try:
+        result = await sync_user_data(db, meld_user_id)
+        logger.info("Webhook-triggered sync: %s", result)
+    except Exception as e:
+        logger.error("Webhook sync failed (returning 200 to Oura): %s", e)
+        return {"status": "sync_failed", "error": str(e)}
 
     # If this is a readiness update, trigger the morning brief notification
     if data_type == "daily_readiness" and event_type in ("create", "update"):

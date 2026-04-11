@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 
 from app.api.deps import CurrentUser
+from app.core.constants import ReadinessThreshold
 from app.database import get_db
 from app.models.health import SleepRecord
 from app.models.user import User
@@ -181,7 +182,11 @@ async def get_dashboard(
     baseline_hrv = health_data.get("baseline_hrv", hrv)
     sources = health_data.get("data_sources", {})
 
-    readiness_level = "High" if readiness >= 67 else "Moderate" if readiness >= 34 else "Low"
+    readiness_level = (
+        "High" if readiness >= ReadinessThreshold.HIGH
+        else "Moderate" if readiness >= ReadinessThreshold.MODERATE
+        else "Low"
+    )
     readiness_desc = {
         "High": "Good for hard training today",
         "Moderate": "Keep it easy today",

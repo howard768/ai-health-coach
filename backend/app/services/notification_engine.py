@@ -56,13 +56,9 @@ class NotificationEngine:
         Returns dict with title, body, category, and APNs metadata.
         """
         # Determine recovery level for routing
+        from app.core.constants import readiness_level
         readiness = health_data.get("readiness_score", 0)
-        if readiness >= 67:
-            recovery_level = "high"
-        elif readiness >= 34:
-            recovery_level = "moderate"
-        else:
-            recovery_level = "low"
+        recovery_level = readiness_level(readiness) if readiness else "low"
 
         sleep_eff = health_data.get("sleep_efficiency")
         hrv = health_data.get("hrv_average")

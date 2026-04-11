@@ -26,12 +26,33 @@ logger = logging.getLogger("meld.anti_fatigue")
 MAX_DAILY_NOTIFICATIONS = 4
 
 
+def _user_now() -> datetime:
+    """Return the current time in the user's configured timezone.
+
+    P2-15 fix: previously used datetime.utcnow() everywhere, which meant
+    "today" rolled over at UTC midnight (8pm EST → double notifications at
+    midnight local time). Now reads USER_TIMEZONE env var.
+    """
+    from zoneinfo import ZoneInfo
+    from app.config import settings as _settings
+    try:
+        tz = ZoneInfo(_settings.user_timezone)
+    except Exception:
+        tz = ZoneInfo("UTC")
+    return datetime.now(tz)
+
+
 async def check_daily_budget(db: AsyncSession, user_id: str) -> bool:
     """Check if the user has hit the daily notification cap.
 
     Returns True if we CAN send, False if budget is exhausted.
     """
-    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    # Day boundary in USER's timezone, not UTC (P2-15)
+    user_now = _user_now()
+    today_start_local = user_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    # Convert to naive UTC for the DB query (DB stores naive UTC timestamps)
+    from datetime import timezone as _tz
+    today_start = today_start_local.astimezone(_tz.utc).replace(tzinfo=None)
     result = await db.execute(
         select(func.count(NotificationRecord.id)).where(
             NotificationRecord.user_id == user_id,
@@ -129,6 +150,9 @@ async def check_auto_disable(db: AsyncSession, user_id: str, category: str) -> b
 async def check_quiet_hours(db: AsyncSession, user_id: str) -> bool:
     """Check if current time falls within the user's quiet hours.
 
+    P2-15: quiet hours are stored as local wall-clock strings like "22:00",
+    so we compare against the user's local time, not UTC.
+
     Returns True if we CAN send, False if within quiet hours.
     """
     pref_result = await db.execute(
@@ -138,7 +162,7 @@ async def check_quiet_hours(db: AsyncSession, user_id: str) -> bool:
     if not pref:
         return True  # No preferences set, default to allowing
 
-    now_time = datetime.utcnow().strftime("%H:%M")
+    now_time = _user_now().strftime("%H:%M")
     start = pref.quiet_hours_start
     end = pref.quiet_hours_end
 

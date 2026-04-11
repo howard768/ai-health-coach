@@ -14,28 +14,47 @@ struct TrendsView: View {
     @State private var selectedRange: TimeRange = .week
     @State private var selectedMetric: MetricCategory? = nil
     @State private var trendsData: APITrendsResponse?
+    @State private var isLoading = false
+    @State private var loadError: String? = nil
     private let M: CGFloat = 20
+
+    // Show empty state when we've loaded but the response is empty
+    private var isEmpty: Bool {
+        guard let data = trendsData else { return false }
+        return data.metrics.isEmpty || data.metrics.values.allSatisfy { $0.values.isEmpty }
+    }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: DSSpacing.xxl) {
 
-                // Time range selector
+                // Time range selector (always visible so the user can retry a different range)
                 timeRangeSelector
 
-                // Trend summary (headline insight)
-                trendSummaryCard
+                if isLoading && trendsData == nil {
+                    // First-load spinner
+                    loadingCard
+                } else if let loadError {
+                    // Error with retry
+                    errorCard(message: loadError)
+                } else if isEmpty {
+                    // No data yet — prompt to connect a source
+                    emptyCard
+                } else {
+                    // Trend summary (headline insight)
+                    trendSummaryCard
 
-                // Per-metric trend cards
-                ForEach(MetricCategory.allCases, id: \.self) { metric in
-                    TrendCard(metric: metric, range: selectedRange, apiData: trendsData)
+                    // Per-metric trend cards
+                    ForEach(MetricCategory.allCases, id: \.self) { metric in
+                        TrendCard(metric: metric, range: selectedRange, apiData: trendsData)
+                    }
+
+                    // Cross-domain trend insight
+                    crossDomainTrendInsight
+
+                    // Nutrition trend (if meals logged)
+                    nutritionTrendCard
                 }
-
-                // Cross-domain trend insight
-                crossDomainTrendInsight
-
-                // Nutrition trend (if meals logged)
-                nutritionTrendCard
             }
             .padding(.horizontal, M)
             .padding(.top, DSSpacing.md)
@@ -55,11 +74,65 @@ struct TrendsView: View {
         case .month: days = 30
         case .quarter: days = 90
         }
+        isLoading = true
+        loadError = nil
         do {
             trendsData = try await APIClient.shared.fetchTrends(rangeDays: days)
         } catch {
-            // Keep existing data on error
+            loadError = "Couldn't load trends. Pull to refresh."
         }
+        isLoading = false
+    }
+
+    // MARK: - Empty / Loading / Error cards
+
+    private var loadingCard: some View {
+        VStack(spacing: DSSpacing.md) {
+            ProgressView()
+                .scaleEffect(1.2)
+            Text("Loading your trends...")
+                .font(DSTypography.bodySM)
+                .foregroundStyle(DSColor.Text.secondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, DSSpacing.huge)
+    }
+
+    private var emptyCard: some View {
+        VStack(spacing: DSSpacing.md) {
+            AnimatedMascot(state: .idle, size: 48)
+            Text("No trend data yet")
+                .font(DSTypography.h3)
+                .foregroundStyle(DSColor.Text.primary)
+            Text("Connect your Oura Ring or Apple Health to start seeing your patterns.")
+                .font(DSTypography.bodySM)
+                .foregroundStyle(DSColor.Text.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, DSSpacing.xl)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, DSSpacing.huge)
+    }
+
+    private func errorCard(message: String) -> some View {
+        VStack(spacing: DSSpacing.md) {
+            AnimatedMascot(state: .concerned, size: 48)
+            Text("Something went wrong")
+                .font(DSTypography.h3)
+                .foregroundStyle(DSColor.Text.primary)
+            Text(message)
+                .font(DSTypography.bodySM)
+                .foregroundStyle(DSColor.Text.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, DSSpacing.xl)
+            Button("Retry") {
+                Task { await loadTrends() }
+            }
+            .font(DSTypography.bodyEmphasis)
+            .foregroundStyle(DSColor.Purple.purple500)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, DSSpacing.huge)
     }
 
     // MARK: - Time Range Selector

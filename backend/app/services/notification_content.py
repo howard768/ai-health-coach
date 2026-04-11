@@ -260,11 +260,11 @@ class NotificationContentGenerator:
 
     def _build_data_summary(self, health_data: dict) -> str:
         """Build a concise data summary string for prompts."""
+        from app.core.constants import readiness_level
         parts = []
         readiness = health_data.get("readiness_score")
         if readiness:
-            level = "high" if readiness >= 67 else "moderate" if readiness >= 34 else "low"
-            parts.append(f"Recovery: {level}")
+            parts.append(f"Recovery: {readiness_level(readiness)}")
         if health_data.get("sleep_efficiency"):
             parts.append(f"Sleep: {health_data['sleep_efficiency']:.0f}%")
         if health_data.get("hrv_average"):

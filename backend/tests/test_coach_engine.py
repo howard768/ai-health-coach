@@ -197,3 +197,46 @@ def test_can_answer_from_rules_resting_hr_returns_none():
     )
     assert not can
     assert answer is None
+
+
+# ── Word-boundary cost leak prevention (P3-8 regression) ─────────────────────
+
+
+def test_deliberator_because_does_not_match_cause():
+    """'because' should NOT match the 'cause' keyword and route to Opus.
+    Regression test for the cost-leak bug where substring matching of 'caus'
+    was triggering Opus on every casual mention of 'because'."""
+    safety = SafetyCheck(False, [], False, False)
+    decision = Deliberator.route(
+        "I'm tired because I had a long day",
+        {"readiness_score": 70},
+        safety,
+    )
+    # Should NOT escalate to Opus just for "because"
+    assert decision.tier != ModelTier.OPUS, "'because' incorrectly matched 'cause' keyword"
+
+
+def test_deliberator_causing_matches_cross_domain():
+    """'causing' should still trigger cross-domain routing."""
+    safety = SafetyCheck(False, [], False, False)
+    decision = Deliberator.route(
+        "what's causing my low HRV?",
+        {"readiness_score": 70},
+        safety,
+    )
+    assert decision.tier == ModelTier.OPUS
+
+
+def test_deliberator_inflections_all_match():
+    """All inflections of cross-domain keywords route to Opus."""
+    safety = SafetyCheck(False, [], False, False)
+    queries = [
+        "what causes my poor sleep",
+        "what caused this drop",
+        "how does diet affect recovery",
+        "explain my low readiness",
+        "what's the relationship between sleep and HRV",
+    ]
+    for q in queries:
+        decision = Deliberator.route(q, {"readiness_score": 70}, safety)
+        assert decision.tier == ModelTier.OPUS, f"Failed on: {q}"

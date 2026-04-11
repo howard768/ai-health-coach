@@ -24,11 +24,15 @@ final class CoachViewModel {
         do {
             let history = try await APIClient.shared.fetchChatHistory()
             if !history.isEmpty {
+                // P2-12: Preserve the backend message_id so thumbs up/down still
+                // work after a reload. Previously dropped, leaving feedback
+                // buttons inert for any historical message.
                 messages = history.map { msg in
                     ChatMessage(
                         role: msg.role == "coach" ? .coach : .user,
                         text: msg.content,
-                        timestamp: ISO8601DateFormatter().date(from: msg.createdAt) ?? Date()
+                        timestamp: ISO8601DateFormatter().date(from: msg.createdAt) ?? Date(),
+                        messageId: msg.id
                     )
                 }
             } else {

@@ -30,7 +30,16 @@ actor APIClient {
         self.baseURL = URL(string: resolvedURL)!
         #endif
         self.decoder = JSONDecoder()
-        self.session = URLSession.shared
+        // P2-11: Custom timeout config. Default URLSession timeouts are 60s
+        // (request) / 7 days (resource) which means a hung Opus call would
+        // spin the UI indefinitely. We cap the request at 45s (longer than
+        // most Claude responses but shorter than user patience) and resource
+        // at 90s (covers file uploads like food photos).
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 45  // seconds per request
+        config.timeoutIntervalForResource = 90  // seconds per resource (total)
+        config.waitsForConnectivity = true     // queue during brief offline periods
+        self.session = URLSession(configuration: config)
     }
 
     /// Build a URL from a path relative to the server root (e.g., "/api/meals").
@@ -612,8 +621,27 @@ struct APIChatResponse: Codable {
     let role: String
     let content: String
     let message_id: Int?
+    // P2-18: decode routing/safety/model_used so future debug UI can read them.
+    // Backend already returns these — ignoring would silently swallow info.
+    let routing: APIChatRouting?
+    let safety: APIChatSafety?
+    let model_used: String?
 
     var messageId: Int? { message_id }
+    var modelUsed: String? { model_used }
+}
+
+struct APIChatRouting: Codable {
+    let tier: String?         // "rules" | "sonnet" | "opus"
+    let reason: String?
+    let confidence: Double?
+    let safety_flag: Bool?
+}
+
+struct APIChatSafety: Codable {
+    let is_concerning: Bool?
+    let reasons: [String]?
+    let disclaimer_included: Bool?
 }
 
 struct APIHistoryMessage: Codable {

@@ -110,59 +110,15 @@ class SafetyCheck:
 
 
 # ============================================================
-# 3. HIERARCHICAL MEMORY (MAPLE, Memoria, HiMem)
-# Track what works for THIS user. Weight by recency.
+# 3. HIERARCHICAL MEMORY (deferred — see UserCorrelation for now)
 # ============================================================
-
-@dataclass
-class UserMemory:
-    """Persistent memory about what works for this specific user."""
-
-    # What coaching advice they've engaged with
-    effective_topics: dict[str, float] = field(default_factory=dict)  # topic → engagement score
-
-    # What they tend to ask about
-    frequent_queries: list[str] = field(default_factory=list)
-
-    # Coaching style preferences (learned over time)
-    prefers_detailed: bool = False  # vs concise
-    prefers_actionable: bool = True  # vs explanatory
-    responds_to_data: bool = True   # references specific numbers
-
-    # Health patterns observed
-    patterns: list[dict] = field(default_factory=list)
-
-    def add_pattern(self, pattern: dict):
-        """Add a cross-domain pattern with recency weighting."""
-        pattern["discovered_at"] = datetime.utcnow().isoformat()
-        pattern["weight"] = 1.0  # Decays over time (Memoria: exponential decay)
-        self.patterns.append(pattern)
-
-    def get_weighted_patterns(self, max_age_days: int = 30) -> list[dict]:
-        """Return patterns weighted by recency (Memoria: exponential decay)."""
-        cutoff = datetime.utcnow() - timedelta(days=max_age_days)
-        active = []
-        for p in self.patterns:
-            discovered = datetime.fromisoformat(p["discovered_at"])
-            if discovered > cutoff:
-                age_days = (datetime.utcnow() - discovered).days
-                p["weight"] = 0.95 ** age_days  # Exponential decay
-                active.append(p)
-        return sorted(active, key=lambda x: x["weight"], reverse=True)
-
-    def to_context(self) -> str:
-        """Convert memory to system prompt context."""
-        lines = []
-        if self.effective_topics:
-            top_topics = sorted(self.effective_topics.items(), key=lambda x: x[1], reverse=True)[:3]
-            lines.append(f"User responds well to: {', '.join(t[0] for t in top_topics)}")
-        if self.patterns:
-            recent = self.get_weighted_patterns(max_age_days=14)[:3]
-            for p in recent:
-                lines.append(f"Pattern found: {p.get('description', '')}")
-        if self.prefers_actionable:
-            lines.append("User prefers actionable advice over explanations.")
-        return "\n".join(lines)
+#
+# UserMemory was a TODO scaffold for per-user pattern memory. Removed in
+# P2-7 cleanup because (1) nothing populated it, (2) it had no persistence,
+# and (3) the correlation engine already discovers patterns and stores them
+# in the UserCorrelation table. When per-user memory ships for real, it
+# should pull from UserCorrelation + ChatMessageRecord, not be reinvented
+# from scratch.
 
 
 # ============================================================
@@ -266,11 +222,12 @@ class Deliberator:
             return False, None  # Route to AI with full health data context
 
         # Readiness queries (use full words to avoid matching "resting")
+        from app.core.constants import ReadinessThreshold
         readiness = health_data.get("readiness_score", 0)
         if any(w in query_lower for w in ["readiness", "recovery", "ready", "push hard", "should i rest"]):
-            if readiness >= 67:
+            if readiness >= ReadinessThreshold.HIGH:
                 return True, Deliberator.RULES["readiness_high"]
-            elif readiness >= 34:
+            elif readiness >= ReadinessThreshold.MODERATE:
                 return True, Deliberator.RULES["readiness_moderate"]
             else:
                 return True, Deliberator.RULES["readiness_low"]
@@ -309,16 +266,22 @@ class Deliberator:
 
         # 2. Complex cross-domain queries → Opus (check BEFORE rules)
         query_lower = query.lower()
-        # Substring matches handle inflections: "cause" matches "causes" but not
-        # "causing", so include stems explicitly. "caus" covers cause/causes/causing.
-        cross_domain_keywords = [
-            "why", "connect", "pattern", "correlation", "correlate",
-            "caus",  # cause/causes/causing/caused
-            "affect", "effect",  # affects/effected
-            "relationship", "related",
-            "explain",
-        ]
-        if any(w in query_lower for w in cross_domain_keywords):
+        # P3-8: Use word-boundary regex instead of substring matching.
+        # Substring matching had two bugs:
+        #   - "cause" doesn't match "causing" (missing stem coverage)
+        #   - "caus" stem matches "because" (false positive → Opus cost leak)
+        # Word boundaries with explicit inflections fix both at once.
+        import re as _re
+        cross_domain_pattern = _re.compile(
+            r"\b(why|connect|connects|connected|pattern|patterns|"
+            r"correlation|correlate|correlates|"
+            r"cause|causes|causing|caused|"
+            r"affect|affects|affected|effect|effects|"
+            r"relationship|related|"
+            r"explain|explains)\b",
+            _re.IGNORECASE,
+        )
+        if cross_domain_pattern.search(query_lower):
             return RoutingDecision(
                 tier=ModelTier.OPUS,
                 reason="Cross-domain analysis requires deep reasoning",
@@ -404,7 +367,7 @@ class CoachEngine:
 
     def __init__(self):
         self.client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-        self.memory = UserMemory()  # TODO: persist to DB
+        # P2-7: UserMemory deleted — use UserCorrelation for future per-user memory
         self.knowledge_graph = KnowledgeGraph()
 
     def process_query(
@@ -439,8 +402,9 @@ class CoachEngine:
                 "model_used": "rules",
             }
 
-        # Step 4: Build evidence-bound prompt with memory + knowledge graph
-        memory_context = self.memory.to_context()
+        # Step 4: Build evidence-bound prompt with knowledge graph.
+        # (Memory context removed in P2-7 cleanup — was always empty.)
+        memory_context = ""
         kg_connections = self.knowledge_graph.find_relevant_connections(
             list(health_data.keys())
         )

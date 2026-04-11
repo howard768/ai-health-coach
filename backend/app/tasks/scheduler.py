@@ -28,6 +28,7 @@ from app.services.correlation_engine import compute_correlations
 from app.services.literature import literature_service
 from app.services.oura_webhooks import list_subscriptions, renew_subscription
 from app.services.offline_eval import run_offline_eval
+from app.core.constants import ReadinessThreshold
 
 logger = logging.getLogger("meld.scheduler")
 
@@ -176,7 +177,11 @@ async def morning_brief_job():
 
         # Determine context for template selection
         readiness = health_data.get("readiness_score", 0)
-        context = "recovery_high" if readiness >= 67 else "recovery_moderate" if readiness >= 34 else "recovery_low"
+        context = (
+            "recovery_high" if readiness >= ReadinessThreshold.HIGH
+            else "recovery_moderate" if readiness >= ReadinessThreshold.MODERATE
+            else "recovery_low"
+        )
 
         # Try template first (DOVA: no AI cost)
         template_content = await pick_template(db, "morning_brief", context, {"user_name": user_name})

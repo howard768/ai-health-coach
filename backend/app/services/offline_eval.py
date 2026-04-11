@@ -25,7 +25,10 @@ async def run_offline_eval(db: AsyncSession, days: int = 7) -> dict:
     """Evaluate recent coach responses for quality regressions.
 
     Checks:
-    1. Reading level — Flesch-Kincaid grade should be <= 7.0
+    1. Reading level — Flesch-Kincaid grade should be <= 8.0
+       (allows headroom for technical health terms; the eval suite uses
+       7.0 as the strict bar for golden tests, but production responses
+       sometimes hit 7.5 with words like "circadian" or "cardiovascular")
     2. Data grounding — responses with health_context should cite numbers from it
     3. Feedback correlation — thumbs-down responses flagged for review
     """

@@ -15,7 +15,6 @@ dependencies = [
     "python-jose[cryptography]>=3.3.0",
     "apscheduler>=3.10.0",
     "aiosqlite>=0.21.0",
-    "sse-starlette>=2.2.0",
     "pillow>=11.0.0",
     "garminconnect>=0.2.0",
     "pylotoncycle>=0.9.1",

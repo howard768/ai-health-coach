@@ -68,9 +68,14 @@ async def sync_user_data(db: AsyncSession, user_id: str) -> dict:
         if existing.scalar_one_or_none():
             continue
 
-        # Convert timestamp to date
+        # Convert timestamp to date. P3-7: utcfromtimestamp is removed in
+        # Python 3.13 — use timezone-aware fromtimestamp.
+        from datetime import timezone
         created_at = parsed.get("created_at", 0)
-        workout_date = datetime.utcfromtimestamp(created_at).strftime("%Y-%m-%d") if created_at else datetime.utcnow().strftime("%Y-%m-%d")
+        if created_at:
+            workout_date = datetime.fromtimestamp(created_at, tz=timezone.utc).strftime("%Y-%m-%d")
+        else:
+            workout_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
         record = WorkoutRecord(
             user_id=user_id,
