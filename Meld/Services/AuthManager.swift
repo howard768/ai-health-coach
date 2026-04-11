@@ -19,10 +19,12 @@ final class AuthSessionState: ObservableObject {
 
     @Published var isSignedIn: Bool = false
     @Published var userDisplayName: String? = nil
+    @Published var userEmail: String? = nil
 
-    func setSignedIn(_ signedIn: Bool, name: String? = nil) {
+    func setSignedIn(_ signedIn: Bool, name: String? = nil, email: String? = nil) {
         self.isSignedIn = signedIn
         if let name { self.userDisplayName = name }
+        if let email { self.userEmail = email }
     }
 }
 
@@ -100,8 +102,9 @@ actor AuthManager {
         )
         try await persistTokens(pair)
         let displayName = pair.user.name
+        let userEmail = pair.user.email
         await MainActor.run {
-            AuthSessionState.shared.setSignedIn(true, name: displayName)
+            AuthSessionState.shared.setSignedIn(true, name: displayName, email: userEmail)
         }
     }
 

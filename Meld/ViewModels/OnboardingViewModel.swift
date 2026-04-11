@@ -118,8 +118,8 @@ final class OnboardingViewModel {
         // later. But we log it so we can spot repeated failures.
         do {
             let update = APIUserProfileUpdate(
-                name: nil,  // Not collected during onboarding yet — filled in later
-                email: nil,
+                name: AuthSessionState.shared.userDisplayName,
+                email: AuthSessionState.shared.userEmail,
                 age: assessment.age,
                 height_inches: assessment.heightInches,
                 weight_lbs: assessment.weightLbs,
