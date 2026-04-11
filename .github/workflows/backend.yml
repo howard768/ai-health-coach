@@ -44,7 +44,13 @@ jobs:
           # validation passes during import.
           ANTHROPIC_API_KEY: "stub-for-tests"
           JWT_SECRET: "test-jwt-secret-must-be-long-enough-for-hs256-aaaaaaaa"
-          ENCRYPTION_KEY: ""  # Empty falls through to plaintext (legacy mode)
+          # Fernet test key — pinned in CI so test_encryption.py round-trips.
+          # app.config.Settings() reads os.environ at import time, so this
+          # MUST be set before pytest starts the process. (The legacy
+          # plaintext codepath is exercised separately in
+          # test_legacy_plaintext_passthrough, which decodes a non-Fernet
+          # string regardless of the cipher key.)
+          ENCRYPTION_KEY: "T0TXLkHFSeZRYGIIejSFVkhQrvRE-bWLkwXSkkdWiKQ="
         run: uv run python -m pytest tests/ -v --tb=short
 
       - name: Upload pytest output
@@ -107,7 +113,7 @@ jobs:
         env:
           ANTHROPIC_API_KEY: "stub-for-imports"
           JWT_SECRET: "test-jwt-secret-must-be-long-enough-for-hs256-aaaaaaaa"
-          ENCRYPTION_KEY: ""
+          ENCRYPTION_KEY: "T0TXLkHFSeZRYGIIejSFVkhQrvRE-bWLkwXSkkdWiKQ="
         # Catches missing imports, syntax errors, and forward-reference bugs
         # without spinning up a real server.
         run: uv run python -c "from app.main import app; print('app imports ok')"
