@@ -37,3 +37,6 @@ class User(Base):
     # Required for account deletion (we need to call Apple's /auth/revoke with it).
     # Nullable because older accounts may not have captured this.
     apple_refresh_token: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Set to True when the user reaches the main dashboard after completing all
+    # onboarding steps. Used to restore `hasCompletedOnboarding` after reinstall.
+    onboarding_complete: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

@@ -130,7 +130,8 @@ final class OnboardingViewModel {
                 target_weight_lbs: assessment.targetWeightLbs,
                 goals: assessment.goals.map(\.rawValue),
                 training_experience: assessment.trainingExperience?.rawValue,
-                training_days_per_week: assessment.trainingDaysPerWeek
+                training_days_per_week: assessment.trainingDaysPerWeek,
+                onboarding_complete: true
             )
             _ = try await APIClient.shared.updateUserProfile(update)
         } catch {

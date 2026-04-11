@@ -759,6 +759,8 @@ struct APIUserProfile: Codable {
     let age: Int?
     let height_inches: Int?
     let weight_lbs: Double?
+    // Optional so missing key (old API response) decodes safely as nil
+    let onboarding_complete: Bool?
     let target_weight_lbs: Double?
     let goals: [String]
     let training_experience: String?
@@ -805,6 +807,7 @@ struct APIUserProfileUpdate: Codable {
     var goals: [String]?
     var training_experience: String?
     var training_days_per_week: Int?
+    var onboarding_complete: Bool?
 }
 
 struct APINotificationPreferences: Codable {
