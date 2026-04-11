@@ -1,0 +1,10 @@
+# Cloudflare Pages redirects
+# Docs: https://developers.cloudflare.com/pages/configuration/redirects/
+
+# Canonicalize www → apex
+https://www.heymeld.com/*  https://heymeld.com/:splat  301
+
+# Legacy Wix slugs (from the abandoned Wix build) → clean URLs on this site
+/post/why-we-re-building-meld  /journal/why-meld   301
+/post/privacy-policy           /privacy            301
+/post/terms-of-service         /terms              301

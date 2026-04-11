@@ -1,0 +1,124 @@
+---
+const pillars = [
+  {
+    num: '01',
+    tag: 'Connect',
+    title: 'Every source, one tap',
+    body: 'Oura. Apple Health. Peloton. Garmin. Connect once. We handle the rest in the background. You never screenshot anything.',
+  },
+  {
+    num: '02',
+    tag: 'Synthesize',
+    title: 'One view that makes sense',
+    body: 'Sleep, training, nutrition, recovery — all in one context. Not twelve dashboards. One coach that sees everything at once.',
+  },
+  {
+    num: '03',
+    tag: 'Coach',
+    title: 'Answers, not dashboards',
+    body: 'Ask anything about your health. Get clear, specific answers. Not charts. Not jargon. Actual advice.',
+  },
+  {
+    num: '04',
+    tag: 'Adapt',
+    title: 'Smarter every week',
+    body: "Meld learns your body. What works for you. What doesn't. The longer you use it, the better it gets at coaching you specifically.",
+  },
+];
+---
+
+<section class="section solution">
+  <div class="container">
+    <header class="solution-header">
+      <p class="eyebrow">What Meld does</p>
+      <h2 class="h1">Meld connects it all. Then it coaches you.</h2>
+    </header>
+
+    <div class="pillar-grid">
+      {
+        pillars.map((p) => (
+          <article class="pillar card-glass reveal">
+            <div class="pillar-meta">
+              <span class="pillar-num">{p.num}</span>
+              <span class="pillar-tag">{p.tag}</span>
+            </div>
+            <h3 class="h3 pillar-title">{p.title}</h3>
+            <p class="pillar-body">{p.body}</p>
+          </article>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .solution {
+    background: linear-gradient(180deg, var(--bg-primary) 0%, var(--purple-50) 100%);
+  }
+
+  .solution-header {
+    text-align: center;
+    margin-bottom: var(--sp-12);
+  }
+
+  .solution-header .h1 {
+    max-width: 20ch;
+    margin-inline: auto;
+  }
+
+  .pillar-grid {
+    display: grid;
+    gap: var(--sp-5);
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 680px) {
+    .pillar-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  @media (min-width: 1100px) {
+    .pillar-grid {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+
+  .pillar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+  }
+
+  .pillar-meta {
+    display: flex;
+    align-items: baseline;
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-1);
+  }
+
+  .pillar-num {
+    font-size: 1.75rem;
+    font-weight: var(--fw-thin);
+    color: var(--purple-400);
+    letter-spacing: -0.02em;
+  }
+
+  .pillar-tag {
+    font-size: var(--fs-label);
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--purple-600);
+  }
+
+  .pillar-title {
+    color: var(--text-primary);
+  }
+
+  .pillar-body {
+    font-size: var(--fs-body-sm);
+    color: var(--text-secondary);
+    line-height: var(--lh-relaxed);
+  }
+</style>

@@ -1,0 +1,109 @@
+---
+---
+
+<section class="section founder">
+  <div class="container prose">
+    <div class="founder-card">
+      <p class="eyebrow">Why I'm building this</p>
+
+      <blockquote class="founder-quote">
+        <p>
+          Last year, I was screenshotting six health apps into ChatGPT every morning
+          to get advice. It worked — better than any single app. But the friction
+          was ridiculous.
+        </p>
+        <p>
+          Meld is what I wanted to exist. I'm building it for myself first.
+          If it works for you too, I'd love to hear about it.
+        </p>
+      </blockquote>
+
+      <div class="founder-signature">
+        <div class="avatar" aria-hidden="true">BH</div>
+        <div class="sig-text">
+          <strong>Brock Howard</strong>
+          <span>Founder, Meld · VP Product at Lark Health</span>
+        </div>
+      </div>
+
+      <a href="/journal/why-meld" class="read-more">Read the full story →</a>
+    </div>
+  </div>
+</section>
+
+<style>
+  .founder {
+    background: var(--bg-primary);
+  }
+
+  .founder-card {
+    background: var(--bg-secondary);
+    border-radius: var(--r-card-lg);
+    padding: clamp(2rem, 5vw, 3.5rem);
+    max-width: 760px;
+    margin-inline: auto;
+    text-align: left;
+  }
+
+  .founder-card .eyebrow {
+    margin-bottom: var(--sp-5);
+  }
+
+  .founder-quote {
+    font-size: var(--fs-body-lg);
+    font-weight: var(--fw-light);
+    font-style: italic;
+    color: var(--text-primary);
+    line-height: var(--lh-relaxed);
+    border-left: 3px solid var(--purple-300);
+    padding-left: var(--sp-5);
+    margin-bottom: var(--sp-8);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+  }
+
+  .founder-signature {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-4);
+  }
+
+  .avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--purple-400) 0%, var(--purple-600) 100%);
+    display: grid;
+    place-items: center;
+    color: #fff;
+    font-weight: var(--fw-medium);
+    font-size: 1.125rem;
+    letter-spacing: -0.02em;
+    flex-shrink: 0;
+  }
+
+  .sig-text {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sig-text strong {
+    font-size: var(--fs-body);
+    font-weight: var(--fw-medium);
+    color: var(--text-primary);
+  }
+
+  .sig-text span {
+    font-size: var(--fs-caption);
+    color: var(--text-tertiary);
+  }
+
+  .read-more {
+    display: inline-block;
+    color: var(--purple-600);
+    font-weight: var(--fw-medium);
+    font-size: var(--fs-body-sm);
+  }
+</style>

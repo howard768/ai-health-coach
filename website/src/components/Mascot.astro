@@ -1,0 +1,76 @@
+---
+/*
+ * Meld mascot — Squat Blob (Variant B, primary)
+ *
+ * Genderless pixel-art character in Warm Amber (#E5A84B).
+ * Rendered as inline SVG so it scales crisply at any size.
+ * Pixel grid is preserved — never smoothed.
+ *
+ * Matches Meld/DesignSystem/Icons/SquatBlobIcon.swift from the iOS app.
+ * The body uses a simple 10×7 pixel grid. Eyes are 1×1 px each.
+ */
+
+interface Props {
+  /** Output size in pixels. Default 48. Common sizes: 26 nav, 32 chat, 48 card, 64 hero. */
+  size?: number;
+  /** Optional accessible label. Defaults to decorative (aria-hidden). */
+  label?: string;
+  /** Extra class names applied to the outer SVG. */
+  class?: string;
+}
+
+const { size = 48, label, class: className } = Astro.props;
+
+// Each pixel in the 10×7 grid is rendered as a square of `unit` px.
+const unit = size / 10;
+const bodyColor = 'var(--amber-body)';
+const eyeColor = 'var(--amber-eye)';
+
+// The blob body silhouette — 10 columns × 7 rows.
+// Each row is a string of 0s (empty) and 1s (body pixel).
+// This matches the SquatBlobIcon.swift shape grid in the iOS app.
+const bodyGrid = [
+  '0011111100',
+  '0111111110',
+  '1111111111',
+  '1111111111',
+  '1111111111',
+  '0111111110',
+  '0011111100',
+];
+
+// Eyes: two dark pixels at row 3, cols 2 and 7
+const eyes: Array<[number, number]> = [
+  [2, 3],
+  [7, 3],
+];
+---
+
+<svg
+  width={size}
+  height={size * 0.7}
+  viewBox={`0 0 ${size} ${size * 0.7}`}
+  class={className}
+  role={label ? 'img' : undefined}
+  aria-label={label}
+  aria-hidden={label ? undefined : 'true'}
+  shape-rendering="crispEdges"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  {
+    /* Body pixels */
+    bodyGrid.map((row, y) =>
+      row.split('').map((cell, x) =>
+        cell === '1' ? (
+          <rect x={x * unit} y={y * unit} width={unit} height={unit} fill={bodyColor} />
+        ) : null
+      )
+    )
+  }
+  {
+    /* Eye pixels on top of body */
+    eyes.map(([x, y]) => (
+      <rect x={x * unit} y={y * unit} width={unit} height={unit} fill={eyeColor} />
+    ))
+  }
+</svg>

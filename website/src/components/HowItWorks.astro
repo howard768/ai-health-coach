@@ -1,0 +1,120 @@
+---
+const steps = [
+  {
+    num: 1,
+    title: 'Connect your sources',
+    body: 'Tap to link Oura, Apple Health, Peloton, Garmin, and more. We read only what you authorize. You can disconnect any source in one tap.',
+  },
+  {
+    num: 2,
+    title: 'We sync in the background',
+    body: 'Meld pulls your latest data every few hours. Sleep, workouts, steps, heart rate, HRV, food. No screenshots. No manual input.',
+  },
+  {
+    num: 3,
+    title: 'Your coach reaches out',
+    body: 'When something matters — a big recovery dip, a pattern across meals, a workout suggestion — your coach tells you. When you have a question, just ask.',
+  },
+  {
+    num: 4,
+    title: 'You get smarter over time',
+    body: "The more Meld knows you, the better it coaches you. Your baselines, your habits, your goals. It adapts. You don't have to.",
+  },
+];
+---
+
+<section class="section how-it-works" id="how-it-works">
+  <div class="container prose">
+    <header class="how-header">
+      <p class="eyebrow">How it works</p>
+      <h2 class="h1">Four steps. Nothing to configure.</h2>
+    </header>
+
+    <ol class="steps">
+      {
+        steps.map((s) => (
+          <li class="step reveal">
+            <div class="step-num" aria-hidden="true">
+              {s.num}
+            </div>
+            <div class="step-body">
+              <h3 class="h3">{s.title}</h3>
+              <p>{s.body}</p>
+            </div>
+          </li>
+        ))
+      }
+    </ol>
+  </div>
+</section>
+
+<style>
+  .how-it-works {
+    background: var(--bg-primary);
+  }
+
+  .how-header {
+    margin-bottom: var(--sp-10);
+    text-align: center;
+  }
+
+  .steps {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-8);
+    position: relative;
+    counter-reset: step-count;
+  }
+
+  /* Vertical connecting line between steps (desktop only) */
+  @media (min-width: 680px) {
+    .steps::before {
+      content: '';
+      position: absolute;
+      left: 23px;
+      top: 28px;
+      bottom: 28px;
+      width: 2px;
+      background: linear-gradient(
+        180deg,
+        var(--purple-200) 0%,
+        var(--purple-100) 100%
+      );
+    }
+  }
+
+  .step {
+    display: grid;
+    grid-template-columns: 48px 1fr;
+    gap: var(--sp-5);
+    align-items: flex-start;
+    position: relative;
+  }
+
+  .step-num {
+    width: 48px;
+    height: 48px;
+    background: var(--bg-primary);
+    border: 2px solid var(--purple-300);
+    color: var(--purple-600);
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 1.125rem;
+    font-weight: var(--fw-medium);
+    flex-shrink: 0;
+    z-index: 1;
+  }
+
+  .step-body h3 {
+    margin-bottom: var(--sp-2);
+    color: var(--text-primary);
+  }
+
+  .step-body p {
+    color: var(--text-secondary);
+    line-height: var(--lh-relaxed);
+  }
+</style>

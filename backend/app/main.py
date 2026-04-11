@@ -11,7 +11,7 @@ from slowapi.util import get_remote_address
 
 from app.config import settings
 from app.database import init_db
-from app.routers import auth, auth_apple, health, coach, notifications, meals, user, peloton_auth, garmin_auth, webhooks
+from app.routers import auth, auth_apple, health, coach, notifications, meals, user, peloton_auth, garmin_auth, webhooks, waitlist
 from app.tasks.scheduler import start_scheduler, stop_scheduler
 
 
@@ -54,6 +54,14 @@ app.add_middleware(
         settings.local_base_url,
         "http://192.168.86.47:8000",
         settings.public_base_url,
+        # Marketing site (heymeld.com) — the Astro app posts to /api/waitlist/subscribe
+        "https://heymeld.com",
+        "https://www.heymeld.com",
+        # Cloudflare Pages preview deployments
+        "https://heymeld.pages.dev",
+        # Local Astro dev server
+        "http://localhost:4321",
+        "http://localhost:4322",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -76,6 +84,7 @@ app.include_router(user.router)
 app.include_router(peloton_auth.router)
 app.include_router(garmin_auth.router)
 app.include_router(webhooks.router)
+app.include_router(waitlist.router)    # Public waitlist signup (heymeld.com)
 
 
 @app.get("/")

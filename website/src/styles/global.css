@@ -1,0 +1,291 @@
+@import './tokens.css';
+
+/* ---------- Reset (modernized, WCAG-aware) ---------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+  /* Generous scroll-padding so sticky nav doesn't overlap jump targets */
+  scroll-padding-top: 96px;
+}
+
+body {
+  font-family: var(--font-family);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-light);
+  line-height: var(--lh-normal);
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  min-height: 100dvh;
+}
+
+img,
+picture,
+video,
+canvas,
+svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+input,
+button,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+a {
+  color: var(--purple-600);
+  text-decoration: none;
+  transition: color var(--dur-base) var(--ease-out);
+}
+
+a:hover {
+  color: var(--purple-500);
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--purple-600);
+  outline-offset: 3px;
+  border-radius: var(--r-sm);
+}
+
+p {
+  line-height: var(--lh-normal);
+  max-width: 65ch;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-family);
+  line-height: var(--lh-tight);
+  color: var(--text-primary);
+  text-wrap: balance;
+}
+
+/* ---------- Layout primitives ---------- */
+
+.container {
+  width: 100%;
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding-inline: var(--sp-5);
+}
+
+@media (min-width: 768px) {
+  .container {
+    padding-inline: var(--sp-8);
+  }
+}
+
+.prose {
+  max-width: var(--prose-max);
+  margin-inline: auto;
+}
+
+.section {
+  padding-block: var(--section-pad-y);
+}
+
+/* ---------- Typography utility classes ---------- */
+
+.eyebrow {
+  font-size: var(--fs-label);
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--purple-600);
+  margin-bottom: var(--sp-4);
+}
+
+.display {
+  font-size: var(--fs-display);
+  font-weight: var(--fw-thin);
+  letter-spacing: -0.02em;
+  line-height: var(--lh-tight);
+}
+
+.h1 {
+  font-size: var(--fs-h1);
+  font-weight: var(--fw-light);
+  letter-spacing: -0.015em;
+  line-height: var(--lh-snug);
+}
+
+.h2 {
+  font-size: var(--fs-h2);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-snug);
+}
+
+.h3 {
+  font-size: var(--fs-h3);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-snug);
+}
+
+.subhead {
+  font-size: var(--fs-body-lg);
+  font-weight: var(--fw-light);
+  color: var(--text-secondary);
+  max-width: 52ch;
+  line-height: var(--lh-relaxed);
+}
+
+.caption {
+  font-size: var(--fs-caption);
+  color: var(--text-tertiary);
+}
+
+/* ---------- Button primitives ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: 48px; /* WCAG tap target */
+  padding-inline: var(--sp-6);
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-body);
+  border-radius: var(--r-md);
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out),
+    background-color var(--dur-base) var(--ease-out);
+  cursor: pointer;
+  text-align: center;
+}
+
+.btn-primary {
+  background: var(--purple-600);
+  color: var(--text-on-purple);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.btn-primary:hover {
+  background: var(--purple-500);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(84, 56, 166, 0.25);
+  color: var(--text-on-purple);
+}
+
+.btn-on-dark {
+  background: #ffffff;
+  color: var(--purple-600);
+}
+
+.btn-on-dark:hover {
+  background: var(--purple-100);
+  color: var(--purple-600);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-primary);
+  min-height: 40px;
+  padding-inline: var(--sp-4);
+}
+
+.btn-ghost:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* ---------- Card primitives ---------- */
+
+.card {
+  background: var(--bg-primary);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-card);
+  padding: var(--sp-6);
+  transition:
+    transform var(--dur-base) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out);
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.card-insight {
+  background: var(--purple-100);
+  border-radius: var(--r-card-lg);
+  box-shadow: none;
+  padding: var(--sp-6);
+}
+
+.card-glass {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  border: var(--glass-border);
+  border-radius: var(--r-card-lg);
+  box-shadow: var(--shadow-card);
+  padding: var(--sp-6);
+}
+
+/* ---------- Focus-visible fallback for form inputs ---------- */
+
+input[type='email'],
+input[type='text'] {
+  background: var(--bg-primary);
+  border: 1px solid var(--text-disabled);
+  border-radius: var(--r-md);
+  padding: var(--sp-3) var(--sp-4);
+  min-height: 48px;
+  font-size: var(--fs-body);
+  width: 100%;
+  transition: border-color var(--dur-base) var(--ease-out);
+}
+
+input[type='email']:focus {
+  border-color: var(--purple-600);
+  outline: 2px solid var(--purple-200);
+  outline-offset: 0;
+}
+
+/* ---------- Reveal on scroll (no-JS fallback: visible) ---------- */
+
+@media (prefers-reduced-motion: no-preference) {
+  .reveal {
+    opacity: 0;
+    transform: translateY(16px);
+    transition:
+      opacity 600ms var(--ease-out),
+      transform 600ms var(--ease-out);
+  }
+  .reveal.in {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

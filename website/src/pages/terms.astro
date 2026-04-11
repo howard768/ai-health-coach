@@ -1,0 +1,169 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import Nav from '@/components/Nav.astro';
+import Footer from '@/components/Footer.astro';
+---
+
+<Layout
+  title="Terms of Service — Meld"
+  description="The terms of using the Meld waitlist and website."
+>
+  <Nav slot="nav" />
+
+  <article class="legal section">
+    <div class="container prose">
+      <header class="legal-header">
+        <p class="eyebrow">Legal</p>
+        <h1 class="h1">Terms of Service</h1>
+        <p class="meta">
+          <strong>Effective:</strong> April 11, 2026 &nbsp;·&nbsp;
+          <strong>Last updated:</strong> April 11, 2026
+        </p>
+      </header>
+
+      <p>
+        These Terms of Service are a legal agreement between you and Meld. They apply when
+        you visit heymeld.com, join our waitlist, or use the Meld iOS app once it is
+        available. By using our website or services, you agree to these Terms.
+      </p>
+
+      <h2>1. What Meld is</h2>
+      <p>
+        Meld is a consumer wellness product being built by Brock Howard. As of today, Meld
+        operates a pre-launch marketing website at heymeld.com with a waitlist for the
+        forthcoming iOS app. The app is not yet available for download.
+      </p>
+
+      <h2>2. Not a medical device</h2>
+      <p>
+        This is important. Meld is a wellness and coaching product, not a medical device.
+        Meld is not designed to diagnose, treat, cure, or prevent any disease. Meld does not
+        replace advice from a qualified health professional.
+      </p>
+      <p>
+        Always consult your doctor before changing your diet, exercise, supplements,
+        medications, or medical routine based on anything Meld shows you. In an emergency,
+        call emergency services. Do not use Meld for urgent medical needs. Never ignore
+        professional medical advice because of something Meld told you.
+      </p>
+
+      <h2>3. Your account</h2>
+      <p>
+        You can join the waitlist by submitting your email. When the full app launches, you
+        will be asked to create an account. You must provide accurate information, keep your
+        account secure, be at least 13 years old or the minimum age in your country
+        (whichever is higher), and only use Meld for your own body.
+      </p>
+
+      <h2>4. Acceptable use</h2>
+      <p>
+        You agree not to use Meld for anyone other than yourself. You agree not to scrape,
+        copy, or redistribute Meld's content or the coach's responses without permission.
+        You agree not to reverse engineer the app or backend. You agree not to access other
+        users' data. You agree not to upload anything illegal, harmful, or that violates
+        anyone's rights. You agree not to try to make the coach give you dangerous, harmful,
+        or illegal advice. You agree not to use Meld to impersonate a licensed professional.
+      </p>
+
+      <h2>5. Waitlist</h2>
+      <p>
+        Joining the waitlist does not guarantee access to the app. We cannot promise a
+        specific launch date. We will email you when access is available. You can
+        unsubscribe from the waitlist at any time.
+      </p>
+
+      <h2>6. Intellectual property</h2>
+      <p>
+        Meld's name, logo, website, app, and all original content belong to us. You may
+        link to heymeld.com and share our public content. You may not reproduce our brand or
+        content commercially without written permission.
+      </p>
+      <p>Your data belongs to you. See our <a href="/privacy">Privacy Policy</a> for details.</p>
+
+      <h2>7. AI disclaimer</h2>
+      <p>
+        Meld uses AI, specifically Anthropic's Claude, to power the coach. AI can make
+        mistakes. Do not treat coach responses as the final word. Always use common sense,
+        and consult a qualified professional for medical decisions. We do our best to ground
+        coaching in published research, but we do not guarantee accuracy, completeness, or
+        suitability for your specific situation.
+      </p>
+
+      <h2>8. Disclaimer of warranties</h2>
+      <p>
+        Meld is provided as is, without warranty of any kind, express or implied. We do not
+        warrant that Meld will be uninterrupted, secure, or error free. We do not warrant
+        that the results from using Meld will meet your health goals. We do not warrant that
+        the coach's advice is perfectly accurate for your specific situation. We do not
+        warrant that any errors in content will be corrected.
+      </p>
+
+      <h2>9. Limitation of liability</h2>
+      <p>
+        To the maximum extent permitted by law, Meld and its founders are not liable for any
+        indirect, incidental, special, consequential, or punitive damages arising from your
+        use of the website, waitlist, or app. Our total liability for any claim will not
+        exceed one hundred US dollars or the amount you paid us in the past twelve months,
+        whichever is greater.
+      </p>
+
+      <h2>10. Changes to these Terms</h2>
+      <p>
+        We may update these Terms. We will post the new version here and update the Last
+        Updated date. Material changes will be announced by email to waitlist members.
+        Continued use of Meld after a change means you accept the new Terms.
+      </p>
+
+      <h2>11. Governing law</h2>
+      <p>
+        These Terms are governed by the laws of the United States and the state where Meld
+        is incorporated, which will be confirmed before launch. Disputes will be resolved in
+        the courts of that state.
+      </p>
+
+      <h2>12. Contact</h2>
+      <p>
+        Questions about these Terms? Email
+        <a href="mailto:hello@heymeld.com">hello@heymeld.com</a>. We reply within a few
+        business days.
+      </p>
+    </div>
+  </article>
+
+  <Footer slot="footer" />
+</Layout>
+
+<style>
+  .legal {
+    background: var(--bg-primary);
+  }
+
+  .legal-header {
+    margin-bottom: var(--sp-12);
+  }
+
+  .legal-header .h1 {
+    margin-block: var(--sp-2) var(--sp-4);
+  }
+
+  .legal .meta {
+    font-size: var(--fs-body-sm);
+    color: var(--text-tertiary);
+  }
+
+  .legal .prose h2 {
+    font-size: 1.375rem;
+    font-weight: var(--fw-regular);
+    color: var(--text-primary);
+    margin-top: var(--sp-10);
+    margin-bottom: var(--sp-4);
+    letter-spacing: -0.01em;
+  }
+
+  .legal .prose p {
+    color: var(--text-secondary);
+    font-weight: var(--fw-light);
+    line-height: var(--lh-relaxed);
+    margin-bottom: var(--sp-4);
+  }
+</style>

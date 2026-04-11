@@ -1,0 +1,50 @@
+# Meld
+
+> Meld is an AI-powered health coaching iOS app. It connects fragmented health data (Oura, Apple Health, Peloton, Garmin) in the background, synthesizes it, and coaches the user with literature-grounded, cross-domain insights. Pre-launch as of April 2026.
+
+## About
+
+- **Product**: Meld — iOS health coaching app
+- **Positioning**: "Your health, synthesized" — eliminates the friction between fragmented health data and an AI coach
+- **Founder**: Brock Howard, VP Product at Lark Health
+- **Status**: Active build, pre-launch, iOS first
+- **Domain**: heymeld.com
+
+## Key pages
+
+- [Home](https://heymeld.com/): Product overview, waitlist signup, data sources, privacy promises, FAQ
+- [Privacy Policy](https://heymeld.com/privacy): How Meld protects health data. Sub-processors. HIPAA position. Data rights.
+- [Terms of Service](https://heymeld.com/terms): Legal terms, "not a medical device" disclaimer, AI limitations
+- [Journal](https://heymeld.com/journal): Team notes on health, data, and AI coaching
+- [Why we're building Meld](https://heymeld.com/journal/why-meld): The origin story
+
+## Core product facts
+
+- **Platform**: iOS 17+ (iPhone), Android and web coming later
+- **AI provider**: Anthropic's Claude (Sonnet/Haiku workhorse + Opus for deep analysis)
+- **Data sources (today)**: Oura, Apple Health, Peloton, Garmin
+- **Data sources (coming)**: Eight Sleep, Whoop, continuous glucose monitors, electronic health records
+- **Backend**: Python FastAPI on Railway, PostgreSQL, encrypted at rest and in transit
+- **Food logging**: Photo (Claude Vision), barcode scan, voice, text search (USDA + Open Food Facts)
+- **Notifications**: 7 categories with research-backed anti-fatigue (max 4/day)
+- **Design**: Glassmorphic, Roboto typography, warm amber mascot, research-cited coaching
+
+## Differentiation
+
+- **vs. Oura/Whoop**: They're excellent at one sensor each. Meld connects every source.
+- **vs. ChatGPT**: ChatGPT knows nothing about your body until you feed it screenshots. Meld already knows.
+- **vs. other health apps**: Meld reaches level 4 of health data interpretation — not "what happened" or "is it good/bad" or even "what to do" — but "why" with literature citations.
+
+## Privacy stance
+
+- Never sold, never rented, never shared with advertisers
+- Never used to train generic AI models
+- OAuth-based connections, revokable anytime
+- Encrypted in transit and at rest
+- Full export / delete on request within 30 days
+- Not a HIPAA covered entity, but operated with HIPAA-grade seriousness
+
+## Contact
+
+- Email: hello@heymeld.com
+- Website: https://heymeld.com

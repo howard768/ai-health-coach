@@ -1,0 +1,184 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import Nav from '@/components/Nav.astro';
+import Footer from '@/components/Footer.astro';
+import { getCollection, render, type CollectionEntry } from 'astro:content';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('journal');
+  return posts.map((post) => ({
+    params: { slug: post.id },
+    props: { post },
+  }));
+}
+
+type Props = { post: CollectionEntry<'journal'> };
+const { post } = Astro.props;
+const { Content } = await render(post);
+
+const articleSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'Article',
+  headline: post.data.title,
+  description: post.data.description,
+  datePublished: post.data.pubDate.toISOString(),
+  author: {
+    '@type': 'Person',
+    name: post.data.author,
+  },
+  publisher: {
+    '@type': 'Organization',
+    name: 'Meld',
+    logo: {
+      '@type': 'ImageObject',
+      url: 'https://heymeld.com/favicon.svg',
+    },
+  },
+  mainEntityOfPage: {
+    '@type': 'WebPage',
+    '@id': `https://heymeld.com/journal/${post.id}`,
+  },
+};
+
+const formatter = new Intl.DateTimeFormat('en-US', {
+  month: 'long',
+  day: 'numeric',
+  year: 'numeric',
+});
+---
+
+<Layout
+  title={`${post.data.title} — Journal · Meld`}
+  description={post.data.description}
+  ogType="article"
+  jsonLd={articleSchema}
+>
+  <Nav slot="nav" />
+
+  <article class="section post">
+    <div class="container prose">
+      <header class="post-header">
+        <p class="eyebrow">
+          <a href="/journal">Journal</a> · {formatter.format(post.data.pubDate)}
+        </p>
+        <h1 class="display post-title">{post.data.title}</h1>
+        <p class="by">By {post.data.author}</p>
+      </header>
+
+      <div class="post-body">
+        <Content />
+      </div>
+
+      <footer class="post-footer">
+        <a href="/journal" class="back">← More from the Journal</a>
+        <a href="/#waitlist" class="btn btn-primary">Join the waitlist</a>
+      </footer>
+    </div>
+  </article>
+
+  <Footer slot="footer" />
+</Layout>
+
+<style>
+  .post {
+    background: var(--bg-primary);
+  }
+
+  .post-header {
+    margin-bottom: var(--sp-10);
+  }
+
+  .post-header .eyebrow {
+    color: var(--purple-600);
+    margin-bottom: var(--sp-3);
+  }
+
+  .post-header .eyebrow a {
+    color: inherit;
+  }
+
+  .post-title {
+    margin-bottom: var(--sp-4);
+    text-wrap: balance;
+  }
+
+  .by {
+    font-size: var(--fs-body-sm);
+    color: var(--text-tertiary);
+  }
+
+  .post-body :global(p) {
+    color: var(--text-secondary);
+    font-weight: var(--fw-light);
+    font-size: var(--fs-body-lg);
+    line-height: var(--lh-relaxed);
+    margin-bottom: var(--sp-5);
+    max-width: 62ch;
+  }
+
+  .post-body :global(h2) {
+    font-size: var(--fs-h1);
+    font-weight: var(--fw-regular);
+    color: var(--text-primary);
+    margin-top: var(--sp-10);
+    margin-bottom: var(--sp-5);
+    max-width: 22ch;
+    letter-spacing: -0.01em;
+  }
+
+  .post-body :global(h3) {
+    font-size: 1.25rem;
+    font-weight: var(--fw-medium);
+    color: var(--text-primary);
+    margin-top: var(--sp-8);
+    margin-bottom: var(--sp-3);
+  }
+
+  .post-body :global(ul),
+  .post-body :global(ol) {
+    margin-bottom: var(--sp-5);
+    padding-left: var(--sp-6);
+    color: var(--text-secondary);
+    font-weight: var(--fw-light);
+    line-height: var(--lh-relaxed);
+    max-width: 62ch;
+  }
+
+  .post-body :global(li) {
+    margin-bottom: var(--sp-2);
+  }
+
+  .post-body :global(em) {
+    color: var(--text-primary);
+    font-style: italic;
+  }
+
+  .post-body :global(a) {
+    color: var(--purple-600);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .post-body :global(hr) {
+    margin-block: var(--sp-10);
+    border: none;
+    border-top: 1px solid var(--bg-tertiary);
+  }
+
+  .post-footer {
+    margin-top: var(--sp-16);
+    padding-top: var(--sp-8);
+    border-top: 1px solid var(--bg-tertiary);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--sp-5);
+  }
+
+  .post-footer .back {
+    font-size: var(--fs-body-sm);
+    color: var(--text-secondary);
+    font-weight: var(--fw-medium);
+  }
+</style>

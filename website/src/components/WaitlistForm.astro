@@ -1,0 +1,222 @@
+---
+/*
+ * WaitlistForm
+ *
+ * Single-field email capture. POSTs to the Railway backend at
+ * ${PUBLIC_API_BASE}/api/waitlist/subscribe with { email, source, utm_* }.
+ *
+ * Progressive enhancement:
+ *   - No JS: native form POST (falls back to a non-AJAX submit)
+ *   - With JS: fetch() submission + inline success/error message
+ *
+ * Accessibility:
+ *   - Single labelled input (44×44 tap target)
+ *   - Inline aria-live region for success/error feedback
+ *   - Error/success colors follow design tokens
+ */
+
+interface Props {
+  /** Source label stored alongside the signup, for analytics. e.g. "hero", "final_cta" */
+  source?: string;
+  /** Optional heading above the form */
+  heading?: string;
+  /** Alternate color scheme for use on dark/colored backgrounds (Final CTA section) */
+  onDark?: boolean;
+  /** CTA button label. Default: "Join the waitlist" */
+  cta?: string;
+}
+
+const {
+  source = 'hero',
+  heading,
+  onDark = false,
+  cta = 'Join the waitlist',
+} = Astro.props;
+
+const apiBase = import.meta.env.PUBLIC_API_BASE ?? 'https://zippy-forgiveness-production-0704.up.railway.app';
+const endpoint = `${apiBase}/api/waitlist/subscribe`;
+---
+
+<form
+  class:list={['waitlist-form', { 'on-dark': onDark }]}
+  action={endpoint}
+  method="POST"
+  data-source={source}
+  data-endpoint={endpoint}
+>
+  {heading && <label class="form-heading" for={`email-${source}`}>{heading}</label>}
+
+  <div class="form-row">
+    <input
+      id={`email-${source}`}
+      type="email"
+      name="email"
+      placeholder="you@yourdomain.com"
+      autocomplete="email"
+      required
+      aria-label="Email address"
+    />
+    <button type="submit" class:list={['btn', onDark ? 'btn-on-dark' : 'btn-primary']}>
+      {cta}
+    </button>
+  </div>
+
+  <input type="hidden" name="source" value={source} />
+
+  <p
+    class="form-status"
+    aria-live="polite"
+    aria-atomic="true"
+    data-waitlist-status
+  ></p>
+
+  <p class="form-fine-print">
+    iOS first. We'll email you the week we ship. No spam.
+  </p>
+</form>
+
+<script>
+  interface WaitlistForm extends HTMLFormElement {
+    dataset: DOMStringMap & { endpoint: string; source: string };
+  }
+
+  function getUtmParams() {
+    const params = new URLSearchParams(window.location.search);
+    const utm: Record<string, string> = {};
+    for (const key of ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content']) {
+      const val = params.get(key);
+      if (val) utm[key] = val;
+    }
+    return utm;
+  }
+
+  document.querySelectorAll<HTMLFormElement>('.waitlist-form').forEach((formEl) => {
+    const form = formEl as WaitlistForm;
+    const status = form.querySelector<HTMLElement>('[data-waitlist-status]');
+    const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!status || !button) return;
+
+      const emailInput = form.querySelector<HTMLInputElement>('input[type="email"]');
+      if (!emailInput || !emailInput.value) return;
+
+      const originalLabel = button.textContent;
+      button.textContent = 'Sending…';
+      button.disabled = true;
+      status.textContent = '';
+      status.removeAttribute('data-state');
+
+      try {
+        const response = await fetch(form.dataset.endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: emailInput.value.trim(),
+            source: form.dataset.source,
+            ...getUtmParams(),
+          }),
+        });
+
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({ detail: 'Something went wrong.' }));
+          throw new Error(data.detail || `HTTP ${response.status}`);
+        }
+
+        status.textContent = "You're on the list. We'll be in touch.";
+        status.setAttribute('data-state', 'success');
+        emailInput.value = '';
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Something went wrong. Try again.';
+        status.textContent = message;
+        status.setAttribute('data-state', 'error');
+      } finally {
+        button.textContent = originalLabel;
+        button.disabled = false;
+      }
+    });
+  });
+</script>
+
+<style>
+  .waitlist-form {
+    max-width: 480px;
+    width: 100%;
+  }
+
+  .form-heading {
+    display: block;
+    font-size: var(--fs-body-sm);
+    color: var(--text-secondary);
+    margin-bottom: var(--sp-2);
+  }
+
+  .form-row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+  }
+
+  @media (min-width: 560px) {
+    .form-row {
+      flex-direction: row;
+      align-items: stretch;
+    }
+    .form-row input {
+      flex: 1;
+    }
+    .form-row button {
+      flex-shrink: 0;
+    }
+  }
+
+  .form-status {
+    margin-top: var(--sp-3);
+    font-size: var(--fs-body-sm);
+    min-height: 1.2em;
+    color: var(--text-secondary);
+  }
+
+  .form-status[data-state='success'] {
+    color: var(--green-text);
+    font-weight: var(--fw-medium);
+  }
+
+  .form-status[data-state='error'] {
+    color: var(--status-error);
+  }
+
+  .form-fine-print {
+    margin-top: var(--sp-2);
+    font-size: var(--fs-caption);
+    color: var(--text-tertiary);
+  }
+
+  /* On-dark variant (Final CTA section) */
+  .on-dark .form-heading,
+  .on-dark .form-status {
+    color: rgba(255, 255, 255, 0.8);
+  }
+  .on-dark .form-status[data-state='success'] {
+    color: #baebdb;
+  }
+  .on-dark .form-status[data-state='error'] {
+    color: #ffcaca;
+  }
+  .on-dark .form-fine-print {
+    color: rgba(255, 255, 255, 0.6);
+  }
+  .on-dark input[type='email'] {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+  .on-dark input[type='email']::placeholder {
+    color: rgba(255, 255, 255, 0.55);
+  }
+  .on-dark input[type='email']:focus {
+    border-color: #fff;
+    background: rgba(255, 255, 255, 0.2);
+  }
+</style>

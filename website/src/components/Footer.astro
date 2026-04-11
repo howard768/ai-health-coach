@@ -1,0 +1,153 @@
+---
+import Mascot from './Mascot.astro';
+
+const year = new Date().getFullYear();
+---
+
+<footer class="footer">
+  <div class="container footer-grid">
+    <div class="footer-brand">
+      <a href="/" class="foot-wordmark">
+        <Mascot size={28} />
+        <span>Meld</span>
+      </a>
+      <p class="footer-tagline">Your health, synthesized.</p>
+    </div>
+
+    <nav class="footer-col" aria-label="Site">
+      <h3 class="col-title">Site</h3>
+      <ul>
+        <li><a href="/#waitlist">Get early access</a></li>
+        <li><a href="/#how-it-works">How it works</a></li>
+        <li><a href="/#faq">FAQ</a></li>
+        <li><a href="/journal">Journal</a></li>
+      </ul>
+    </nav>
+
+    <nav class="footer-col" aria-label="Legal">
+      <h3 class="col-title">Legal</h3>
+      <ul>
+        <li><a href="/privacy">Privacy Policy</a></li>
+        <li><a href="/terms">Terms of Service</a></li>
+        <li><a href="mailto:hello@heymeld.com">hello@heymeld.com</a></li>
+      </ul>
+    </nav>
+
+    <div class="footer-col">
+      <h3 class="col-title">Status</h3>
+      <p class="status-line">
+        <span class="dot"></span>
+        Pre-launch · iOS first
+      </p>
+      <p class="footer-fine">
+        Built by Brock Howard.<br />
+        VP Product at Lark Health.
+      </p>
+    </div>
+  </div>
+
+  <div class="footer-bottom container">
+    <small>© {year} Meld. All rights reserved.</small>
+  </div>
+</footer>
+
+<style>
+  .footer {
+    background: var(--bg-primary);
+    border-top: 1px solid var(--bg-tertiary);
+    padding-block: var(--sp-16) var(--sp-8);
+  }
+
+  .footer-grid {
+    display: grid;
+    gap: var(--sp-10);
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 640px) {
+    .footer-grid {
+      grid-template-columns: 1fr 1fr;
+      gap: var(--sp-8);
+    }
+  }
+
+  @media (min-width: 960px) {
+    .footer-grid {
+      grid-template-columns: 1.2fr 1fr 1fr 1fr;
+    }
+  }
+
+  .foot-wordmark {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    color: var(--text-primary);
+    font-size: 1.25rem;
+    font-weight: var(--fw-light);
+    margin-bottom: var(--sp-3);
+  }
+
+  .footer-tagline {
+    font-size: var(--fs-body-sm);
+    color: var(--text-tertiary);
+    max-width: 26ch;
+  }
+
+  .col-title {
+    font-size: var(--fs-label);
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    margin-bottom: var(--sp-4);
+  }
+
+  .footer-col ul {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+  }
+
+  .footer-col a {
+    color: var(--text-secondary);
+    font-size: var(--fs-body-sm);
+    font-weight: var(--fw-regular);
+  }
+
+  .footer-col a:hover {
+    color: var(--text-primary);
+  }
+
+  .status-line {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: var(--fs-body-sm);
+    color: var(--text-secondary);
+    margin-bottom: var(--sp-4);
+  }
+
+  .status-line .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--green-500);
+    box-shadow: 0 0 0 3px rgba(33, 158, 128, 0.15);
+  }
+
+  .footer-fine {
+    font-size: var(--fs-caption);
+    color: var(--text-tertiary);
+    line-height: var(--lh-relaxed);
+  }
+
+  .footer-bottom {
+    margin-top: var(--sp-10);
+    padding-top: var(--sp-6);
+    border-top: 1px solid var(--bg-tertiary);
+    font-size: var(--fs-caption);
+    color: var(--text-tertiary);
+  }
+</style>

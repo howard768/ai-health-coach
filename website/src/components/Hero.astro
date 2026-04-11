@@ -1,0 +1,343 @@
+---
+import WaitlistForm from './WaitlistForm.astro';
+import Mascot from './Mascot.astro';
+---
+
+<section class="hero" id="waitlist">
+  <div class="hero-background" aria-hidden="true"></div>
+
+  <div class="container hero-grid">
+    <div class="hero-copy">
+      <p class="eyebrow">Meld · Pre-launch</p>
+
+      <h1 class="display hero-headline">
+        Your&nbsp;health,<br />synthesized.
+      </h1>
+
+      <p class="subhead hero-subhead">
+        Meld quietly connects every signal from your body — sleep, workouts, food,
+        recovery — and tells you what matters, what it means, and what to do next.
+      </p>
+
+      <WaitlistForm source="hero" />
+
+      <p class="hero-trust">
+        <span class="dot"></span>
+        Built by Brock Howard, VP Product at Lark Health
+      </p>
+    </div>
+
+    <div class="hero-visual" aria-hidden="true">
+      <div class="phone-mockup">
+        <div class="phone-screen">
+          <div class="mock-time">8:42</div>
+          <div class="mock-greeting">Good morning, Brock</div>
+
+          <div class="mock-insight-card">
+            <div class="mock-insight-head">
+              <div class="mock-avatar">
+                <Mascot size={24} />
+              </div>
+              <div class="mock-insight-meta">
+                <strong>Your Coach</strong>
+                <span>Just now</span>
+              </div>
+            </div>
+            <p>
+              Sleep efficiency held at 91% last night and your HRV is 14% above baseline.
+              Today's a great day for intensity work.
+            </p>
+            <span class="mock-link">Continue in chat →</span>
+          </div>
+
+          <div class="mock-section-label">Today</div>
+
+          <div class="mock-metric-grid">
+            <div class="mock-metric">
+              <span class="mock-metric-label">Sleep Efficiency</span>
+              <span class="mock-metric-value">91<small>%</small></span>
+              <span class="mock-metric-sub">7h 12m total</span>
+            </div>
+            <div class="mock-metric">
+              <span class="mock-metric-label">HRV</span>
+              <span class="mock-metric-value">68<small>ms</small></span>
+              <span class="mock-metric-sub">↑ 14% vs baseline</span>
+            </div>
+            <div class="mock-metric">
+              <span class="mock-metric-label">Resting HR</span>
+              <span class="mock-metric-value">58<small>bpm</small></span>
+              <span class="mock-metric-sub">Stable this week</span>
+            </div>
+            <div class="mock-metric">
+              <span class="mock-metric-label">Consistency</span>
+              <span class="mock-metric-value">5<small>/7</small></span>
+              <span class="mock-metric-sub">On track</span>
+            </div>
+          </div>
+
+          <div class="mock-full-card">
+            <span class="mock-metric-label">Recovery readiness</span>
+            <span class="mock-ready-value">High</span>
+            <span class="mock-metric-sub">Good for intensity today</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="floating-mascot">
+        <Mascot size={72} />
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero {
+    position: relative;
+    padding-block: clamp(3rem, 8vw, 5.5rem) clamp(3rem, 8vw, 6rem);
+    overflow: hidden;
+  }
+
+  .hero-background {
+    position: absolute;
+    inset: 0;
+    background: var(--hero-gradient);
+    z-index: -1;
+  }
+
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--sp-12);
+    align-items: center;
+  }
+
+  @media (min-width: 980px) {
+    .hero-grid {
+      grid-template-columns: 1.2fr 1fr;
+      gap: var(--sp-16);
+    }
+  }
+
+  .hero-copy {
+    max-width: 620px;
+  }
+
+  .hero-headline {
+    margin-bottom: var(--sp-5);
+    color: var(--text-primary);
+  }
+
+  .hero-subhead {
+    margin-bottom: var(--sp-8);
+  }
+
+  .hero-trust {
+    margin-top: var(--sp-6);
+    font-size: var(--fs-caption);
+    color: var(--text-tertiary);
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+  }
+
+  .hero-trust .dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--green-500);
+  }
+
+  /* ---------- Phone mockup ---------- */
+  .hero-visual {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
+
+  .phone-mockup {
+    position: relative;
+    width: min(320px, 80vw);
+    aspect-ratio: 9 / 19;
+    background: #0a0a0f;
+    border-radius: 44px;
+    padding: 14px;
+    box-shadow:
+      0 20px 60px rgba(84, 56, 166, 0.18),
+      0 2px 6px rgba(0, 0, 0, 0.08),
+      inset 0 0 0 2px rgba(255, 255, 255, 0.1);
+    transform: rotate(-3deg);
+    transition: transform var(--dur-slow) var(--ease-out);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .phone-mockup:hover {
+      transform: rotate(-1deg) translateY(-4px);
+    }
+  }
+
+  .phone-screen {
+    background: var(--bg-primary);
+    width: 100%;
+    height: 100%;
+    border-radius: 32px;
+    padding: var(--sp-5) var(--sp-4) var(--sp-4);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+  }
+
+  .mock-time {
+    font-size: 0.6875rem;
+    font-weight: var(--fw-medium);
+    color: var(--text-primary);
+    text-align: center;
+    margin-bottom: var(--sp-2);
+  }
+
+  .mock-greeting {
+    font-size: 1.375rem;
+    font-weight: var(--fw-light);
+    color: var(--text-primary);
+    line-height: 1.2;
+  }
+
+  .mock-insight-card {
+    background: var(--purple-100);
+    border-radius: 16px;
+    padding: var(--sp-3) var(--sp-4);
+    font-size: 0.6875rem;
+    line-height: 1.4;
+  }
+
+  .mock-insight-head {
+    display: flex;
+    gap: var(--sp-2);
+    align-items: center;
+    margin-bottom: var(--sp-2);
+  }
+
+  .mock-avatar {
+    background: #fff;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+  }
+
+  .mock-insight-meta {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+  }
+
+  .mock-insight-meta strong {
+    font-size: 0.6875rem;
+    color: var(--text-primary);
+    font-weight: var(--fw-medium);
+  }
+
+  .mock-insight-meta span {
+    font-size: 0.5625rem;
+    color: var(--text-tertiary);
+  }
+
+  .mock-insight-card p {
+    color: var(--text-secondary);
+    margin-bottom: var(--sp-2);
+  }
+
+  .mock-link {
+    color: var(--green-text);
+    font-size: 0.625rem;
+    font-weight: var(--fw-medium);
+  }
+
+  .mock-section-label {
+    font-size: 0.9375rem;
+    font-weight: var(--fw-regular);
+    margin-top: var(--sp-1);
+  }
+
+  .mock-metric-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--sp-2);
+  }
+
+  .mock-metric {
+    background: var(--bg-primary);
+    border-radius: 12px;
+    padding: var(--sp-3);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    box-shadow: 0 1px 8px rgba(0, 0, 0, 0.04);
+  }
+
+  .mock-metric-label {
+    font-size: 0.5rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    font-weight: var(--fw-medium);
+  }
+
+  .mock-metric-value {
+    font-size: 1.5rem;
+    font-weight: var(--fw-thin);
+    line-height: 1.1;
+    color: var(--text-primary);
+  }
+
+  .mock-metric-value small {
+    font-size: 0.625rem;
+    font-weight: var(--fw-regular);
+    margin-left: 1px;
+  }
+
+  .mock-metric-sub {
+    font-size: 0.5rem;
+    color: var(--green-text);
+  }
+
+  .mock-full-card {
+    background: var(--bg-primary);
+    border-radius: 12px;
+    padding: var(--sp-3);
+    box-shadow: 0 1px 8px rgba(0, 0, 0, 0.04);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .mock-ready-value {
+    font-size: 1.25rem;
+    font-weight: var(--fw-regular);
+    color: var(--green-500);
+  }
+
+  /* Mascot peeking from behind phone */
+  .floating-mascot {
+    position: absolute;
+    top: -24px;
+    right: -12px;
+    z-index: 2;
+    animation: float 4s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .floating-mascot {
+      animation: none;
+    }
+  }
+</style>

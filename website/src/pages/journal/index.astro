@@ -1,0 +1,120 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import Nav from '@/components/Nav.astro';
+import Footer from '@/components/Footer.astro';
+import { getCollection } from 'astro:content';
+
+const posts = (await getCollection('journal')).sort(
+  (a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf()
+);
+
+const formatter = new Intl.DateTimeFormat('en-US', {
+  month: 'long',
+  day: 'numeric',
+  year: 'numeric',
+});
+---
+
+<Layout
+  title="Journal — Meld"
+  description="Notes from the Meld team on health, data, and AI coaching."
+>
+  <Nav slot="nav" />
+
+  <section class="section journal">
+    <div class="container prose">
+      <header class="journal-header">
+        <p class="eyebrow">Journal</p>
+        <h1 class="h1">Notes from the team.</h1>
+        <p class="subhead">
+          Why we're building Meld, what we're learning, and the research behind the coaching.
+        </p>
+      </header>
+
+      <ul class="post-list">
+        {
+          posts.map((post) => (
+            <li class="post-item">
+              <a href={`/journal/${post.id}`}>
+                <time datetime={post.data.pubDate.toISOString()}>
+                  {formatter.format(post.data.pubDate)}
+                </time>
+                <h2 class="h2 post-title">{post.data.title}</h2>
+                <p class="post-excerpt">{post.data.excerpt ?? post.data.description}</p>
+                <span class="read">Read →</span>
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <Footer slot="footer" />
+</Layout>
+
+<style>
+  .journal {
+    background: var(--bg-primary);
+  }
+
+  .journal-header {
+    margin-bottom: var(--sp-12);
+    text-align: center;
+  }
+
+  .post-list {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-5);
+  }
+
+  .post-item a {
+    display: block;
+    background: var(--bg-secondary);
+    border-radius: var(--r-card-lg);
+    padding: var(--sp-6) var(--sp-8);
+    color: var(--text-primary);
+    transition:
+      transform var(--dur-base) var(--ease-out),
+      box-shadow var(--dur-base) var(--ease-out);
+  }
+
+  .post-item a:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-card-hover);
+    color: var(--text-primary);
+  }
+
+  .post-item time {
+    display: block;
+    font-size: var(--fs-label);
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--purple-600);
+    margin-bottom: var(--sp-2);
+  }
+
+  .post-title {
+    color: var(--text-primary);
+    margin-bottom: var(--sp-3);
+  }
+
+  .post-excerpt {
+    color: var(--text-secondary);
+    font-weight: var(--fw-light);
+    line-height: var(--lh-relaxed);
+    max-width: 60ch;
+  }
+
+  .read {
+    display: inline-block;
+    margin-top: var(--sp-4);
+    color: var(--purple-600);
+    font-size: var(--fs-body-sm);
+    font-weight: var(--fw-medium);
+  }
+</style>

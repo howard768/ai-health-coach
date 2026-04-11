@@ -1,0 +1,192 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import Nav from '@/components/Nav.astro';
+import Footer from '@/components/Footer.astro';
+---
+
+<Layout
+  title="Privacy Policy — Meld"
+  description="How Meld protects your health data. Read our full privacy policy."
+>
+  <Nav slot="nav" />
+
+  <article class="legal section">
+    <div class="container prose">
+      <header class="legal-header">
+        <p class="eyebrow">Legal</p>
+        <h1 class="h1">Privacy Policy</h1>
+        <p class="meta">
+          <strong>Effective:</strong> April 11, 2026 &nbsp;·&nbsp;
+          <strong>Last updated:</strong> April 11, 2026
+        </p>
+      </header>
+
+      <p>
+        This Privacy Policy explains how Meld ("we," "us," or "our") collects, uses,
+        protects, and discloses information when you visit heymeld.com, join our waitlist,
+        or use the Meld iOS app once it is available. Because Meld is a health product, we
+        take privacy seriously and want to be specific about what we do.
+      </p>
+
+      <p>If any of this is unclear, email us at <a href="mailto:hello@heymeld.com">hello@heymeld.com</a>.</p>
+
+      <h2>1. Who we are</h2>
+      <p>
+        Meld is an independent product built by Brock Howard. Our company entity and
+        contact details will be finalized before the app launches. For now, Meld is
+        pre-launch and primarily operates a waitlist at heymeld.com.
+      </p>
+
+      <h2>2. What we collect</h2>
+      <p>
+        On this website (heymeld.com), we collect the email address you submit to join our
+        waitlist, standard web analytics about the pages you visit, and cookies that make the
+        site work.
+      </p>
+      <p>
+        Inside the Meld iOS app, once it launches, we collect health data from sources you
+        explicitly connect (Oura, Apple Health, Peloton, Garmin, and others over time). You
+        control which sources are connected. We also collect health data you enter directly
+        such as food photos, workout notes, goals, and preferences. We collect your email and
+        authentication tokens for your account. We collect usage data about which features
+        you use. We collect any support messages you send us.
+      </p>
+      <p>
+        We never buy, scrape, or acquire your health data from outside sources. Every piece
+        of health data we see comes from you or from a source you connected.
+      </p>
+
+      <h2>3. How we use your data</h2>
+      <p>
+        We use your data only to make Meld work for you. That means coaching you based on
+        your own data, history, and goals. Connecting insights across sleep, nutrition,
+        recovery, and training. Improving Meld through anonymized product analytics. Emailing
+        you about your waitlist status, product updates, and support. Meeting legal
+        obligations if required.
+      </p>
+      <p>
+        We do not sell your data. We do not rent your data. We do not share your data with
+        advertisers. We do not use your health data to train generic AI models.
+      </p>
+
+      <h2>4. How AI is used</h2>
+      <p>
+        Meld uses Anthropic's Claude to power the coaching experience. When you chat with
+        the coach, your message and relevant health context are sent to Anthropic's API for
+        processing. Anthropic acts as our sub-processor and does not retain this data to
+        train their models. Anthropic's data handling is governed by their own commercial
+        terms.
+      </p>
+      <p>
+        We never send your name, email, or any identifier to Anthropic unless it is
+        necessary to answer your message. We send only the minimum context needed to coach
+        you well.
+      </p>
+
+      <h2>5. Where your data lives</h2>
+      <p>
+        Your data is encrypted in transit and at rest. It is stored in a PostgreSQL database
+        hosted on Railway. Railway is our hosting sub-processor. Both Railway and our
+        backend are located in the United States.
+      </p>
+      <p>
+        Our sub-processors today are Anthropic for AI inference, Railway for hosting, Apple
+        for in-app purchase processing and push notification delivery, and Cloudflare Pages
+        for this marketing website. This list will evolve and we will update this page when
+        it changes.
+      </p>
+
+      <h2>6. Your rights</h2>
+      <p>
+        You have the right to see what data we have about you, to export it in a
+        machine-readable format, to delete all of it at any time, to revoke access to any
+        data source inside the app, to unsubscribe from our emails, and to complain to us or
+        to a data protection authority. Email
+        <a href="mailto:hello@heymeld.com">hello@heymeld.com</a> for any of these.
+      </p>
+      <p>
+        Residents of California, the European Union, the United Kingdom, and other regions
+        may have additional rights under their local privacy laws. We honor all of them.
+      </p>
+
+      <h2>7. HIPAA</h2>
+      <p>
+        Meld is not a covered entity under HIPAA. We are not a healthcare provider, insurer,
+        or clearinghouse. We are a consumer wellness app. HIPAA does not apply to most of our
+        operations today.
+      </p>
+      <p>
+        That said, we treat your health data with the same seriousness HIPAA would require.
+        Encryption, access controls, audit logs, minimum necessary access. If we ever
+        integrate with HIPAA-covered entities or sources, we will enter the appropriate
+        Business Associate Agreements and update this policy.
+      </p>
+
+      <h2>8. Children</h2>
+      <p>
+        Meld is not for children under 13. We do not knowingly collect information from
+        children under 13. If you think a child has given us data, email
+        <a href="mailto:hello@heymeld.com">hello@heymeld.com</a> and we will delete it.
+      </p>
+
+      <h2>9. Cookies and tracking</h2>
+      <p>
+        The heymeld.com website uses cookies that make the site work and analytics cookies
+        to understand site traffic. You can disable analytics cookies. We do not use
+        third-party advertising cookies. We do not participate in cross-site tracking
+        networks. We do not sell or share cookie data.
+      </p>
+
+      <h2>10. Changes to this policy</h2>
+      <p>
+        We will update this page when we change anything material. We will email waitlist
+        members for significant changes. You can always see when we last updated this by
+        checking the Last Updated date at the top.
+      </p>
+
+      <h2>11. Contact</h2>
+      <p>
+        Questions about privacy? Email
+        <a href="mailto:hello@heymeld.com">hello@heymeld.com</a>. We reply within a few
+        business days.
+      </p>
+    </div>
+  </article>
+
+  <Footer slot="footer" />
+</Layout>
+
+<style>
+  .legal {
+    background: var(--bg-primary);
+  }
+
+  .legal-header {
+    margin-bottom: var(--sp-12);
+  }
+
+  .legal-header .h1 {
+    margin-block: var(--sp-2) var(--sp-4);
+  }
+
+  .legal .meta {
+    font-size: var(--fs-body-sm);
+    color: var(--text-tertiary);
+  }
+
+  .legal .prose h2 {
+    font-size: 1.375rem;
+    font-weight: var(--fw-regular);
+    color: var(--text-primary);
+    margin-top: var(--sp-10);
+    margin-bottom: var(--sp-4);
+    letter-spacing: -0.01em;
+  }
+
+  .legal .prose p {
+    color: var(--text-secondary);
+    font-weight: var(--fw-light);
+    line-height: var(--lh-relaxed);
+    margin-bottom: var(--sp-4);
+  }
+</style>
