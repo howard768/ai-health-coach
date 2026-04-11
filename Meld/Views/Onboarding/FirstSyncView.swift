@@ -114,8 +114,16 @@ struct FirstSyncView: View {
                 .foregroundStyle(DSColor.Text.tertiary)
 
             VStack(spacing: DSSpacing.md) {
-                summaryRow(label: "Sleep Score", value: "87", source: "Oura")
-                summaryRow(label: "HRV", value: "62 ms", source: "Oura")
+                summaryRow(
+                    label: "Sleep Score",
+                    value: viewModel.fetchedSleepScore ?? "—",
+                    source: viewModel.fetchedSleepScore != nil ? "Oura" : ""
+                )
+                summaryRow(
+                    label: "HRV",
+                    value: viewModel.fetchedHRV ?? "—",
+                    source: viewModel.fetchedHRV != nil ? "Oura" : ""
+                )
                 summaryRow(label: "Goal", value: goalSummary, source: "You")
                 if let bmi = viewModel.assessment.bmi {
                     summaryRow(label: "BMI", value: String(format: "%.1f", bmi), source: "Profile")

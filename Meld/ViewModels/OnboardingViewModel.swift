@@ -28,6 +28,10 @@ final class OnboardingViewModel {
     var isSyncing = false
     var syncProgress: Double = 0
 
+    // Metrics fetched after sync completes (nil = no data yet → show "—")
+    var fetchedSleepScore: String? = nil
+    var fetchedHRV: String? = nil
+
     // Pre-filled data from HealthKit (nil until HealthKit is integrated)
     var prefilledAge: Int? = nil
     var prefilledHeightInches: Int? = nil
@@ -133,6 +137,22 @@ final class OnboardingViewModel {
             // Non-fatal — continue the sync flow. User can retry from settings.
             Log.onboarding.error("Profile save failed: \(error.localizedDescription)")
         }
+
+        // Step 1b: Try to load real metrics for the summary card.
+        // Silently ignored — if data isn't ready yet, the card shows "—".
+        if let dashboard = try? await APIClient.shared.fetchDashboard() {
+            for metric in dashboard.metrics {
+                switch metric.category {
+                case "sleepEfficiency":
+                    fetchedSleepScore = "\(metric.value)\(metric.unit)"
+                case "hrv":
+                    fetchedHRV = "\(metric.value) \(metric.unit)"
+                default:
+                    break
+                }
+            }
+        }
+
         withAnimation(DSMotion.standard) { syncProgress = 0.25 }
 
         // Step 2: Animate the remaining progress so the user sees forward motion
