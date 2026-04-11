@@ -94,4 +94,6 @@ Six categories (morning brief, coaching nudge, bedtime coaching, streak saver, w
 
 ## Status
 
-Pre-beta. Internal use only. Ship gates: encrypted tokens, JWT auth, rate limiting, pytest+eval CI green, reconciled metrics dashboard, account deletion working end-to-end. All ten P0 ship-blockers and eighteen P1 urgent items from the 2026-04-10 audit are closed.
+Pre-beta. Internal use only. Ship gates: encrypted tokens, JWT auth, rate limiting, pytest+eval CI green, reconciled metrics dashboard, account deletion working end-to-end.
+
+**All 55 findings from the 2026-04-10 full codebase audit are closed** as of 2026-04-11: 10/10 P0 ship blockers, 18/18 P1 urgent, 19/19 P2 important, 8/8 P3 nice-to-have. All three CI workflows (Backend CI, iOS CI, Coach Eval Suite) are green on `main`. Ready for TestFlight dogfooding to friends and family.
