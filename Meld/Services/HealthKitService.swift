@@ -88,8 +88,16 @@ final class HealthKitService {
     }
 
     func querySleepAnalysis(for date: Date) async -> [HKCategorySample] {
-        let start = Calendar.current.date(byAdding: .day, value: -1, to: Calendar.current.startOfDay(for: date))!
-        let end = Calendar.current.startOfDay(for: Calendar.current.date(byAdding: .day, value: 1, to: date)!)
+        // Calendar.date(byAdding:) can return nil at DST transitions / near
+        // calendar boundaries. Guard rather than crash.
+        let calendar = Calendar.current
+        guard
+            let start = calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: date)),
+            let nextDay = calendar.date(byAdding: .day, value: 1, to: date)
+        else {
+            return []
+        }
+        let end = calendar.startOfDay(for: nextDay)
 
         let predicate = HKQuery.predicateForSamples(withStart: start, end: end)
         let descriptor = HKSampleQueryDescriptor(
@@ -123,11 +131,16 @@ final class HealthKitService {
         formatter.dateFormat = "yyyy-MM-dd"
 
         for dayOffset in 0..<7 {
-            let date = calendar.date(byAdding: .day, value: -dayOffset, to: Date())!
+            // Skip the day if calendar arithmetic returns nil (DST/leap edge case)
+            guard let date = calendar.date(byAdding: .day, value: -dayOffset, to: Date()) else {
+                continue
+            }
             let dateString = formatter.string(from: date)
 
             let dayStart = calendar.startOfDay(for: date)
-            let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart)!
+            guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else {
+                continue
+            }
 
             if let steps = await querySum(.stepCount, from: dayStart, to: dayEnd, unit: .count()) {
                 metrics.append(HealthMetricPayload(date: dateString, metric_type: "steps", value: steps, unit: "count", source: "apple_health"))
@@ -184,7 +197,9 @@ final class HealthKitService {
     private func queryDayAverage(_ identifier: HKQuantityTypeIdentifier, date: Date, unit: HKUnit) async -> Double? {
         let type = HKQuantityType(identifier)
         let start = Calendar.current.startOfDay(for: date)
-        let end = Calendar.current.date(byAdding: .day, value: 1, to: start)!
+        guard let end = Calendar.current.date(byAdding: .day, value: 1, to: start) else {
+            return nil
+        }
         let predicate = HKQuery.predicateForSamples(withStart: start, end: end)
 
         return await withCheckedContinuation { continuation in

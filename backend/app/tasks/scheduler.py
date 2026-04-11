@@ -590,17 +590,22 @@ async def timing_refresh_job():
             return
         timing = await get_personalized_timing(db, user_id)
 
+    # Reschedule in the user's local timezone (P1-18 fix). Without this,
+    # personalized timing fired in UTC — defeating the point of personalization.
+    from app.config import settings as _settings
+    user_tz = _settings.user_timezone
+
     # Reschedule morning brief: 30 min after average wake time
     wake_hour = timing["wake_hour"]
     wake_minute = timing["wake_minute"] + 30
     if wake_minute >= 60:
-        wake_hour += 1
+        wake_hour = (wake_hour + 1) % 24  # Modulo 24 to avoid hour=24 crash
         wake_minute -= 60
 
     try:
         scheduler.reschedule_job(
             "morning_brief",
-            trigger=CronTrigger(hour=wake_hour, minute=wake_minute),
+            trigger=CronTrigger(hour=wake_hour, minute=wake_minute, timezone=user_tz),
         )
     except Exception as e:
         logger.warning("Failed to reschedule morning_brief: %s", e)
@@ -609,13 +614,13 @@ async def timing_refresh_job():
     bed_hour = timing["bedtime_hour"]
     bed_minute = timing["bedtime_minute"] - 30
     if bed_minute < 0:
-        bed_hour -= 1
+        bed_hour = (bed_hour - 1) % 24
         bed_minute += 60
 
     try:
         scheduler.reschedule_job(
             "bedtime_coaching",
-            trigger=CronTrigger(hour=bed_hour, minute=bed_minute),
+            trigger=CronTrigger(hour=bed_hour, minute=bed_minute, timezone=user_tz),
         )
     except Exception as e:
         logger.warning("Failed to reschedule bedtime_coaching: %s", e)
@@ -644,46 +649,51 @@ def start_scheduler():
     except RuntimeError:
         asyncio.run(_seed_on_start())
 
-    # Morning brief: 08:00 UTC daily
+    # User-facing notifications run in the user's local timezone (P1-18 fix).
+    # Sync jobs and webhook renewal stay in UTC since they're internal.
+    from app.config import settings as _settings
+    user_tz = _settings.user_timezone
+
+    # Morning brief: 08:00 user-local time
     scheduler.add_job(
         morning_brief_job,
-        trigger=CronTrigger(hour=8, minute=0),
+        trigger=CronTrigger(hour=8, minute=0, timezone=user_tz),
         id="morning_brief",
         name="Morning Brief",
         replace_existing=True,
     )
 
-    # Coaching nudge: daily at 12:00 UTC (frequency logic inside job checks preference)
+    # Coaching nudge: daily at 12:00 user-local (frequency logic inside job checks preference)
     scheduler.add_job(
         coaching_nudge_job,
-        trigger=CronTrigger(hour=12, minute=0),
+        trigger=CronTrigger(hour=12, minute=0, timezone=user_tz),
         id="coaching_nudge",
         name="Coaching Nudge",
         replace_existing=True,
     )
 
-    # Bedtime coaching: daily at 22:00 UTC
+    # Bedtime coaching: daily at 22:00 user-local
     scheduler.add_job(
         bedtime_coaching_job,
-        trigger=CronTrigger(hour=22, minute=0),
+        trigger=CronTrigger(hour=22, minute=0, timezone=user_tz),
         id="bedtime_coaching",
         name="Bedtime Coaching",
         replace_existing=True,
     )
 
-    # Streak saver: daily at 18:00 UTC (evening check)
+    # Streak saver: daily at 18:00 user-local (evening check)
     scheduler.add_job(
         streak_saver_job,
-        trigger=CronTrigger(hour=18, minute=0),
+        trigger=CronTrigger(hour=18, minute=0, timezone=user_tz),
         id="streak_saver",
         name="Streak Saver",
         replace_existing=True,
     )
 
-    # Weekly review: Sundays at 18:00 UTC
+    # Weekly review: Sundays at 18:00 user-local
     scheduler.add_job(
         weekly_review_job,
-        trigger=CronTrigger(day_of_week="sun", hour=18, minute=0),
+        trigger=CronTrigger(day_of_week="sun", hour=18, minute=0, timezone=user_tz),
         id="weekly_review",
         name="Weekly Review",
         replace_existing=True,

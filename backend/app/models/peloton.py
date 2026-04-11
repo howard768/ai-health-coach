@@ -2,6 +2,7 @@ from datetime import datetime
 from sqlalchemy import String, Integer, Float, DateTime, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core.encryption import EncryptedString
 from app.database import Base
 
 
@@ -12,7 +13,8 @@ class PelotonToken(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[str] = mapped_column(String(255), index=True)
     peloton_user_id: Mapped[str] = mapped_column(String(255))
-    session_id: Mapped[str] = mapped_column(Text)
+    # Encrypted at rest with Fernet (P1-1)
+    session_id: Mapped[str] = mapped_column(EncryptedString(2000))
     username: Mapped[str] = mapped_column(String(255))  # For display only, not auth
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     last_used_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

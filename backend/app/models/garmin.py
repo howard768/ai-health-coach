@@ -2,6 +2,7 @@ from datetime import datetime
 from sqlalchemy import String, Integer, Float, DateTime, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core.encryption import EncryptedString
 from app.database import Base
 
 
@@ -12,7 +13,8 @@ class GarminToken(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[str] = mapped_column(String(255), index=True)
     username: Mapped[str] = mapped_column(String(255))
-    session_data: Mapped[str] = mapped_column(Text, nullable=True)  # Serialized session
+    # Encrypted at rest with Fernet (P1-1) — serialized garth OAuth session
+    session_data: Mapped[str] = mapped_column(EncryptedString(4000), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     last_used_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

@@ -1,3 +1,4 @@
+import logging
 import time
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
@@ -11,6 +12,8 @@ from app.models.chat import Conversation, ChatMessageRecord
 from app.models.user import User
 from app.services.coach_engine import CoachEngine
 from app.services.health_data import get_latest_health_data
+
+logger = logging.getLogger("meld.coach")
 
 router = APIRouter(prefix="/api/coach", tags=["coach"])
 
@@ -126,12 +129,31 @@ async def chat(
         prompt_version="v1",  # Increment for A/B tests
     )
     db.add(coach_msg)
-    await db.commit()
-    await db.refresh(coach_msg)
 
-    # Update conversation timestamp
+    # Update conversation timestamp BEFORE commit so both writes land in
+    # the same transaction. This was previously two separate commits, which
+    # could leave conv.updated_at stale if the second commit failed.
     conv.updated_at = datetime.utcnow()
-    await db.commit()
+
+    try:
+        await db.commit()
+        await db.refresh(coach_msg)
+    except Exception as e:
+        # The Claude call already succeeded — the user's message is in flight.
+        # Roll back the failed write but still return the AI response so the
+        # user sees something. Log so we can spot persistent DB issues.
+        await db.rollback()
+        logger.error("Failed to persist coach response: %s", e)
+        # Return a synthetic message_id of -1 so the iOS client can render but
+        # feedback buttons will gracefully no-op.
+        return ChatResponse(
+            role="coach",
+            content=result["response"],
+            message_id=None,
+            routing=result.get("routing"),
+            safety=result.get("safety"),
+            model_used=result.get("model_used"),
+        )
 
     return ChatResponse(
         role="coach",

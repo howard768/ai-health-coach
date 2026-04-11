@@ -121,6 +121,10 @@ jobs:
         working-directory: evals
         run: uv sync
 
+      - name: Prompt parity check (no API calls)
+        working-directory: evals
+        run: uv run python -m pytest test_prompt_parity.py -v --tb=short
+
       - name: Run quality tests
         working-directory: evals
         env:

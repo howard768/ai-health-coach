@@ -49,23 +49,53 @@ async def oura_webhook_receiver(request: Request, db: AsyncSession = Depends(get
     """Receive Oura webhook events.
 
     Oura POSTs here when new data is available (sleep, readiness, activity, etc.).
-    Oura does not send a bearer token, so this endpoint cannot use the normal
-    auth dependency. We identify the target Meld user by looking up which user
-    owns an Oura token — single-user safe for MVP.
+    Oura does not send bearer auth, so we validate via:
+      1. Body shape — must have `event_type`, `data_type`, and `user_id`
+      2. The handler does NOT trust webhook body content for health data — it
+         re-fetches everything from Oura's API using our OAuth token. A forged
+         webhook can only cause an unnecessary sync, not poison data.
+      3. Per-user-per-minute throttle — caps the damage of a webhook flood.
 
     TODO (multi-user): add `oura_user_id` column to OuraToken and match on
     `body["user_id"]` to route events to the correct Meld user.
     """
-    body = await request.json()
+    try:
+        body = await request.json()
+    except Exception:
+        logger.warning("Oura webhook received invalid JSON")
+        return {"status": "invalid_payload"}
+
     event_type = body.get("event_type")
     data_type = body.get("data_type")
     user_oura_id = body.get("user_id")
     timestamp = body.get("timestamp")
 
+    # Body shape validation — Oura always sends these fields
+    if not event_type or not data_type or not user_oura_id:
+        logger.warning(
+            "Oura webhook missing required fields: event=%s data=%s user=%s",
+            event_type, data_type, user_oura_id,
+        )
+        return {"status": "invalid_payload"}
+
     logger.info(
         "Oura webhook: event=%s data=%s user=%s time=%s",
         event_type, data_type, user_oura_id, timestamp,
     )
+
+    # Per-user throttle: at most 1 sync per 60s regardless of webhook count.
+    # Prevents a webhook flood from exhausting Oura API quota or Claude budget.
+    # In-memory store is fine for single-instance Railway deploy.
+    from datetime import datetime, timedelta
+    if not hasattr(oura_webhook_receiver, "_last_sync_at"):
+        oura_webhook_receiver._last_sync_at = {}  # type: ignore[attr-defined]
+    last_sync_map = oura_webhook_receiver._last_sync_at  # type: ignore[attr-defined]
+    last = last_sync_map.get(user_oura_id)
+    now = datetime.utcnow()
+    if last and (now - last) < timedelta(seconds=60):
+        logger.info("Oura webhook throttled (last sync %ds ago)", (now - last).seconds)
+        return {"status": "throttled"}
+    last_sync_map[user_oura_id] = now
 
     # MVP: find the user who owns an Oura token. In multi-user mode we would
     # match on the Oura user ID from the webhook body.

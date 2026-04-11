@@ -62,9 +62,32 @@ app.include_router(webhooks.router)
 
 @app.get("/")
 async def health_check():
+    """Public root endpoint — no DB ping. Marketing/curiosity check only."""
     return {
         "status": "healthy",
         "app": "Meld Health Coach API",
         "version": "0.1.0",
         "environment": settings.app_env,
     }
+
+
+@app.get("/healthz")
+async def healthz():
+    """Liveness probe — process is up. No DB check (cheap, fast)."""
+    return {"status": "ok"}
+
+
+@app.get("/readyz")
+async def readyz():
+    """Readiness probe — verifies DB connection. Used by Railway/uptime monitors
+    to gate traffic. Returns 503 if the DB is unreachable.
+    """
+    from sqlalchemy import text
+    from app.database import async_session
+    try:
+        async with async_session() as db:
+            await db.execute(text("SELECT 1"))
+        return {"status": "ready", "db": "ok"}
+    except Exception as e:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=503, detail=f"Database not ready: {e}")

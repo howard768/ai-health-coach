@@ -42,6 +42,15 @@ class Settings(BaseSettings):
     apns_bundle_id: str = "com.heymeld.app"
     apns_environment: str = "sandbox"  # "sandbox" or "production"
 
+    # Encryption — Fernet symmetric key for OAuth tokens at rest.
+    # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    encryption_key: str = ""
+
+    # User timezone for scheduled notifications (morning brief, bedtime, etc.).
+    # Single-user MVP: one timezone for the whole instance. Multi-user TODO:
+    # store per user in the User model and look up per job.
+    user_timezone: str = "America/New_York"
+
     # Auth — Sign in with Apple + backend JWTs
     jwt_secret_key: str = ""  # HS256 secret for our own access tokens; from env
     apple_team_id: str = ""
