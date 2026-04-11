@@ -18,6 +18,12 @@ class OuraToken(Base):
     refresh_token: Mapped[str] = mapped_column(EncryptedString(2000))
     expires_at: Mapped[datetime] = mapped_column(DateTime)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+    # Last time the backend successfully called Oura's API for this user.
+    # Used by _maybe_refresh_oura() in routers/health.py to throttle the
+    # on-demand dashboard sync. Updated at the END of sync_user_data()
+    # regardless of how many records were saved — the semantic is "we
+    # talked to Oura", not "we got new rows". NULL = never synced.
+    last_synced_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class SleepRecord(Base):

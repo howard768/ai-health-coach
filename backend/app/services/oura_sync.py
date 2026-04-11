@@ -167,6 +167,21 @@ async def sync_user_data(db: AsyncSession, user_id: str) -> dict:
     # Sync HRV from heartrate endpoint
     hrv_updated = await sync_hrv(client, db, user_id, start, end)
 
+    # Bump the token's last_synced_at so the dashboard on-demand refresh
+    # logic can throttle us. This is updated on every successful call
+    # regardless of how many records were written — the semantic is
+    # "we successfully contacted Oura", not "we got new rows".
+    token_result = await db.execute(
+        select(OuraToken)
+        .where(OuraToken.user_id == user_id)
+        .order_by(desc(OuraToken.created_at))
+        .limit(1)
+    )
+    token_row = token_result.scalar_one_or_none()
+    if token_row is not None:
+        token_row.last_synced_at = utcnow_naive()
+        await db.commit()
+
     result = {
         "status": "ok",
         "records_saved": records_saved,

@@ -712,10 +712,17 @@ def start_scheduler():
         replace_existing=True,
     )
 
-    # Oura sync: every 6 hours (offset from health_alert to avoid contention)
+    # Oura sync: every 30 minutes. Backs up the on-demand sync in
+    # health.py's dashboard endpoint — if the user opens the app and has
+    # stale data, dashboard sync kicks in; otherwise the scheduler keeps
+    # things fresh in the background for webhook/notification jobs that
+    # don't go through the dashboard path (e.g. morning_brief_job at 8am
+    # needs last-night's sleep already in the DB). Timezone-aware so we
+    # fire at consistent wall-clock times regardless of DST.
+    from apscheduler.triggers.interval import IntervalTrigger
     scheduler.add_job(
         oura_sync_job,
-        trigger=CronTrigger(hour="*/6", minute=15),
+        trigger=IntervalTrigger(minutes=30),
         id="oura_sync",
         name="Oura Background Sync",
         replace_existing=True,

@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, date, timedelta
 
 import anthropic
@@ -7,13 +8,23 @@ from sqlalchemy import select, desc
 
 from app.api.deps import CurrentUser
 from app.core.constants import ReadinessThreshold
+from app.core.time import utcnow_naive
 from app.database import get_db
-from app.models.health import SleepRecord
+from app.models.health import OuraToken, SleepRecord
 from app.models.user import User
 from app.schemas.health import DashboardResponse, MetricResponse, RecoveryResponse, CoachInsightResponse
 from app.services.claude import ClaudeClient
 from app.services.oura_sync import sync_user_data
 from app.services.health_data import get_latest_health_data
+
+logger = logging.getLogger("meld.health")
+
+# On-demand sync throttle window. If OuraToken.last_synced_at is within
+# this window, the dashboard endpoint skips its refresh pass. Chosen to
+# balance: (1) "open app, see today's data" UX, (2) Oura's 5000 req/day
+# quota, (3) Oura webhooks are eventual, not instant. 30 min means 48 max
+# auto-syncs/day even with the app constantly reloaded.
+_OURA_REFRESH_THRESHOLD = timedelta(minutes=30)
 
 
 def _first_name_of(user: User) -> str:
@@ -21,6 +32,58 @@ def _first_name_of(user: User) -> str:
     if user.name:
         return user.name.split()[0]
     return ""
+
+
+async def _maybe_refresh_oura(db: AsyncSession, user_id: str) -> None:
+    """Trigger an Oura sync if stored data is stale.
+
+    Gated by `OuraToken.last_synced_at`, which sync_user_data bumps on
+    every successful call. If it's within the refresh threshold, no-op.
+    Otherwise do a foreground sync — the Oura API is fast enough (~1-2s)
+    that blocking the dashboard response is imperceptible, and the user
+    gets fresh data in the same round trip.
+
+    NOTE: The staleness check was originally on `max(SleepRecord.synced_at)`,
+    which was broken: `sync_user_data` skips existing rows during dedup, so
+    that column only reflected the first successful pull of a given day.
+    Every subsequent dashboard load >30 min later would keep re-hitting
+    Oura forever. Fixed by adding `OuraToken.last_synced_at` which tracks
+    "when did we last talk to Oura" instead.
+
+    Silent on error: if Oura's API is down or the token is revoked, the
+    dashboard still renders from cached data. Errors are logged but not
+    surfaced to the user.
+    """
+    # Find the user's Oura token. No token → no sync possible → bail.
+    result = await db.execute(
+        select(OuraToken)
+        .where(OuraToken.user_id == user_id)
+        .order_by(desc(OuraToken.created_at))
+        .limit(1)
+    )
+    token = result.scalar_one_or_none()
+    if token is None:
+        return
+
+    # Throttle: if we synced within the threshold, no-op. NULL
+    # last_synced_at (fresh schema migration, never synced) falls
+    # through to the sync below, which is what we want.
+    if token.last_synced_at is not None:
+        age = utcnow_naive() - token.last_synced_at
+        if age < _OURA_REFRESH_THRESHOLD:
+            return
+
+    # Stale or never synced — kick off a foreground sync.
+    try:
+        result = await sync_user_data(db, user_id)
+        logger.info("On-demand Oura sync: %s", result)
+    except Exception as e:  # noqa: BLE001  — intentionally broad
+        # This is the dashboard endpoint — it MUST render from cached data
+        # when Oura is broken, regardless of which exception sync_user_data
+        # surfaces. P2-6 narrowed exceptions everywhere else; this single
+        # call is kept broad because the safety net is the whole point.
+        logger.warning("On-demand Oura sync failed, serving cached data: %s", e)
+
 
 router = APIRouter(prefix="/api", tags=["health"])
 
@@ -147,13 +210,26 @@ async def get_dashboard(
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
-    """Dashboard data — reads from reconciled multi-source health data."""
+    """Dashboard data — reads from reconciled multi-source health data.
+
+    On-demand sync: if OuraToken.last_synced_at is older than the refresh
+    threshold (30 min), trigger a foreground Oura pull before rendering.
+    Keeps the dashboard fresh without waiting for the background scheduler
+    job. Throttled by last_synced_at so rapid reloads don't hammer Oura's
+    API quota.
+    """
 
     hour = datetime.now().hour
     time_of_day = "morning" if 5 <= hour < 12 else "afternoon" if 12 <= hour < 17 else "evening" if 17 <= hour < 22 else "night"
 
     first_name = _first_name_of(current_user)
     greeting = f"Good {time_of_day}, {first_name}" if first_name else f"Good {time_of_day}"
+
+    # Auto-sync if data is stale. Staleness check uses the most recent
+    # SleepRecord's synced_at; if older than 30 min (or no record at all),
+    # pull fresh Oura data before rendering. This is the only place we do
+    # on-demand sync — meals, workouts, etc. stay on the scheduler.
+    await _maybe_refresh_oura(db, current_user.apple_user_id)
 
     # Load reconciled data (multi-source: Oura + Apple Health + Garmin + Peloton)
     health_data = await get_latest_health_data(db, current_user.apple_user_id)
