@@ -23,7 +23,7 @@ import Mascot from './Mascot.astro';
 
       <p class="hero-trust">
         <span class="dot"></span>
-        Built by Brock Howard, VP Product at Lark Health
+        Built by Brock Howard · 15+ years in consumer health
       </p>
     </div>
 
@@ -93,7 +93,7 @@ import Mascot from './Mascot.astro';
 <style>
   .hero {
     position: relative;
-    padding-block: clamp(3rem, 8vw, 5.5rem) clamp(3rem, 8vw, 6rem);
+    padding-block: clamp(2rem, 6vw, 5rem) clamp(2.5rem, 6vw, 5.5rem);
     overflow: hidden;
   }
 
@@ -158,17 +158,25 @@ import Mascot from './Mascot.astro';
 
   .phone-mockup {
     position: relative;
-    width: min(320px, 80vw);
+    width: min(280px, 72vw);
     aspect-ratio: 9 / 19;
     background: #0a0a0f;
-    border-radius: 44px;
-    padding: 14px;
+    border-radius: 40px;
+    padding: 12px;
     box-shadow:
       0 20px 60px rgba(84, 56, 166, 0.18),
       0 2px 6px rgba(0, 0, 0, 0.08),
       inset 0 0 0 2px rgba(255, 255, 255, 0.1);
     transform: rotate(-3deg);
     transition: transform var(--dur-slow) var(--ease-out);
+  }
+
+  @media (min-width: 980px) {
+    .phone-mockup {
+      width: min(320px, 100%);
+      border-radius: 44px;
+      padding: 14px;
+    }
   }
 
   @media (prefers-reduced-motion: no-preference) {
@@ -321,13 +329,23 @@ import Mascot from './Mascot.astro';
     color: var(--green-500);
   }
 
-  /* Mascot peeking from behind phone */
+  /* Mascot peeking from behind phone. Clamped so it can't force horizontal
+     overflow on narrow mobile viewports. */
   .floating-mascot {
     position: absolute;
-    top: -24px;
-    right: -12px;
+    top: clamp(-18px, -2vw, -8px);
+    right: clamp(4px, 2vw, 16px);
     z-index: 2;
     animation: float 4s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  @media (max-width: 479px) {
+    /* On phones, hide the floating mascot entirely — the phone mockup alone is
+       enough visual weight, and keeping the mascot creates layout jank. */
+    .floating-mascot {
+      display: none;
+    }
   }
 
   @keyframes float {

@@ -6,7 +6,7 @@
 
 - **Product**: Meld — iOS health coaching app
 - **Positioning**: "Your health, synthesized" — eliminates the friction between fragmented health data and an AI coach
-- **Founder**: Brock Howard, VP Product at Lark Health
+- **Founder**: Brock Howard, consumer health product builder (15+ years)
 - **Status**: Active build, pre-launch, iOS first
 - **Domain**: heymeld.com
 

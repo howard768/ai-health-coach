@@ -80,6 +80,13 @@ meld.db
 # Claude Code
 .claude/
 
+# Cloudflare Wrangler (website/ deploys)
+.wrangler/
+website/.astro/
+website/dist/
+website/node_modules/
+website/.wrangler/
+
 # Playwright
 .playwright-cli/
 

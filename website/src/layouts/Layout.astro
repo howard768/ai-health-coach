@@ -23,6 +23,7 @@ const {
 } = Astro.props;
 
 const siteUrl = 'https://heymeld.com';
+const tdAppId = import.meta.env.PUBLIC_TELEMETRYDECK_APP_ID;
 const pageUrl = canonical ?? new URL(Astro.url.pathname, siteUrl).toString();
 const ogImageUrl = new URL(ogImage, siteUrl).toString();
 
@@ -102,6 +103,15 @@ if (jsonLd) {
       href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;400;500;700&display=swap"
     />
 
+    {/* --- TelemetryDeck — privacy-first analytics --- */}
+    {tdAppId && (
+      <script
+        src="https://cdn.telemetrydeck.com/websdk/telemetrydeck.min.js"
+        data-app-id={tdAppId}
+        defer
+      ></script>
+    )}
+
     {/* --- Structured data (JSON-LD) --- */}
     {
       jsonLdBlocks.map((block) => (
@@ -136,6 +146,119 @@ if (jsonLd) {
       } else {
         document.querySelectorAll('.reveal').forEach((el) => el.classList.add('in'));
       }
+    </script>
+
+    {/* TelemetryDeck instrumentation — fires custom signals for scroll depth,
+        data-track click handlers, and UTM-tagged page views. No-op when
+        PUBLIC_TELEMETRYDECK_APP_ID is not set. */}
+    <script>
+      (function () {
+        interface TDShape {
+          signal?: (
+            name: string,
+            payload?: Record<string, string>
+          ) => void;
+        }
+
+        function td(): TDShape | undefined {
+          return (window as unknown as { TelemetryDeck?: TDShape })
+            .TelemetryDeck;
+        }
+
+        function signal(name: string, payload?: Record<string, string>) {
+          try {
+            td()?.signal?.(name, payload);
+          } catch {
+            /* no-op */
+          }
+        }
+
+        // ── 1. Preserve UTM params across navigation + tag the page view ─
+        const params = new URLSearchParams(window.location.search);
+        const utm: Record<string, string> = {};
+        for (const k of [
+          'utm_source',
+          'utm_medium',
+          'utm_campaign',
+          'utm_term',
+          'utm_content',
+        ]) {
+          const v = params.get(k);
+          if (v) utm[k] = v;
+        }
+        if (Object.keys(utm).length) {
+          try {
+            sessionStorage.setItem('meld_utm', JSON.stringify(utm));
+          } catch {
+            /* sessionStorage may be blocked */
+          }
+        }
+        // Fire a single tagged page view with UTM + path so Meld Web's
+        // TelemetryDeck dashboard can segment by campaign.
+        const storedUtm = (() => {
+          try {
+            return JSON.parse(sessionStorage.getItem('meld_utm') ?? '{}');
+          } catch {
+            return {};
+          }
+        })();
+        signal('PageView', {
+          path: window.location.pathname,
+          ...storedUtm,
+        });
+
+        // ── 2. data-track click handler ────────────────────────────────
+        document.addEventListener(
+          'click',
+          (event) => {
+            const target = event.target as HTMLElement | null;
+            if (!target) return;
+            const tracked = target.closest<HTMLElement>('[data-track]');
+            if (!tracked) return;
+            const name = tracked.getAttribute('data-track');
+            if (!name) return;
+            signal('Click', { target: name, path: window.location.pathname });
+          },
+          { passive: true }
+        );
+
+        // ── 3. Scroll depth (25/50/75/100) — fires each milestone once ──
+        const milestones = [25, 50, 75, 100];
+        const hit = new Set<number>();
+        function checkScroll() {
+          const scroll = window.scrollY;
+          const vh = window.innerHeight;
+          const doc = Math.max(
+            document.documentElement.scrollHeight - vh,
+            1
+          );
+          const pct = Math.round((scroll / doc) * 100);
+          for (const m of milestones) {
+            if (pct >= m && !hit.has(m)) {
+              hit.add(m);
+              signal('ScrollDepth', {
+                milestone: String(m),
+                path: window.location.pathname,
+              });
+            }
+          }
+        }
+        let scrollRaf = 0;
+        window.addEventListener(
+          'scroll',
+          () => {
+            if (scrollRaf) return;
+            scrollRaf = requestAnimationFrame(() => {
+              scrollRaf = 0;
+              checkScroll();
+            });
+          },
+          { passive: true }
+        );
+        // Fire an initial check in case the page loaded already-scrolled
+        // (e.g. anchor link).
+        checkScroll();
+      })();
     </script>
 
     <style>

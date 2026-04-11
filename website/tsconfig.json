@@ -6,6 +6,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]
-    }
+    },
+    // Cloudflare Pages Functions runtime types (D1Database, PagesFunction, etc.)
+    "types": ["@cloudflare/workers-types/2023-07-01"]
   }
 }

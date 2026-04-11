@@ -1,0 +1,19 @@
+# Cloudflare Pages config for heymeld.com
+# Used by `wrangler pages dev` (local) and `wrangler pages deploy` (production).
+#
+# The Pages project was created via `wrangler pages project create heymeld`.
+# This file only declares bindings that the Pages Functions need at runtime.
+
+name = "heymeld"
+pages_build_output_dir = "./dist"
+compatibility_date = "2026-04-11"
+compatibility_flags = ["nodejs_compat"]
+
+# ── D1 database binding ───────────────────────────────────────────────
+# Bound to `env.DB` inside Pages Functions.
+# Database is `heymeld-waitlist` (schema in functions/api/waitlist/subscribe.ts).
+
+[[d1_databases]]
+binding = "DB"
+database_name = "heymeld-waitlist"
+database_id = "c01d73ef-8195-4b71-ae15-96ada5455acd"

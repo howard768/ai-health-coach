@@ -4,22 +4,54 @@ import Mascot from './Mascot.astro';
 
 <header class="nav" data-nav>
   <div class="container nav-inner">
-    <a href="/" class="wordmark" aria-label="Meld home">
+    <a href="/" class="wordmark" aria-label="Meld home" data-track="nav-wordmark">
       <Mascot size={32} />
       <span>Meld</span>
     </a>
 
     <nav class="nav-links" aria-label="Primary">
-      <a href="/journal">Journal</a>
-      <a href="#how-it-works">How it works</a>
-      <a href="#faq">FAQ</a>
+      <a href="/journal" data-track="nav-journal">Journal</a>
+      <a href="/#how-it-works" data-track="nav-hiw">How it works</a>
+      <a href="/#faq" data-track="nav-faq">FAQ</a>
     </nav>
 
-    <a href="#waitlist" class="btn btn-primary btn-nav">Get early access</a>
+    <a href="/#waitlist" class="btn btn-primary btn-nav" data-track="nav-cta">
+      Get early access
+    </a>
+
+    <button
+      type="button"
+      class="nav-toggle"
+      aria-label="Toggle menu"
+      aria-expanded="false"
+      aria-controls="mobile-menu"
+      data-nav-toggle
+    >
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+    </button>
+  </div>
+
+  <div
+    id="mobile-menu"
+    class="mobile-menu"
+    data-mobile-menu
+    aria-hidden="true"
+  >
+    <nav aria-label="Mobile primary">
+      <a href="/journal" data-track="mobile-nav-journal">Journal</a>
+      <a href="/#how-it-works" data-track="mobile-nav-hiw">How it works</a>
+      <a href="/#faq" data-track="mobile-nav-faq">FAQ</a>
+      <a href="/privacy" data-track="mobile-nav-privacy">Privacy</a>
+      <a href="/terms" data-track="mobile-nav-terms">Terms</a>
+      <a href="/#waitlist" class="mobile-cta" data-track="mobile-nav-cta">Get early access</a>
+    </nav>
   </div>
 </header>
 
 <script>
+  // ── Sticky nav scroll state ───────────────────────────────────────
   const nav = document.querySelector<HTMLElement>('[data-nav]');
   if (nav) {
     const update = () => {
@@ -28,6 +60,42 @@ import Mascot from './Mascot.astro';
     };
     update();
     window.addEventListener('scroll', update, { passive: true });
+  }
+
+  // ── Mobile menu toggle ────────────────────────────────────────────
+  const toggle = document.querySelector<HTMLButtonElement>('[data-nav-toggle]');
+  const menu = document.querySelector<HTMLElement>('[data-mobile-menu]');
+
+  function setMenuOpen(open: boolean) {
+    if (!toggle || !menu) return;
+    toggle.setAttribute('aria-expanded', String(open));
+    menu.setAttribute('aria-hidden', String(!open));
+    menu.classList.toggle('is-open', open);
+    document.body.classList.toggle('menu-open', open);
+  }
+
+  if (toggle && menu) {
+    toggle.addEventListener('click', () => {
+      const isOpen = toggle.getAttribute('aria-expanded') === 'true';
+      setMenuOpen(!isOpen);
+    });
+
+    // Close on nav-link click (so in-page anchors work cleanly)
+    menu.querySelectorAll('a').forEach((a) => {
+      a.addEventListener('click', () => setMenuOpen(false));
+    });
+
+    // Close on Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') setMenuOpen(false);
+    });
+
+    // Close when viewport grows past the mobile breakpoint
+    const mq = window.matchMedia('(min-width: 768px)');
+    const onMqChange = () => {
+      if (mq.matches) setMenuOpen(false);
+    };
+    mq.addEventListener?.('change', onMqChange);
   }
 </script>
 
@@ -62,7 +130,8 @@ import Mascot from './Mascot.astro';
 
   @media (max-width: 600px) {
     .nav-inner {
-      height: 64px;
+      height: 60px;
+      gap: var(--sp-2);
     }
   }
 
@@ -74,6 +143,7 @@ import Mascot from './Mascot.astro';
     font-size: 1.375rem;
     font-weight: var(--fw-light);
     letter-spacing: -0.01em;
+    flex-shrink: 0;
   }
 
   .wordmark:hover {
@@ -84,6 +154,7 @@ import Mascot from './Mascot.astro';
     flex-shrink: 0;
   }
 
+  /* ---- Desktop nav links ---- */
   .nav-links {
     display: none;
     gap: var(--sp-8);
@@ -105,16 +176,152 @@ import Mascot from './Mascot.astro';
     }
   }
 
+  /* ---- Desktop CTA button ---- */
   .btn-nav {
     min-height: 42px;
     padding-inline: var(--sp-5);
     font-size: var(--fs-body-sm);
+    flex-shrink: 0;
   }
 
-  @media (max-width: 600px) {
+  /* On very narrow screens (phones), hide the inline CTA — the hamburger menu
+     includes it at the bottom of the drawer instead. Keeps the top bar clean. */
+  @media (max-width: 480px) {
     .btn-nav {
-      min-height: 40px;
-      padding-inline: var(--sp-4);
+      display: none;
+    }
+  }
+
+  /* ---- Hamburger toggle ---- */
+  .nav-toggle {
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    width: 44px;
+    height: 44px;
+    padding: 11px 10px;
+    border-radius: var(--r-md);
+    background: transparent;
+    cursor: pointer;
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .nav-toggle span {
+    display: block;
+    width: 24px;
+    height: 2px;
+    background: var(--text-primary);
+    border-radius: 2px;
+    transform-origin: center;
+    transition:
+      transform var(--dur-base) var(--ease-out),
+      opacity var(--dur-fast) var(--ease-out);
+  }
+
+  .nav-toggle[aria-expanded='true'] span:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+  }
+
+  .nav-toggle[aria-expanded='true'] span:nth-child(2) {
+    opacity: 0;
+  }
+
+  .nav-toggle[aria-expanded='true'] span:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
+  }
+
+  /* Hamburger only appears on mobile. Desktop hides it. */
+  @media (min-width: 768px) {
+    .nav-toggle {
+      display: none;
+    }
+  }
+
+  /* ---- Mobile drawer ---- */
+  .mobile-menu {
+    position: fixed;
+    top: 60px; /* matches .nav-inner height at <600px */
+    inset-inline: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.98);
+    -webkit-backdrop-filter: blur(24px);
+    backdrop-filter: blur(24px);
+    padding: var(--sp-6) var(--sp-5) var(--sp-12);
+    transform: translateY(-8px);
+    opacity: 0;
+    pointer-events: none;
+    visibility: hidden;
+    transition:
+      opacity var(--dur-base) var(--ease-out),
+      transform var(--dur-base) var(--ease-out),
+      visibility 0s linear var(--dur-base);
+    overflow-y: auto;
+  }
+
+  .mobile-menu.is-open {
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+    visibility: visible;
+    transition-delay: 0s;
+  }
+
+  .mobile-menu nav {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+    max-width: 420px;
+    margin-inline: auto;
+  }
+
+  .mobile-menu a {
+    display: flex;
+    align-items: center;
+    min-height: 56px;
+    padding-inline: var(--sp-5);
+    font-size: 1.125rem;
+    font-weight: var(--fw-regular);
+    color: var(--text-primary);
+    border-radius: var(--r-card);
+    border-bottom: 1px solid var(--bg-tertiary);
+  }
+
+  .mobile-menu a:last-of-type {
+    border-bottom: none;
+  }
+
+  .mobile-menu a:hover,
+  .mobile-menu a:focus-visible {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+  }
+
+  .mobile-menu .mobile-cta {
+    margin-top: var(--sp-5);
+    justify-content: center;
+    background: var(--purple-600);
+    color: #fff;
+    font-weight: var(--fw-medium);
+    border-bottom: none;
+    box-shadow: 0 6px 20px rgba(84, 56, 166, 0.25);
+  }
+
+  .mobile-menu .mobile-cta:hover,
+  .mobile-menu .mobile-cta:focus-visible {
+    background: var(--purple-500);
+    color: #fff;
+  }
+
+  /* Lock body scroll when drawer is open */
+  :global(body.menu-open) {
+    overflow: hidden;
+  }
+
+  @media (min-width: 768px) {
+    .mobile-menu {
+      display: none;
     }
   }
 </style>

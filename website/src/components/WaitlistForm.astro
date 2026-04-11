@@ -33,8 +33,10 @@ const {
   cta = 'Join the waitlist',
 } = Astro.props;
 
-const apiBase = import.meta.env.PUBLIC_API_BASE ?? 'https://zippy-forgiveness-production-0704.up.railway.app';
-const endpoint = `${apiBase}/api/waitlist/subscribe`;
+// Same-origin Pages Function. In dev (`wrangler pages dev`) and in production
+// (heymeld.pages.dev / heymeld.com), this resolves to `/api/waitlist/subscribe`
+// on the same host as the page, so there's no CORS round-trip.
+const endpoint = '/api/waitlist/subscribe';
 ---
 
 <form
@@ -127,6 +129,14 @@ const endpoint = `${apiBase}/api/waitlist/subscribe`;
         status.textContent = "You're on the list. We'll be in touch.";
         status.setAttribute('data-state', 'success');
         emailInput.value = '';
+        // TelemetryDeck conversion signal — includes source + UTM attribution
+        // so the "WaitlistSignup" event in the TD dashboard can be broken
+        // down by which section AND which campaign produced it.
+        const utmForSignal = getUtmParams();
+        (window as { TelemetryDeck?: { signal: (name: string, payload?: Record<string, string>) => void } }).TelemetryDeck?.signal('WaitlistSignup', {
+          source: form.dataset.source ?? 'unknown',
+          ...utmForSignal,
+        });
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Something went wrong. Try again.';
         status.textContent = message;

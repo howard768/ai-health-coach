@@ -12,9 +12,12 @@
     "astro": "astro"
   },
   "dependencies": {
-    "astro": "^5.2.5",
     "@astrojs/check": "^0.9.4",
     "@astrojs/sitemap": "^3.2.1",
+    "astro": "^5.2.5",
     "typescript": "^5.7.3"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260411.1"
   }
 }
