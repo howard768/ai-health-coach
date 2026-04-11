@@ -84,6 +84,12 @@ struct NotificationPrimingView: View {
                     } else {
                         Task {
                             permissionGranted = await NotificationService.shared.requestPermission()
+                            if permissionGranted {
+                                // Persist default preferences to backend so the user's
+                                // record exists before the first notification fires.
+                                // Non-fatal — onboarding continues regardless.
+                                Task { try? await APIClient.shared.updateNotificationPreferences(.defaults) }
+                            }
                             Analytics.Onboarding.notificationsDecided(granted: permissionGranted)
                             // Always proceed — don't block onboarding on permission
                             viewModel.next()
