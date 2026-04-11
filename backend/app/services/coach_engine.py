@@ -19,6 +19,7 @@ from enum import Enum
 
 import anthropic
 from app.config import settings
+from app.core.time import utcnow_naive
 
 logger = logging.getLogger("meld.coach")
 
@@ -41,7 +42,7 @@ class RoutingDecision:
     reason: str
     confidence: float  # 0-1
     safety_flag: bool = False
-    timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    timestamp: str = field(default_factory=lambda: utcnow_naive().isoformat())
 
     def to_dict(self) -> dict:
         return {
@@ -448,7 +449,9 @@ class CoachEngine:
                 messages=messages,
             )
             response_text = response.content[0].text if response.content else "I'm having trouble right now. Please try again."
-        except Exception as e:
+        except anthropic.APIError as e:
+            # Covers anthropic.APIConnectionError, APITimeoutError, APIStatusError,
+            # RateLimitError, AuthenticationError, and BadRequestError.
             logger.error("Claude API call failed: %s", e)
             return {
                 "response": "I'm having trouble connecting right now. Please try again in a moment.",

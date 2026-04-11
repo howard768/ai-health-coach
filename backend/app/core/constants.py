@@ -6,6 +6,14 @@ threshold and others don't (P2-3 fix from the audit).
 from enum import IntEnum
 
 
+# P3-3: Sentinel device token for the manual /test/send endpoint and any
+# unit/integration tests. APNs short-circuits this token so we don't push
+# to a real device, and the scheduler/notification jobs explicitly skip it
+# so test data doesn't pollute notification analytics. If you need to add
+# more test sentinels later, build a set instead.
+TEST_DEVICE_TOKEN = "test_token_abc123"
+
+
 class ReadinessThreshold(IntEnum):
     """Cutoffs for the Oura readiness score (0-100).
 

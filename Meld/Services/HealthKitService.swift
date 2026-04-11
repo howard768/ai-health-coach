@@ -49,7 +49,7 @@ final class HealthKitService {
             isAuthorized = true
             return true
         } catch {
-            print("[HealthKit] Authorization failed: \(error)")
+            Log.healthKit.error("Authorization failed: \(error.localizedDescription)")
             return false
         }
     }
@@ -108,7 +108,7 @@ final class HealthKitService {
         do {
             return try await descriptor.result(for: store)
         } catch {
-            print("[HealthKit] Sleep query failed: \(error)")
+            Log.healthKit.error("Sleep query failed: \(error.localizedDescription)")
             return []
         }
     }
@@ -158,9 +158,9 @@ final class HealthKitService {
         if !metrics.isEmpty {
             do {
                 try await APIClient.shared.syncHealthKitMetrics(metrics)
-                print("[HealthKit] Synced \(metrics.count) metrics to backend")
+                Log.healthKit.info("Synced \(metrics.count) metrics to backend")
             } catch {
-                print("[HealthKit] Backend sync failed: \(error)")
+                Log.healthKit.error("Backend sync failed: \(error.localizedDescription)")
             }
         }
     }

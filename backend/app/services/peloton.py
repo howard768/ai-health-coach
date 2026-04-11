@@ -10,6 +10,22 @@ from datetime import date, timedelta
 
 logger = logging.getLogger("meld.peloton")
 
+# pylotoncycle wraps requests — most errors surface as requests.exceptions
+# or plain ValueError/KeyError on bad response shapes. We include OSError
+# to catch underlying socket failures.
+try:
+    import requests  # type: ignore
+    _PELOTON_FETCH_ERRORS: tuple[type[BaseException], ...] = (
+        requests.exceptions.RequestException,
+        ConnectionError,
+        TimeoutError,
+        OSError,
+        ValueError,
+        KeyError,
+    )
+except ImportError:
+    _PELOTON_FETCH_ERRORS = (ConnectionError, TimeoutError, OSError, ValueError, KeyError)
+
 
 class PelotonClient:
     """Interacts with Peloton via pylotoncycle library."""
@@ -35,7 +51,7 @@ class PelotonClient:
                 "session_id": "oauth",  # pylotoncycle manages tokens internally
                 "user_id": user_id or "connected",
             }
-        except Exception as e:
+        except _PELOTON_FETCH_ERRORS as e:
             logger.error("Peloton login failed: %s", e)
             raise
 
@@ -49,7 +65,7 @@ class PelotonClient:
 
         try:
             return await asyncio.to_thread(_get)
-        except Exception as e:
+        except _PELOTON_FETCH_ERRORS as e:
             logger.error("Peloton get_workouts failed: %s", e)
             return []
 
@@ -63,7 +79,7 @@ class PelotonClient:
 
         try:
             return await asyncio.to_thread(_get)
-        except Exception as e:
+        except _PELOTON_FETCH_ERRORS as e:
             logger.error("Peloton get_metrics failed: %s", e)
             return {}
 

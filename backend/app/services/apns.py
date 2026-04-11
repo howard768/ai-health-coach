@@ -171,7 +171,10 @@ class APNsClient:
                     "error": error_body,
                 }
 
-        except Exception as e:
+        except httpx.HTTPError as e:
+            # APNs returns structured errors as response bodies (handled above).
+            # This catch is for transport-level failures: DNS, TLS, network,
+            # timeout, and HTTP/2 frame errors.
             logger.error("APNs request failed: %s", str(e))
             return {"success": False, "status": 0, "error": str(e)}
 

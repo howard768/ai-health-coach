@@ -85,10 +85,9 @@ enum DSFontDebug {
             .flatMap { UIFont.fontNames(forFamilyName: $0) }
 
         if robotoFonts.isEmpty {
-            print("⚠️ [DSTypography] No Roboto fonts found. Check Info.plist UIAppFonts entries.")
+            Log.designSystem.warning("No Roboto fonts found. Check Info.plist UIAppFonts entries.")
         } else {
-            print("✅ [DSTypography] Roboto fonts registered:")
-            robotoFonts.forEach { print("   - \($0)") }
+            Log.designSystem.info("Roboto fonts registered: \(robotoFonts.joined(separator: ", "))")
         }
     }
 }

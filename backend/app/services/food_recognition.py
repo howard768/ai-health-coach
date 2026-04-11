@@ -93,7 +93,7 @@ class FoodRecognitionService:
         except json.JSONDecodeError as e:
             logger.error("Failed to parse Vision response as JSON: %s", e)
             return []
-        except Exception as e:
+        except anthropic.APIError as e:
             logger.error("Food recognition failed: %s", e)
             return []
 
@@ -122,7 +122,7 @@ class FoodRecognitionService:
             logger.info("AI estimated nutrition for: %s", query)
             return items
 
-        except Exception as e:
+        except (anthropic.APIError, json.JSONDecodeError) as e:
             logger.error("Text recognition failed: %s", e)
             return []
 

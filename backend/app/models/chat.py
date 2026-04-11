@@ -3,6 +3,7 @@ from sqlalchemy import String, Integer, Float, DateTime, Text, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
+from app.core.time import utcnow_naive
 
 
 class Conversation(Base):
@@ -10,8 +11,8 @@ class Conversation(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[str] = mapped_column(String(255), index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive, onupdate=utcnow_naive)
 
 
 class ChatMessageRecord(Base):
@@ -27,7 +28,7 @@ class ChatMessageRecord(Base):
     model_used: Mapped[str] = mapped_column(String(100), nullable=True)
     safety_flagged: Mapped[bool] = mapped_column(default=False)
     metadata_json: Mapped[str] = mapped_column(JSON, nullable=True)  # Extra context
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
     # Phase 4: Production monitoring
     feedback: Mapped[str] = mapped_column(String(10), nullable=True)  # "up", "down", or null

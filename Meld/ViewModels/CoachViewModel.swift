@@ -107,10 +107,27 @@ final class CoachViewModel {
         isTyping = true
 
         Task {
+            // P2-10: Distinguish offline from server error so we give the
+            // user a useful nudge instead of a generic "trouble connecting"
+            // message. The OfflineBanner at the root is also visible.
+            if !NetworkMonitor.shared.isOnline {
+                messages.append(ChatMessage(
+                    role: .coach,
+                    text: "You're offline right now. I'll be here as soon as you're back."
+                ))
+                isTyping = false
+                return
+            }
+
             do {
                 let response = try await APIClient.shared.sendMessage(prompt)
                 let coachMsg = ChatMessage(role: .coach, text: response.content, messageId: response.messageId)
                 messages.append(coachMsg)
+            } catch APIError.networkError {
+                messages.append(ChatMessage(
+                    role: .coach,
+                    text: "Looks like the connection dropped. Try again once you're back online."
+                ))
             } catch {
                 // Honest error — no fabricated data.
                 let errorMsg = ChatMessage(

@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 
+import httpx
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
@@ -41,6 +42,7 @@ from app.core.security import (
 from app.database import get_db
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
+from app.core.time import utcnow_naive
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger("meld.auth")
@@ -113,7 +115,7 @@ async def _issue_token_pair(
     )
     db.add(token_row)
 
-    user.last_login_at = datetime.utcnow()
+    user.last_login_at = utcnow_naive()
     await db.commit()
 
     expires_in = int((access_expires - datetime.now(timezone.utc)).total_seconds())
@@ -130,7 +132,7 @@ async def _revoke_chain(db: AsyncSession, start_hash: str) -> None:
     token. Used when a revoked token is presented for refresh — indicates the
     refresh token was stolen and replayed after rotation.
     """
-    now = datetime.utcnow()
+    now = utcnow_naive()
     current = start_hash
     visited: set[str] = set()
     while current and current not in visited:
@@ -242,7 +244,7 @@ async def refresh_token(
             )
         )
         for t in result.scalars():
-            t.revoked_at = datetime.utcnow()
+            t.revoked_at = utcnow_naive()
         await db.commit()
         raise HTTPException(
             status.HTTP_401_UNAUTHORIZED,
@@ -250,7 +252,7 @@ async def refresh_token(
         )
 
     # Expiry check (accept both naive UTC and aware for legacy rows)
-    now_naive = datetime.utcnow()
+    now_naive = utcnow_naive()
     if row.expires_at < now_naive:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Refresh token expired")
 
@@ -302,7 +304,7 @@ async def logout(
     token_hash = hash_refresh_token(body.refresh_token)
     row = await db.get(RefreshToken, token_hash)
     if row is not None and row.user_id == user.apple_user_id and row.revoked_at is None:
-        row.revoked_at = datetime.utcnow()
+        row.revoked_at = utcnow_naive()
         await db.commit()
     return {"status": "logged_out"}
 
@@ -336,7 +338,7 @@ async def delete_account(
         try:
             await revoke_apple_token(apple_refresh)
             logger.info("Apple token revoked for user=%s", apple_id[:12] + "...")
-        except Exception as e:
+        except (httpx.HTTPError, jwt.PyJWTError, ValueError) as e:
             logger.error("Apple token revocation failed for user=%s: %s", apple_id[:12], e)
 
     # Delete the user — CASCADE handles all tenant data + refresh tokens.

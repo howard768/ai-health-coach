@@ -8,11 +8,14 @@ Handles token refresh, sleep data, readiness, and HRV.
 import logging
 from datetime import date, datetime, timedelta
 
+import httpx
 from sqlalchemy import select, desc
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.health import OuraToken, SleepRecord, HealthMetricRecord
 from app.services.oura import OuraClient
+from app.core.time import utcnow_naive
 
 logger = logging.getLogger("meld.oura_sync")
 
@@ -35,17 +38,17 @@ async def ensure_valid_token(db: AsyncSession, user_id: str) -> str | None:
         return None
 
     # Check if token expires within 5 minutes
-    if token.expires_at and token.expires_at < datetime.utcnow() + timedelta(minutes=5):
+    if token.expires_at and token.expires_at < utcnow_naive() + timedelta(minutes=5):
         logger.info("Oura token expired or expiring soon — refreshing")
         try:
             client = OuraClient()
             new_tokens = await client.refresh_access_token(token.refresh_token)
             token.access_token = new_tokens["access_token"]
             token.refresh_token = new_tokens.get("refresh_token", token.refresh_token)
-            token.expires_at = datetime.utcnow() + timedelta(seconds=new_tokens.get("expires_in", 86400))
+            token.expires_at = utcnow_naive() + timedelta(seconds=new_tokens.get("expires_in", 86400))
             await db.commit()
             logger.info("Oura token refreshed successfully")
-        except Exception as e:
+        except (httpx.HTTPError, KeyError, ValueError, SQLAlchemyError) as e:
             logger.error("Oura token refresh failed: %s", e)
             return None
 
@@ -71,13 +74,18 @@ async def sync_user_data(db: AsyncSession, user_id: str) -> dict:
         sleep_data = await client.get_daily_sleep(start, end)
         readiness_data = await client.get_daily_readiness(start, end)
         sleep_sessions = await client.get_sleep_sessions(start, end)
-    except Exception as e:
-        error_msg = str(e)
-        if "401" in error_msg:
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 401:
             logger.error("Oura API returned 401 — token may be revoked")
             return {"status": "error", "message": "Oura access revoked. Reconnect your ring."}
         logger.error("Oura API error: %s", e)
-        return {"status": "error", "message": f"Oura API error: {error_msg}"}
+        return {"status": "error", "message": f"Oura API error: {e}"}
+    except httpx.HTTPError as e:
+        logger.error("Oura API network error: %s", e)
+        return {"status": "error", "message": f"Oura API error: {e}"}
+    except ValueError as e:
+        logger.error("Oura API response parse error: %s", e)
+        return {"status": "error", "message": "Oura returned unexpected data"}
 
     # Index sleep sessions by day for duration data
     session_by_day: dict[str, dict] = {}
@@ -179,7 +187,7 @@ async def sync_hrv(
     """
     try:
         hr_data = await client.get_heartrate(start, end)
-    except Exception as e:
+    except (httpx.HTTPError, ValueError) as e:
         logger.warning("Failed to fetch HRV data: %s", e)
         return 0
 

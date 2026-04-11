@@ -50,7 +50,9 @@ class USDAClient:
                 )
                 response.raise_for_status()
                 data = response.json()
-        except Exception as e:
+        except (httpx.HTTPError, ValueError) as e:
+            # httpx.HTTPError covers network, timeout, and HTTP status errors.
+            # ValueError covers JSON decode failures.
             logger.error("USDA search failed: %s", e)
             return []
 

@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import CurrentUser
 from app.database import get_db
 from app.models.peloton import PelotonToken
-from app.services.peloton import PelotonClient
+from app.services.peloton import PelotonClient, _PELOTON_FETCH_ERRORS
 
 logger = logging.getLogger("meld.peloton_auth")
 
@@ -38,8 +38,10 @@ async def login_peloton(
 
     try:
         result = await client.login(request.username, request.password)
-    except Exception as e:
+    except _PELOTON_FETCH_ERRORS as e:
         raise HTTPException(status_code=401, detail=f"Peloton login failed: {str(e)}")
+    except ImportError:
+        raise HTTPException(status_code=503, detail="pylotoncycle package not installed")
 
     user_id = current_user.apple_user_id
     # Delete any existing token for this user before inserting

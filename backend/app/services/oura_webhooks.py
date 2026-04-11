@@ -131,7 +131,7 @@ async def register_all_webhooks(callback_base_url: str) -> list[dict]:
                     event_type=event_type,
                 )
                 results.append(result)
-            except Exception as e:
+            except (httpx.HTTPError, ValueError, KeyError) as e:
                 logger.error(
                     "Failed to register webhook for %s/%s: %s",
                     data_type, event_type, e,

@@ -19,6 +19,7 @@ from sqlalchemy import select, desc, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.notification import NotificationRecord, NotificationPreference
+from app.core.time import utcnow_naive
 
 logger = logging.getLogger("meld.anti_fatigue")
 
@@ -29,15 +30,15 @@ MAX_DAILY_NOTIFICATIONS = 4
 def _user_now() -> datetime:
     """Return the current time in the user's configured timezone.
 
-    P2-15 fix: previously used datetime.utcnow() everywhere, which meant
+    P2-15 fix: previously used utcnow_naive() everywhere, which meant
     "today" rolled over at UTC midnight (8pm EST → double notifications at
     midnight local time). Now reads USER_TIMEZONE env var.
     """
-    from zoneinfo import ZoneInfo
+    from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
     from app.config import settings as _settings
     try:
         tz = ZoneInfo(_settings.user_timezone)
-    except Exception:
+    except (ZoneInfoNotFoundError, ValueError, TypeError):
         tz = ZoneInfo("UTC")
     return datetime.now(tz)
 

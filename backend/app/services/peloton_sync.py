@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.peloton import PelotonToken, WorkoutRecord
 from app.models.health import HealthMetricRecord
-from app.services.peloton import PelotonClient
+from app.services.peloton import PelotonClient, _PELOTON_FETCH_ERRORS
 
 logger = logging.getLogger("meld.peloton_sync")
 
@@ -45,12 +45,16 @@ async def sync_user_data(db: AsyncSession, user_id: str) -> dict:
 
     try:
         workouts_response = await client.get_workouts(limit=20)
-    except Exception as e:
+    except _PELOTON_FETCH_ERRORS as e:
         error_msg = str(e)
         if "401" in error_msg:
             return {"status": "error", "message": "Peloton session expired. Please re-login."}
         logger.error("Peloton API error: %s", e)
         return {"status": "error", "message": f"Peloton API error: {error_msg}"}
+    except (ValueError, TypeError) as e:
+        # Not authenticated / bad client state.
+        logger.error("Peloton client state error: %s", e)
+        return {"status": "error", "message": "Peloton session invalid. Please re-login."}
 
     records_saved = 0
     for workout in workouts_response.get("data", []):

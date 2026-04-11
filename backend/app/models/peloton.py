@@ -4,6 +4,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.encryption import EncryptedString
 from app.database import Base
+from app.core.time import utcnow_naive
 
 
 class PelotonToken(Base):
@@ -16,8 +17,8 @@ class PelotonToken(Base):
     # Encrypted at rest with Fernet (P1-1)
     session_id: Mapped[str] = mapped_column(EncryptedString(2000))
     username: Mapped[str] = mapped_column(String(255))  # For display only, not auth
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    last_used_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+    last_used_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 
 class WorkoutRecord(Base):
@@ -38,4 +39,4 @@ class WorkoutRecord(Base):
     instructor: Mapped[str] = mapped_column(String(100), nullable=True)
     title: Mapped[str] = mapped_column(String(255), nullable=True)
     raw_json: Mapped[str] = mapped_column(Text, nullable=True)
-    synced_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    synced_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)

@@ -1,4 +1,6 @@
 from datetime import datetime, date, timedelta
+
+import anthropic
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
@@ -233,7 +235,7 @@ async def get_dashboard(
         insight_text = await asyncio.to_thread(
             claude.generate_insight, insight_context, ["Lose weight", "Build muscle"]
         )
-    except Exception:
+    except anthropic.APIError:
         insight_text = f"Your sleep efficiency was {int(efficiency)}% with {hours}h {mins}m of total sleep. Readiness is {readiness_level.lower()}."
 
     metrics = [

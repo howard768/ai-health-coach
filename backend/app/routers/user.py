@@ -13,6 +13,7 @@ from app.api.deps import CurrentUser
 from app.database import get_db
 from app.models.user import User
 from app.models.health import OuraToken
+from app.core.time import utcnow_naive
 
 logger = logging.getLogger("meld.user")
 
@@ -117,7 +118,7 @@ async def update_profile(
         current_user.training_experience = update.training_experience
     if update.training_days_per_week is not None:
         current_user.training_days_per_week = update.training_days_per_week
-    current_user.updated_at = datetime.utcnow()
+    current_user.updated_at = utcnow_naive()
 
     await db.commit()
     await db.refresh(current_user)

@@ -13,11 +13,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import CurrentUser
+from app.core.constants import TEST_DEVICE_TOKEN
 from app.database import get_db
 from app.models.notification import DeviceToken, NotificationRecord, NotificationPreference
 from app.services.apns import apns_client
 from app.services.notification_engine import notification_engine
 from app.services.notification_content import content_generator
+from app.core.time import utcnow_naive
 
 logger = logging.getLogger("meld.notifications")
 
@@ -82,7 +84,7 @@ async def register_device_token(
     if existing:
         existing.user_id = user_id
         existing.is_active = True
-        existing.updated_at = datetime.utcnow()
+        existing.updated_at = utcnow_naive()
         logger.info("Updated device token %s...%s", request.device_token[:8], request.device_token[-4:])
     else:
         token = DeviceToken(
@@ -109,7 +111,7 @@ async def send_test_notification(
         select(DeviceToken).where(
             DeviceToken.user_id == user_id,
             DeviceToken.is_active == True,
-            DeviceToken.token != "test_token_abc123",
+            DeviceToken.token != TEST_DEVICE_TOKEN,
         )
     )
     token_row = result.scalar_one_or_none()
@@ -196,7 +198,7 @@ async def send_test_by_category(
         select(DeviceToken).where(
             DeviceToken.user_id == user_id,
             DeviceToken.is_active == True,
-            DeviceToken.token != "test_token_abc123",
+            DeviceToken.token != TEST_DEVICE_TOKEN,
         )
     )
     token_row = result.scalar_one_or_none()
@@ -357,7 +359,7 @@ async def report_notification_opened(
     )
     record = result.scalar_one_or_none()
     if record:
-        record.opened_at = datetime.utcnow()
+        record.opened_at = utcnow_naive()
         await db.commit()
         return {"status": "ok"}
     return {"status": "not_found"}

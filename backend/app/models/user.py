@@ -3,6 +3,7 @@ from sqlalchemy import String, Integer, Float, DateTime, Text, JSON, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
+from app.core.time import utcnow_naive
 
 
 class User(Base):
@@ -21,8 +22,8 @@ class User(Base):
     goals: Mapped[str] = mapped_column(JSON, nullable=True)  # List of goal strings
     training_experience: Mapped[str] = mapped_column(String(50), nullable=True)
     training_days_per_week: Mapped[int] = mapped_column(Integer, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive, onupdate=utcnow_naive)
 
     # ── Auth fields (added 2026-04-10 for Sign in with Apple) ────────────
     # Deactivation flag — set to False to soft-disable an account without deletion.

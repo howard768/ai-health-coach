@@ -10,8 +10,11 @@ All notifications follow the wiki rules:
 import logging
 from datetime import datetime
 
+import anthropic
+
 from app.services.coach_engine import CoachEngine
 from app.services.notification_media import generate_recovery_badge
+from app.core.time import utcnow_naive
 
 logger = logging.getLogger("meld.notifications")
 
@@ -93,7 +96,7 @@ class NotificationEngine:
                 title = f"Good morning, {user_name}"
                 body = response_text[:120]
 
-        except Exception as e:
+        except anthropic.APIError as e:
             logger.error("Failed to generate morning brief via AI: %s", e)
             # Deterministic fallback based on data
             title = f"Good morning, {user_name}"
@@ -104,9 +107,10 @@ class NotificationEngine:
             else:
                 body = "Your body needs some extra rest today. Easy does it."
 
-        # Generate recovery badge for rich notification
+        # Generate recovery badge for rich notification.
+        # P3-3: URLs come from settings, not hardcoded.
         from app.config import settings
-        base_url = f"http://localhost:8000" if settings.app_env == "development" else "https://zippy-forgiveness-production-0704.up.railway.app"
+        base_url = settings.local_base_url if settings.app_env == "development" else settings.public_base_url
         media_url = generate_recovery_badge(recovery_level, base_url=base_url)
 
         return {
@@ -118,7 +122,7 @@ class NotificationEngine:
                 "thread_id": "daily-coaching",
                 "interruption_level": "active",
                 "relevance_score": 0.8,
-                "collapse_id": f"morning-brief-{datetime.utcnow().strftime('%Y-%m-%d')}",
+                "collapse_id": f"morning-brief-{utcnow_naive().strftime('%Y-%m-%d')}",
             },
             "data": {
                 "deep_link": "meld://dashboard",

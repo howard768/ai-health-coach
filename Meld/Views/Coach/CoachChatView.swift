@@ -105,6 +105,8 @@ struct CoachChatView: View {
                 .onSubmit {
                     viewModel.sendMessage()
                 }
+                .accessibilityLabel("Message your coach")
+                .accessibilityHint("Type a question about your sleep, recovery, food, or training")
 
             if !viewModel.inputText.isEmpty {
                 Button(action: { viewModel.sendMessage() }) {
@@ -114,6 +116,8 @@ struct CoachChatView: View {
                         .clipShape(Circle())
                 }
                 .transition(.scale.combined(with: .opacity))
+                .accessibilityLabel("Send message")
+                .accessibilityHint("Sends your message to the coach")
             }
         }
         .padding(.horizontal, M)
@@ -169,6 +173,8 @@ private struct MessageView: View {
                                 .font(.system(size: 14))
                                 .foregroundStyle(message.feedback == "up" ? DSColor.Purple.purple500 : DSColor.Text.tertiary)
                         }
+                        .accessibilityLabel(message.feedback == "up" ? "Helpful, selected" : "Mark helpful")
+                        .accessibilityAddTraits(message.feedback == "up" ? .isSelected : [])
 
                         Button {
                             onFeedback?("down")
@@ -177,6 +183,8 @@ private struct MessageView: View {
                                 .font(.system(size: 14))
                                 .foregroundStyle(message.feedback == "down" ? DSColor.Status.error : DSColor.Text.tertiary)
                         }
+                        .accessibilityLabel(message.feedback == "down" ? "Not helpful, selected" : "Mark not helpful")
+                        .accessibilityAddTraits(message.feedback == "down" ? .isSelected : [])
                     }
                     .padding(.top, DSSpacing.xs)
                 }

@@ -10,6 +10,27 @@ from datetime import date, timedelta
 
 logger = logging.getLogger("meld.garmin")
 
+# Errors that should be treated as recoverable data-fetch failures:
+# library-specific auth/connection errors + generic network errors.
+# Anything else bubbles up so we can see programming bugs.
+try:
+    from garminconnect import (
+        GarminConnectAuthenticationError,
+        GarminConnectConnectionError,
+        GarminConnectTooManyRequestsError,
+    )
+    _GARMIN_FETCH_ERRORS: tuple[type[BaseException], ...] = (
+        GarminConnectAuthenticationError,
+        GarminConnectConnectionError,
+        GarminConnectTooManyRequestsError,
+        ConnectionError,
+        TimeoutError,
+        OSError,
+    )
+except ImportError:
+    # Library not installed — import errors handled at call sites.
+    _GARMIN_FETCH_ERRORS = (ConnectionError, TimeoutError, OSError)
+
 
 class GarminClient:
     """Wraps the garminconnect library for async usage."""
@@ -42,7 +63,7 @@ class GarminClient:
         session_data: str | None = None
         try:
             session_data = await asyncio.to_thread(self._client.garth.dumps)
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError) as e:
             logger.warning("Failed to serialize garth session: %s", e)
 
         return {
@@ -67,8 +88,12 @@ class GarminClient:
         try:
             self._client = await asyncio.to_thread(_restore)
             return True
-        except Exception as e:
+        except _GARMIN_FETCH_ERRORS as e:
             logger.error("Garmin session restore failed: %s", e)
+            return False
+        except (ValueError, TypeError, KeyError) as e:
+            # Bad session_data payload (corrupted or wrong format).
+            logger.error("Garmin session data invalid: %s", e)
             return False
 
     async def get_steps(self, target_date: date) -> dict | None:
@@ -79,7 +104,7 @@ class GarminClient:
             return await asyncio.to_thread(
                 self._client.get_steps_data, target_date.isoformat()
             )
-        except Exception as e:
+        except _GARMIN_FETCH_ERRORS as e:
             logger.error("Garmin steps error: %s", e)
             return None
 
@@ -91,7 +116,7 @@ class GarminClient:
             return await asyncio.to_thread(
                 self._client.get_heart_rates, target_date.isoformat()
             )
-        except Exception as e:
+        except _GARMIN_FETCH_ERRORS as e:
             logger.error("Garmin heart rate error: %s", e)
             return None
 
@@ -103,7 +128,7 @@ class GarminClient:
             return await asyncio.to_thread(
                 self._client.get_sleep_data, target_date.isoformat()
             )
-        except Exception as e:
+        except _GARMIN_FETCH_ERRORS as e:
             logger.error("Garmin sleep error: %s", e)
             return None
 
@@ -115,7 +140,7 @@ class GarminClient:
             return await asyncio.to_thread(
                 self._client.get_stress_data, target_date.isoformat()
             )
-        except Exception as e:
+        except _GARMIN_FETCH_ERRORS as e:
             logger.error("Garmin stress error: %s", e)
             return None
 
@@ -127,7 +152,7 @@ class GarminClient:
             return await asyncio.to_thread(
                 self._client.get_body_battery, target_date.isoformat()
             )
-        except Exception as e:
+        except _GARMIN_FETCH_ERRORS as e:
             logger.error("Garmin body battery error: %s", e)
             return None
 
@@ -139,6 +164,6 @@ class GarminClient:
             return await asyncio.to_thread(
                 self._client.get_activities, start, limit
             )
-        except Exception as e:
+        except _GARMIN_FETCH_ERRORS as e:
             logger.error("Garmin activities error: %s", e)
             return []

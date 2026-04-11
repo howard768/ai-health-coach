@@ -46,13 +46,14 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# CORS — restrict to known origins
+# CORS — restrict to known origins. P3-3: read public URL from settings
+# so changing the deploy URL is one config change, not a grep job.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:8000",
+        settings.local_base_url,
         "http://192.168.86.47:8000",
-        "https://zippy-forgiveness-production-0704.up.railway.app",
+        settings.public_base_url,
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -100,11 +101,12 @@ async def readyz():
     to gate traffic. Returns 503 if the DB is unreachable.
     """
     from sqlalchemy import text
+    from sqlalchemy.exc import SQLAlchemyError, DBAPIError
     from app.database import async_session
     try:
         async with async_session() as db:
             await db.execute(text("SELECT 1"))
         return {"status": "ready", "db": "ok"}
-    except Exception as e:
+    except (SQLAlchemyError, DBAPIError, OSError) as e:
         from fastapi import HTTPException
         raise HTTPException(status_code=503, detail=f"Database not ready: {e}")

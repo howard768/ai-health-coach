@@ -156,7 +156,7 @@ extension KeychainStore {
             try await KeychainStore.shared.wipe()
         } catch {
             // Non-fatal — log and continue
-            print("[KeychainStore] First-launch wipe failed: \(error)")
+            Log.auth.error("First-launch Keychain wipe failed: \(error.localizedDescription)")
         }
         UserDefaults.standard.set(true, forKey: key)
     }

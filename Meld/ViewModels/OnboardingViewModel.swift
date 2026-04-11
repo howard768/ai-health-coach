@@ -131,7 +131,7 @@ final class OnboardingViewModel {
             _ = try await APIClient.shared.updateUserProfile(update)
         } catch {
             // Non-fatal — continue the sync flow. User can retry from settings.
-            print("[Onboarding] Profile save failed: \(error)")
+            Log.onboarding.error("Profile save failed: \(error.localizedDescription)")
         }
         withAnimation(DSMotion.standard) { syncProgress = 0.25 }
 

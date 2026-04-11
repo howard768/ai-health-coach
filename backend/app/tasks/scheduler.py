@@ -7,9 +7,12 @@ All jobs check anti-fatigue gates before sending.
 import logging
 from datetime import datetime
 
+import httpx
+from apscheduler.jobstores.base import JobLookupError
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import select, desc
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.database import async_session
 from app.models.health import SleepRecord
@@ -28,7 +31,8 @@ from app.services.correlation_engine import compute_correlations
 from app.services.literature import literature_service
 from app.services.oura_webhooks import list_subscriptions, renew_subscription
 from app.services.offline_eval import run_offline_eval
-from app.core.constants import ReadinessThreshold
+from app.core.constants import ReadinessThreshold, TEST_DEVICE_TOKEN
+from app.core.time import utcnow_naive
 
 logger = logging.getLogger("meld.scheduler")
 
@@ -90,7 +94,7 @@ async def _get_active_tokens(db, user_id: str) -> list:
         select(DeviceToken).where(
             DeviceToken.user_id == user_id,
             DeviceToken.is_active == True,
-            DeviceToken.token != "test_token_abc123",
+            DeviceToken.token != TEST_DEVICE_TOKEN,
         )
     )
     return result.scalars().all()
@@ -154,25 +158,63 @@ async def _send_notification(db, user_id: str, tokens: list, content: dict):
 
 # ── Jobs ────────────────────────────────────────────────────
 
-async def morning_brief_job():
-    """Daily morning brief with recovery score and coaching line.
-    Uses templates first (DOVA: 40-60% cost savings), falls back to AI.
+# P2-2: Shared shell for all notification jobs.
+#
+# The 6 notification jobs (morning_brief, coaching_nudge, bedtime_coaching,
+# streak_saver, weekly_review, health_alert) all share the same boilerplate:
+#   1. Open a DB session
+#   2. Load the primary user (skip if none)
+#   3. Gate on can_send(category)
+#   4. Load active device tokens (skip if none)
+#   5. Build notification content (job-specific — provided via callback)
+#   6. Send notification if content is non-None
+#
+# The old code duplicated steps 1-4 and 6 across all six jobs. Extracting
+# the shell leaves each job as just the content-building callback.
+async def _run_notification_job(
+    job_name: str,
+    category: str,
+    content_fn,
+) -> None:
+    """Shared shell for scheduler notification jobs.
+
+    Args:
+        job_name: Human-readable name for logging (e.g. "morning_brief_job").
+        category: Anti-fatigue category key — passed to `can_send()`.
+        content_fn: async callable(db, user_id, user_name) -> dict | None.
+            Return None to skip the notification (e.g. streak on track,
+            no concerning health data, frequency preference says skip).
     """
-    logger.info("Running morning_brief_job")
+    logger.info("Running %s", job_name)
     async with async_session() as db:
         user = await _get_primary_user(db)
         if user is None:
-            logger.info("No active user — skipping")
+            logger.info("No active user — skipping %s", job_name)
             return
         user_id = user.apple_user_id
         user_name = _first_name_of(user)
 
-        if not await can_send(db, user_id, "morning_brief"):
+        if not await can_send(db, user_id, category):
             return
+
         tokens = await _get_active_tokens(db, user_id)
         if not tokens:
-            logger.info("No active tokens — skipping")
+            logger.info("No active tokens — skipping %s", job_name)
             return
+
+        content = await content_fn(db, user_id, user_name)
+        if not content:
+            return
+
+        await _send_notification(db, user_id, tokens, content)
+    logger.info("%s complete", job_name)
+
+
+async def morning_brief_job():
+    """Daily morning brief with recovery score and coaching line.
+    Uses templates first (DOVA: 40-60% cost savings), falls back to AI.
+    """
+    async def build(db, user_id, user_name):
         health_data = await _get_latest_health_data(db, user_id)
 
         # Determine context for template selection
@@ -184,9 +226,12 @@ async def morning_brief_job():
         )
 
         # Try template first (DOVA: no AI cost)
-        template_content = await pick_template(db, "morning_brief", context, {"user_name": user_name})
+        template_content = await pick_template(
+            db, "morning_brief", context, {"user_name": user_name}
+        )
         if template_content:
-            content = {
+            logger.info("Morning brief from template (context=%s)", context)
+            return {
                 **template_content,
                 "category": "morning_brief",
                 "apns": {
@@ -197,29 +242,16 @@ async def morning_brief_job():
                 },
                 "data": {"deep_link": "meld://dashboard", "notification_type": "morning_brief"},
             }
-            logger.info("Morning brief from template (context=%s)", context)
-        else:
-            # Fallback to AI generation
-            content = notification_engine.generate_morning_brief(health_data, user_name=user_name)
-            logger.info("Morning brief from AI (no template for context=%s)", context)
+        # Fallback to AI generation
+        logger.info("Morning brief from AI (no template for context=%s)", context)
+        return notification_engine.generate_morning_brief(health_data, user_name=user_name)
 
-        await _send_notification(db, user_id, tokens, content)
-    logger.info("morning_brief_job complete")
+    await _run_notification_job("morning_brief_job", "morning_brief", build)
 
 
 async def coaching_nudge_job():
     """Cross-domain insight notification. Frequency set by user preference."""
-    logger.info("Running coaching_nudge_job")
-    async with async_session() as db:
-        user = await _get_primary_user(db)
-        if user is None:
-            return
-        user_id = user.apple_user_id
-        user_name = _first_name_of(user)
-
-        if not await can_send(db, user_id, "coaching_nudge"):
-            return
-
+    async def build(db, user_id, user_name):
         # Check frequency preference
         from app.models.notification import NotificationPreference
         pref_result = await db.execute(
@@ -228,66 +260,37 @@ async def coaching_nudge_job():
         pref = pref_result.scalar_one_or_none()
         frequency = pref.nudge_frequency if pref else "2x_week"
 
-        today = datetime.utcnow().weekday()  # 0=Mon, 6=Sun
+        today = utcnow_naive().weekday()  # 0=Mon, 6=Sun
         if frequency == "weekly" and today != 0:
             logger.info("Nudge frequency is weekly, today is not Monday — skipping")
-            return
-        elif frequency == "2x_week" and today not in (0, 3):  # Mon, Thu
+            return None
+        if frequency == "2x_week" and today not in (0, 3):  # Mon, Thu
             logger.info("Nudge frequency is 2x/week, today is not Mon/Thu — skipping")
-            return
+            return None
         # "daily" sends every day — no skip
-        tokens = await _get_active_tokens(db, user_id)
-        if not tokens:
-            logger.info("No active tokens — skipping")
-            return
+
         health_data = await _get_latest_health_data(db, user_id)
-        content = content_generator.generate_coaching_nudge(health_data, user_name=user_name)
-        await _send_notification(db, user_id, tokens, content)
-    logger.info("coaching_nudge_job complete")
+        return content_generator.generate_coaching_nudge(health_data, user_name=user_name)
+
+    await _run_notification_job("coaching_nudge_job", "coaching_nudge", build)
 
 
 async def bedtime_coaching_job():
     """Wind-down reminder timed to sleep window."""
-    logger.info("Running bedtime_coaching_job")
-    async with async_session() as db:
-        user = await _get_primary_user(db)
-        if user is None:
-            return
-        user_id = user.apple_user_id
-        user_name = _first_name_of(user)
-
-        if not await can_send(db, user_id, "bedtime_coaching"):
-            return
-        tokens = await _get_active_tokens(db, user_id)
-        if not tokens:
-            logger.info("No active tokens — skipping")
-            return
+    async def build(db, user_id, user_name):
         health_data = await _get_latest_health_data(db, user_id)
-        content = content_generator.generate_bedtime_coaching(health_data, user_name=user_name)
-        await _send_notification(db, user_id, tokens, content)
-    logger.info("bedtime_coaching_job complete")
+        return content_generator.generate_bedtime_coaching(health_data, user_name=user_name)
+
+    await _run_notification_job("bedtime_coaching_job", "bedtime_coaching", build)
 
 
 async def streak_saver_job():
     """Evening check — only fires when user is about to miss their streak."""
-    logger.info("Running streak_saver_job")
-    async with async_session() as db:
-        user = await _get_primary_user(db)
-        if user is None:
-            return
-        user_id = user.apple_user_id
-        user_name = _first_name_of(user)
-
-        if not await can_send(db, user_id, "streak_alerts"):
-            return
-        tokens = await _get_active_tokens(db, user_id)
-        if not tokens:
-            return
-
+    async def build(db, user_id, user_name):
         # Calculate active days this week using readiness as proxy for workout days.
         from sqlalchemy import func as sqlfunc
         from datetime import timedelta
-        today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        today = utcnow_naive().replace(hour=0, minute=0, second=0, microsecond=0)
         week_start = today - timedelta(days=today.weekday())
         result = await db.execute(
             select(sqlfunc.count(SleepRecord.id)).where(
@@ -299,10 +302,12 @@ async def streak_saver_job():
         active_days = result.scalar() or 0
         streak_goal = 5
 
-        content = content_generator.generate_streak_saver(active_days, streak_goal, user_name=user_name)
+        content = content_generator.generate_streak_saver(
+            active_days, streak_goal, user_name=user_name
+        )
         if not content:
             logger.info("Streak on track (%d/%d) — no alert needed", active_days, streak_goal)
-            return
+            return None
 
         template = await pick_template(db, "streak_saver", "streak_at_risk", {
             "streak_count": str(active_days), "streak_goal": str(streak_goal),
@@ -310,27 +315,14 @@ async def streak_saver_job():
         if template:
             content["title"] = template["title"]
             content["body"] = template["body"]
+        return content
 
-        await _send_notification(db, user_id, tokens, content)
-    logger.info("streak_saver_job complete")
+    await _run_notification_job("streak_saver_job", "streak_alerts", build)
 
 
 async def weekly_review_job():
     """Sunday evening weekly summary."""
-    logger.info("Running weekly_review_job")
-    async with async_session() as db:
-        user = await _get_primary_user(db)
-        if user is None:
-            return
-        user_id = user.apple_user_id
-        user_name = _first_name_of(user)
-
-        if not await can_send(db, user_id, "weekly_review"):
-            return
-        tokens = await _get_active_tokens(db, user_id)
-        if not tokens:
-            return
-
+    async def build(db, user_id, user_name):
         result = await db.execute(
             select(SleepRecord)
             .where(SleepRecord.user_id == user_id)
@@ -357,37 +349,25 @@ async def weekly_review_job():
         if template:
             content["title"] = template["title"]
             content["body"] = template["body"]
+        return content
 
-        await _send_notification(db, user_id, tokens, content)
-    logger.info("weekly_review_job complete")
+    await _run_notification_job("weekly_review_job", "weekly_review", build)
 
 
 async def health_alert_job():
     """Check health data for concerning deviations after sync."""
-    logger.info("Running health_alert_job")
-    async with async_session() as db:
-        user = await _get_primary_user(db)
-        if user is None:
-            return
-        user_id = user.apple_user_id
-
-        if not await can_send(db, user_id, "health_alerts"):
-            return
-        tokens = await _get_active_tokens(db, user_id)
-        if not tokens:
-            return
-
+    async def build(db, user_id, user_name):
         health_data = await _get_latest_health_data(db, user_id)
         if not health_data:
-            return
+            return None
 
         safety = SafetyCheck.check_health_data(health_data)
         if not safety.is_concerning:
-            return
+            return None
 
         content = content_generator.generate_health_alert(health_data, safety.reasons)
         if not content:
-            return
+            return None
 
         context = "concerning" if safety.requires_opus else "metric_deviation"
         template = await pick_template(db, "health_alert", context)
@@ -395,9 +375,10 @@ async def health_alert_job():
             content["title"] = template["title"]
             content["body"] = template["body"]
 
-        await _send_notification(db, user_id, tokens, content)
         logger.info("Health alert sent: %s", safety.reasons)
-    logger.info("health_alert_job complete")
+        return content
+
+    await _run_notification_job("health_alert_job", "health_alerts", build)
 
 
 async def oura_sync_job():
@@ -409,7 +390,7 @@ async def oura_sync_job():
             return
         result = await oura_sync(db, user_id)
         logger.info("Oura sync result: %s", result)
-        today = datetime.utcnow().strftime("%Y-%m-%d")
+        today = utcnow_naive().strftime("%Y-%m-%d")
         await reconcile_day(db, user_id, today)
 
 
@@ -423,7 +404,7 @@ async def peloton_sync_job():
         result = await peloton_sync(db, user_id)
         logger.info("Peloton sync result: %s", result)
         if result.get("status") == "ok":
-            today = datetime.utcnow().strftime("%Y-%m-%d")
+            today = utcnow_naive().strftime("%Y-%m-%d")
             await reconcile_day(db, user_id, today)
 
 
@@ -437,7 +418,7 @@ async def garmin_sync_job():
         result = await garmin_sync(db, user_id)
         logger.info("Garmin sync result: %s", result)
         if result.get("status") == "ok":
-            today = datetime.utcnow().strftime("%Y-%m-%d")
+            today = utcnow_naive().strftime("%Y-%m-%d")
             await reconcile_day(db, user_id, today)
 
 
@@ -451,10 +432,10 @@ async def webhook_renewal_job():
             try:
                 await renew_subscription(sub["id"])
                 renewed += 1
-            except Exception as e:
+            except (httpx.HTTPError, KeyError, ValueError) as e:
                 logger.error("Failed to renew webhook %s: %s", sub["id"], e)
         logger.info("Renewed %d/%d webhook subscriptions", renewed, len(subs))
-    except Exception as e:
+    except (httpx.HTTPError, ValueError) as e:
         logger.error("Webhook renewal failed: %s", e)
 
 
@@ -495,7 +476,7 @@ async def correlation_engine_job():
                 record.confidence_tier = r.confidence_tier
                 record.literature_match = r.literature_match
                 record.effect_size_description = r.effect_size_description
-                record.last_validated_at = datetime.utcnow()
+                record.last_validated_at = utcnow_naive()
             else:
                 db.add(UserCorrelation(
                     user_id=user_id,
@@ -612,7 +593,7 @@ async def timing_refresh_job():
             "morning_brief",
             trigger=CronTrigger(hour=wake_hour, minute=wake_minute, timezone=user_tz),
         )
-    except Exception as e:
+    except (JobLookupError, ValueError) as e:
         logger.warning("Failed to reschedule morning_brief: %s", e)
 
     # Reschedule bedtime coaching: 30 min before average bedtime
@@ -627,7 +608,7 @@ async def timing_refresh_job():
             "bedtime_coaching",
             trigger=CronTrigger(hour=bed_hour, minute=bed_minute, timezone=user_tz),
         )
-    except Exception as e:
+    except (JobLookupError, ValueError) as e:
         logger.warning("Failed to reschedule bedtime_coaching: %s", e)
 
     logger.info(

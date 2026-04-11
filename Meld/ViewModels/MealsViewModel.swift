@@ -58,7 +58,7 @@ final class MealsViewModel {
             )
         } catch {
             loadError = true
-            print("[Meals] Failed to load meals: \(error)")
+            Log.meals.error("Failed to load meals: \(error.localizedDescription)")
         }
         isLoading = false
     }
@@ -86,7 +86,7 @@ final class MealsViewModel {
             } catch {
                 guard !Task.isCancelled else { return }
                 searchResults = []
-                print("[Meals] Search failed: \(error)")
+                Log.meals.error("Search failed: \(error.localizedDescription)")
             }
             isSearching = false
         }

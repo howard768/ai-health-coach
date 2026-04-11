@@ -99,6 +99,7 @@ struct ConnectDataView: View {
                             ? AnyView(Text("♥").font(.system(size: 18)).foregroundStyle(.red))
                             : AnyView(Image(systemName: "antenna.radiowaves.left.and.right").foregroundStyle(DSColor.Text.disabled))
                 )
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: DSSpacing.xxs) {
                 Text(source.rawValue)
@@ -121,6 +122,7 @@ struct ConnectDataView: View {
                             .font(.system(size: 13, weight: .bold))
                             .foregroundStyle(.white)
                     )
+                    .accessibilityHidden(true)
             } else if source.isAvailable {
                 DSButton(title: source == .oura ? "Connect" : "Allow", style: .primary, size: .sm) {
                     viewModel.connectSource(source)
@@ -131,6 +133,9 @@ struct ConnectDataView: View {
                     .foregroundStyle(DSColor.Text.disabled)
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(source.rawValue), \(isConnected ? "connected" : source.isAvailable ? "not connected" : "coming soon")")
+        .accessibilityHint(source.subtitle)
         .padding(DSSpacing.lg)
         .background(source.isAvailable ? DSColor.Surface.primary : DSColor.Surface.secondary)
         .dsCornerRadius(DSRadius.lg)

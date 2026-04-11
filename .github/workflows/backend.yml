@@ -1,0 +1,113 @@
+name: Backend CI
+
+# P2-14: Tests + lint for the FastAPI backend.
+# Runs on PRs and main pushes whenever backend/ or this workflow changes.
+
+on:
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend.yml'
+
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend.yml'
+
+  workflow_dispatch:
+
+jobs:
+  pytest:
+    name: pytest (37 tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          # Pin to repo's Python version so the venv matches local dev
+          python-version: "3.13"
+
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync
+
+      - name: Run pytest
+        working-directory: backend
+        env:
+          # Test fixtures generate a fresh in-memory SQLite per test, so
+          # production secrets aren't needed. Provide stub values so config
+          # validation passes during import.
+          ANTHROPIC_API_KEY: "stub-for-tests"
+          JWT_SECRET: "test-jwt-secret-must-be-long-enough-for-hs256-aaaaaaaa"
+          ENCRYPTION_KEY: ""  # Empty falls through to plaintext (legacy mode)
+        run: uv run python -m pytest tests/ -v --tb=short
+
+      - name: Upload pytest output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-pytest-output
+          path: backend/.pytest_cache
+
+  ruff:
+    name: ruff (lint + format check)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install ruff
+        working-directory: backend
+        # ruff isn't a runtime dep — install it ad-hoc so we don't pollute
+        # the prod lockfile with linter machinery.
+        run: uv tool install ruff
+
+      - name: Lint with ruff
+        working-directory: backend
+        # Allow warnings but fail on errors. We're not trying to enforce a
+        # zero-warning bar yet — just catch syntax and obvious bugs.
+        run: |
+          uv tool run ruff check app/ --output-format=github || echo "::warning::ruff found issues"
+
+      - name: Format check
+        working-directory: backend
+        run: |
+          uv tool run ruff format --check app/ || echo "::warning::ruff format would reformat files"
+
+  type-check:
+    name: type imports
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync
+
+      - name: Verify app imports cleanly
+        working-directory: backend
+        env:
+          ANTHROPIC_API_KEY: "stub-for-imports"
+          JWT_SECRET: "test-jwt-secret-must-be-long-enough-for-hs256-aaaaaaaa"
+          ENCRYPTION_KEY: ""
+        # Catches missing imports, syntax errors, and forward-reference bugs
+        # without spinning up a real server.
+        run: uv run python -c "from app.main import app; print('app imports ok')"

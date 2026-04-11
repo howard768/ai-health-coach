@@ -4,12 +4,15 @@ Handles incoming webhooks from Oura (and future data sources).
 When Oura sends a webhook, we trigger a sync + coaching notification.
 """
 
+import json as _json
 import logging
 from datetime import datetime
 
+import httpx
 from fastapi import APIRouter, Request, Query, Depends
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.database import get_db
 from app.services.oura_sync import sync_user_data
@@ -20,6 +23,8 @@ from app.services.oura_webhooks import (
 )
 
 from app.api.deps import CurrentUser
+from app.core.constants import TEST_DEVICE_TOKEN
+from app.core.time import utcnow_naive
 
 logger = logging.getLogger("meld.webhooks")
 
@@ -61,7 +66,7 @@ async def oura_webhook_receiver(request: Request, db: AsyncSession = Depends(get
     """
     try:
         body = await request.json()
-    except Exception:
+    except (_json.JSONDecodeError, ValueError, UnicodeDecodeError):
         logger.warning("Oura webhook received invalid JSON")
         return {"status": "invalid_payload"}
 
@@ -91,7 +96,7 @@ async def oura_webhook_receiver(request: Request, db: AsyncSession = Depends(get
         oura_webhook_receiver._last_sync_at = {}  # type: ignore[attr-defined]
     last_sync_map = oura_webhook_receiver._last_sync_at  # type: ignore[attr-defined]
     last = last_sync_map.get(user_oura_id)
-    now = datetime.utcnow()
+    now = utcnow_naive()
     if last and (now - last) < timedelta(seconds=60):
         logger.info("Oura webhook throttled (last sync %ds ago)", (now - last).seconds)
         return {"status": "throttled"}
@@ -114,7 +119,7 @@ async def oura_webhook_receiver(request: Request, db: AsyncSession = Depends(get
     try:
         result = await sync_user_data(db, meld_user_id)
         logger.info("Webhook-triggered sync: %s", result)
-    except Exception as e:
+    except (httpx.HTTPError, SQLAlchemyError, ValueError, KeyError) as e:
         logger.error("Webhook sync failed (returning 200 to Oura): %s", e)
         return {"status": "sync_failed", "error": str(e)}
 
@@ -162,7 +167,7 @@ async def oura_webhook_receiver(request: Request, db: AsyncSession = Depends(get
                     select(DeviceToken).where(
                         DeviceToken.user_id == meld_user_id,
                         DeviceToken.is_active == True,
-                        DeviceToken.token != "test_token_abc123",
+                        DeviceToken.token != TEST_DEVICE_TOKEN,
                     )
                 )
                 for token_row in token_result.scalars().all():
@@ -179,7 +184,7 @@ async def oura_webhook_receiver(request: Request, db: AsyncSession = Depends(get
                     )
                     logger.info("Webhook-triggered morning brief sent")
 
-        except Exception as e:
+        except (httpx.HTTPError, SQLAlchemyError, KeyError, ValueError) as e:
             logger.error("Failed to send webhook-triggered notification: %s", e)
 
     return {"status": "ok"}
@@ -199,11 +204,14 @@ async def register_webhooks(
 
     Auth-gated to prevent attackers redirecting your webhooks to their servers (P1-3).
     """
-    # Validate base_url is one of our known domains to prevent SSRF-style abuse
+    # Validate base_url is one of our known domains to prevent SSRF-style abuse.
+    # P3-3: prefixes built from settings so we don't have to grep for the
+    # Railway slug when changing deploys.
+    from app.config import settings as _settings
     allowed_prefixes = (
         "http://localhost",
         "http://192.168.",
-        "https://zippy-forgiveness-production-0704.up.railway.app",
+        _settings.public_base_url,
     )
     if not any(base_url.startswith(p) for p in allowed_prefixes):
         from fastapi import HTTPException
@@ -222,5 +230,5 @@ async def get_subscriptions(current_user: CurrentUser):
     try:
         subs = await list_subscriptions()
         return {"subscriptions": subs}
-    except Exception as e:
+    except (httpx.HTTPError, ValueError, KeyError) as e:
         return {"error": str(e)}

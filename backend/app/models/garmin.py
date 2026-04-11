@@ -4,6 +4,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.encryption import EncryptedString
 from app.database import Base
+from app.core.time import utcnow_naive
 
 
 class GarminToken(Base):
@@ -15,8 +16,8 @@ class GarminToken(Base):
     username: Mapped[str] = mapped_column(String(255))
     # Encrypted at rest with Fernet (P1-1) — serialized garth OAuth session
     session_data: Mapped[str] = mapped_column(EncryptedString(4000), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    last_used_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+    last_used_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 
 class GarminDailyRecord(Base):
@@ -35,4 +36,4 @@ class GarminDailyRecord(Base):
     body_battery_low: Mapped[int] = mapped_column(Integer, nullable=True)
     active_minutes: Mapped[int] = mapped_column(Integer, nullable=True)
     raw_json: Mapped[str] = mapped_column(Text, nullable=True)
-    synced_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    synced_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)

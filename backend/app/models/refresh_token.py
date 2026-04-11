@@ -12,6 +12,7 @@ from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
+from app.core.time import utcnow_naive
 
 
 class RefreshToken(Base):
@@ -43,4 +44,4 @@ class RefreshToken(Base):
     # revoke every descendant (reuse detection).
     replaced_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)

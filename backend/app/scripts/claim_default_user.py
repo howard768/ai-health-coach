@@ -22,6 +22,7 @@ import asyncio
 import sys
 
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.database import async_session
 
@@ -79,7 +80,7 @@ async def main(target_apple_id: str) -> int:
                     text(f"SELECT COUNT(*) FROM {tbl} WHERE user_id = 'default'")
                 )
                 migration_counts[tbl] = r.scalar() or 0
-            except Exception as e:
+            except SQLAlchemyError as e:
                 print(f"WARN: count failed for {tbl}: {e}")
                 migration_counts[tbl] = 0
 

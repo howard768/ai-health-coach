@@ -35,7 +35,9 @@ async def sync_user_data(db: AsyncSession, user_id: str) -> dict:
         restored = await client.login_from_session(token.session_data)
         if not restored:
             return {"status": "error", "message": "Garmin session invalid. Please re-connect."}
-    except Exception as e:
+    except (ConnectionError, TimeoutError, OSError, ValueError) as e:
+        # Transport or malformed-session errors. Library-specific auth errors
+        # are already caught and logged by GarminClient.login_from_session.
         logger.error("Garmin session restore failed: %s", e)
         return {"status": "error", "message": "Garmin login failed. Please re-connect."}
 

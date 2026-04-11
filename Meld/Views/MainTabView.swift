@@ -42,6 +42,7 @@ struct MainTabView: View {
             MeldTabBar(selectedTab: $selectedTab)
                 .ignoresSafeArea(.keyboard, edges: .bottom)
         }
+        .offlineBanner()  // P2-10: app-wide offline indicator
         .onAppear { checkPendingTab() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { checkPendingTab() }

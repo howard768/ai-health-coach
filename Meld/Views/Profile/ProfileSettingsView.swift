@@ -314,6 +314,8 @@ struct ProfileSettingsView: View {
                 .padding(.vertical, DSSpacing.md)
                 .padding(.horizontal, DSSpacing.lg)
             }
+            .accessibilityLabel("Delete my data")
+            .accessibilityHint("Permanently removes all your health data from Meld")
 
             DSDivider()
             navigationRow(title: "Privacy Policy", subtitle: nil)
@@ -345,6 +347,7 @@ struct ProfileSettingsView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, DSSpacing.md)
             }
+            .accessibilityHint("Signs you out of Meld on this device")
         }
     }
 
@@ -381,6 +384,8 @@ struct ProfileSettingsView: View {
                 }
             }
             .disabled(isDeletingAccount)
+            .accessibilityLabel(isDeletingAccount ? "Deleting account" : "Delete account")
+            .accessibilityHint("Permanently removes your Meld account and all your data")
 
             Text("This permanently removes your account and all data.")
                 .font(DSTypography.caption)

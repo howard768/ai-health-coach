@@ -4,6 +4,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import select, desc
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -14,6 +15,7 @@ from app.models.chat import Conversation, ChatMessageRecord
 from app.models.user import User
 from app.services.coach_engine import CoachEngine
 from app.services.health_data import get_latest_health_data
+from app.core.time import utcnow_naive
 
 logger = logging.getLogger("meld.coach")
 
@@ -144,12 +146,12 @@ async def chat(
     # Update conversation timestamp BEFORE commit so both writes land in
     # the same transaction. This was previously two separate commits, which
     # could leave conv.updated_at stale if the second commit failed.
-    conv.updated_at = datetime.utcnow()
+    conv.updated_at = utcnow_naive()
 
     try:
         await db.commit()
         await db.refresh(coach_msg)
-    except Exception as e:
+    except SQLAlchemyError as e:
         # The Claude call already succeeded — the user's message is in flight.
         # Roll back the failed write but still return the AI response so the
         # user sees something. Log so we can spot persistent DB issues.
@@ -207,7 +209,7 @@ async def submit_feedback(
         raise HTTPException(status_code=404, detail="message not found")
 
     msg.feedback = request.feedback
-    msg.feedback_at = datetime.utcnow()
+    msg.feedback_at = utcnow_naive()
     await db.commit()
 
     return {"status": "ok", "message_id": request.message_id, "feedback": request.feedback}
@@ -282,7 +284,7 @@ async def get_analytics(
     Scoped to the current user's own coach messages.
     """
     from datetime import timedelta
-    cutoff = datetime.utcnow() - timedelta(days=days)
+    cutoff = utcnow_naive() - timedelta(days=days)
 
     # Only the current user's coach messages in the window
     result = await db.execute(

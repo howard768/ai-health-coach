@@ -31,7 +31,7 @@ class OpenFoodFactsClient:
                 )
                 response.raise_for_status()
                 data = response.json()
-        except Exception as e:
+        except (httpx.HTTPError, ValueError) as e:
             logger.error("OFF search failed: %s", e)
             return []
 
@@ -53,7 +53,7 @@ class OpenFoodFactsClient:
                 )
                 response.raise_for_status()
                 data = response.json()
-        except Exception as e:
+        except (httpx.HTTPError, ValueError) as e:
             logger.error("OFF barcode lookup failed for %s: %s", barcode, e)
             return None
 

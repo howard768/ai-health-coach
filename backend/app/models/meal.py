@@ -3,6 +3,7 @@ from sqlalchemy import String, Integer, Float, DateTime, Text, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
+from app.core.time import utcnow_naive
 
 
 class MealRecord(Base):
@@ -14,8 +15,8 @@ class MealRecord(Base):
     meal_type: Mapped[str] = mapped_column(String(20))  # breakfast, lunch, dinner, snack
     source: Mapped[str] = mapped_column(String(20))  # photo, barcode, text, search, manual
     photo_hash: Mapped[str] = mapped_column(String(64), nullable=True)  # SHA256 for dedup
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive, onupdate=utcnow_naive)
 
 
 class FoodItemRecord(Base):
@@ -33,4 +34,4 @@ class FoodItemRecord(Base):
     quality: Mapped[str] = mapped_column(String(20))  # whole, mixed, processed
     data_source: Mapped[str] = mapped_column(String(20))  # usda, usda_branded, off, ai_estimate
     confidence: Mapped[float] = mapped_column(Float, default=1.0)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)

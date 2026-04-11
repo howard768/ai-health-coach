@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import CurrentUser
 from app.database import get_db
 from app.models.garmin import GarminToken
-from app.services.garmin import GarminClient
+from app.services.garmin import GarminClient, _GARMIN_FETCH_ERRORS
 
 logger = logging.getLogger("meld.garmin_auth")
 
@@ -44,8 +44,11 @@ async def login_garmin(
     client = GarminClient()
     try:
         result = await client.login(request.username, request.password)
-    except Exception as e:
+    except _GARMIN_FETCH_ERRORS as e:
         raise HTTPException(status_code=401, detail=f"Garmin login failed: {str(e)}")
+    except RuntimeError as e:
+        # garminconnect library not installed
+        raise HTTPException(status_code=503, detail=str(e))
 
     session_data = result.get("session_data")
     if not session_data:

@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import textstat
 
 from app.models.chat import ChatMessageRecord
+from app.core.time import utcnow_naive
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ async def run_offline_eval(db: AsyncSession, days: int = 7) -> dict:
     2. Data grounding — responses with health_context should cite numbers from it
     3. Feedback correlation — thumbs-down responses flagged for review
     """
-    cutoff = datetime.utcnow() - timedelta(days=days)
+    cutoff = utcnow_naive() - timedelta(days=days)
 
     result = await db.execute(
         select(ChatMessageRecord).where(
@@ -125,7 +126,7 @@ async def run_offline_eval(db: AsyncSession, days: int = 7) -> dict:
             "failures": [r for r in grounding_results if not r["pass"]],
         },
         "flagged_for_review": flagged_for_review,
-        "run_at": datetime.utcnow().isoformat(),
+        "run_at": utcnow_naive().isoformat(),
     }
 
     # Log summary

@@ -21,7 +21,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUser
                 await MainActor.run {
                     UIApplication.shared.registerForRemoteNotifications()
                 }
-                print("[Notifications] Re-registering for remote notifications on launch")
+                Log.notifications.info("Re-registering for remote notifications on launch")
             }
         }
 
@@ -33,7 +33,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUser
                     // HealthKit is authorized — sync data to backend
                     HealthKitService.shared.isAuthorized = true
                     await HealthKitService.shared.syncToBackend()
-                    print("[HealthKit] Auto-synced on launch")
+                    Log.healthKit.info("Auto-synced on launch")
                 }
             }
         }
@@ -57,7 +57,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUser
         _ application: UIApplication,
         didFailToRegisterForRemoteNotificationsWithError error: Error
     ) {
-        print("[Notifications] Registration failed: \(error.localizedDescription)")
+        Log.notifications.error("Registration failed: \(error.localizedDescription)")
     }
 
     // MARK: - Foreground Notification Display
@@ -103,7 +103,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUser
         }
 
         AppDelegate.pendingTab = tabName
-        print("[Notifications] Set pendingTab to: \(tabName)")
+        Log.notifications.debug("Set pendingTab to: \(tabName)")
         completionHandler()
     }
 

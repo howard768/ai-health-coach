@@ -4,6 +4,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.encryption import EncryptedString
 from app.database import Base
+from app.core.time import utcnow_naive
 
 
 class OuraToken(Base):
@@ -16,7 +17,7 @@ class OuraToken(Base):
     access_token: Mapped[str] = mapped_column(EncryptedString(2000))
     refresh_token: Mapped[str] = mapped_column(EncryptedString(2000))
     expires_at: Mapped[datetime] = mapped_column(DateTime)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 
 class SleepRecord(Base):
@@ -36,7 +37,7 @@ class SleepRecord(Base):
     bedtime_start: Mapped[str] = mapped_column(String(5), nullable=True)  # HH:MM when user fell asleep
     bedtime_end: Mapped[str] = mapped_column(String(5), nullable=True)    # HH:MM when user woke up
     raw_json: Mapped[str] = mapped_column(Text, nullable=True)
-    synced_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    synced_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 
 class HealthMetricRecord(Base):
@@ -56,7 +57,7 @@ class HealthMetricRecord(Base):
     source: Mapped[str] = mapped_column(String(30), index=True)  # oura, apple_health, garmin, peloton
     is_canonical: Mapped[bool] = mapped_column(Boolean, default=False)
     confidence: Mapped[str] = mapped_column(String(20), default="primary")  # primary, fallback
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 
 class ActivityRecord(Base):
@@ -71,7 +72,7 @@ class ActivityRecord(Base):
     workout_type: Mapped[str] = mapped_column(String(50), nullable=True)
     workout_duration_seconds: Mapped[int] = mapped_column(Integer, nullable=True)
     source: Mapped[str] = mapped_column(String(30))
-    synced_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    synced_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
 
 class SourcePriority(Base):
@@ -82,4 +83,4 @@ class SourcePriority(Base):
     user_id: Mapped[str] = mapped_column(String(255), index=True)
     metric_category: Mapped[str] = mapped_column(String(50))
     priority_order: Mapped[str] = mapped_column(Text)  # JSON list of source names
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)

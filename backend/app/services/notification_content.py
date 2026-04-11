@@ -12,8 +12,11 @@ import json
 import logging
 from datetime import datetime
 
+import anthropic
+
 from app.services.coach_engine import CoachEngine
 from app.services.notification_media import generate_recovery_badge
+from app.core.time import utcnow_naive
 
 logger = logging.getLogger("meld.notifications.content")
 
@@ -91,7 +94,7 @@ class NotificationContentGenerator:
         except (json.JSONDecodeError, KeyError):
             logger.warning("Failed to parse AI response, using response as body")
             return {"title": fallback_title, "body": result.get("response", fallback_body)[:150]}
-        except Exception as e:
+        except anthropic.APIError as e:
             logger.error("AI generation failed: %s", e)
             return {"title": fallback_title, "body": fallback_body}
 
@@ -128,7 +131,7 @@ class NotificationContentGenerator:
                 "thread_id": "coaching-insights",
                 "interruption_level": "active",
                 "relevance_score": 0.7,
-                "collapse_id": f"coaching-nudge-{datetime.utcnow().strftime('%Y-%m-%d')}",
+                "collapse_id": f"coaching-nudge-{utcnow_naive().strftime('%Y-%m-%d')}",
             },
             "data": {
                 "deep_link": "meld://coach",
@@ -159,7 +162,7 @@ class NotificationContentGenerator:
                 "thread_id": "sleep-coaching",
                 "interruption_level": "active",  # NOT time-sensitive — don't break Focus
                 "relevance_score": 0.6,
-                "collapse_id": f"bedtime-{datetime.utcnow().strftime('%Y-%m-%d')}",
+                "collapse_id": f"bedtime-{utcnow_naive().strftime('%Y-%m-%d')}",
             },
             "data": {
                 "deep_link": "meld://dashboard",
@@ -187,7 +190,7 @@ class NotificationContentGenerator:
                 "thread_id": "streak-alerts",
                 "interruption_level": "active",
                 "relevance_score": 0.8,
-                "collapse_id": f"streak-{datetime.utcnow().strftime('%Y-%m-%d')}",
+                "collapse_id": f"streak-{utcnow_naive().strftime('%Y-%m-%d')}",
             },
             "data": {
                 "deep_link": "meld://dashboard",
@@ -218,7 +221,7 @@ class NotificationContentGenerator:
                 "thread_id": "weekly-review",
                 "interruption_level": "passive",  # Low priority — Notification Center only
                 "relevance_score": 0.4,
-                "collapse_id": f"weekly-{datetime.utcnow().strftime('%Y-%W')}",
+                "collapse_id": f"weekly-{utcnow_naive().strftime('%Y-%W')}",
             },
             "data": {
                 "deep_link": "meld://trends",
@@ -235,8 +238,9 @@ class NotificationContentGenerator:
         if not safety_reasons:
             return None
 
+        # P3-3: URLs come from settings, not hardcoded.
         from app.config import settings
-        base_url = "http://localhost:8000" if settings.app_env == "development" else "https://zippy-forgiveness-production-0704.up.railway.app"
+        base_url = settings.local_base_url if settings.app_env == "development" else settings.public_base_url
         media_url = generate_recovery_badge("low", base_url=base_url)
 
         return {
@@ -249,7 +253,7 @@ class NotificationContentGenerator:
                 "thread_id": "health-alerts",
                 "interruption_level": "time-sensitive",
                 "relevance_score": 1.0,
-                "collapse_id": f"health-alert-{datetime.utcnow().strftime('%Y-%m-%d')}",
+                "collapse_id": f"health-alert-{utcnow_naive().strftime('%Y-%m-%d')}",
             },
             "data": {
                 "deep_link": "meld://dashboard",

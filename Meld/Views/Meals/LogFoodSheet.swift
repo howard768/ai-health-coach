@@ -28,6 +28,8 @@ struct LogFoodSheet: View {
                         .onChange(of: viewModel.searchText) { _, newValue in
                             viewModel.searchFood(newValue)
                         }
+                        .accessibilityLabel("Search food")
+                        .accessibilityHint("Type the name of a food to search the database")
 
                     if !viewModel.searchText.isEmpty {
                         Button(action: {
@@ -37,6 +39,7 @@ struct LogFoodSheet: View {
                             Image(systemName: "xmark.circle.fill")
                                 .foregroundStyle(DSColor.Text.disabled)
                         }
+                        .accessibilityLabel("Clear search")
                     }
                 }
                 .padding(.vertical, DSSpacing.md)
@@ -199,6 +202,8 @@ struct LogFoodSheet: View {
                 .font(DSTypography.caption)
                 .foregroundStyle(DSColor.Text.secondary)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Log food via \(title)")
     }
 
     private func featureTeaser(icon: String, title: String) -> some View {

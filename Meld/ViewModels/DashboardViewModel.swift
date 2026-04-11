@@ -22,12 +22,14 @@ final class DashboardViewModel {
     var error: DashboardError? = nil
 
     enum DashboardError: Error, LocalizedError {
+        case offline
         case networkFailure
         case noData
         case staleData
 
         var errorDescription: String? {
             switch self {
+            case .offline: "You're offline. We'll refresh when you're back."
             case .networkFailure: "Unable to connect. Check your connection."
             case .noData: "No health data available. Connect a wearable in Profile."
             case .staleData: "Data may be outdated. Pull to refresh."
@@ -55,10 +57,30 @@ final class DashboardViewModel {
         isLoading = true
         error = nil
 
+        // P2-10: Check reachability before hitting the network. When we're
+        // offline we surface a dedicated "offline" state instead of the
+        // generic "network failure" so the banner can explain what the user
+        // needs to do. URLSession.waitsForConnectivity will still queue the
+        // request once they're back — we just don't block the UI on it.
+        if !NetworkMonitor.shared.isOnline {
+            if dashboardData.metrics.isEmpty {
+                self.error = .offline
+                viewState = .error(.offline)
+            }
+            isLoading = false
+            return
+        }
+
         do {
             let response = try await APIClient.shared.fetchDashboard()
             dashboardData = response.toDashboardData()
             viewState = dashboardData.metrics.isEmpty ? .empty : .loaded
+        } catch APIError.networkError {
+            // URLError from transport layer — likely transient offline.
+            if dashboardData.metrics.isEmpty {
+                self.error = .offline
+                viewState = .error(.offline)
+            }
         } catch {
             if dashboardData.metrics.isEmpty {
                 // First load failed — show error state

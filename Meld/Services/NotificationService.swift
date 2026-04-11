@@ -24,7 +24,7 @@ final class NotificationService {
 
             return granted
         } catch {
-            print("[Notifications] Permission request failed: \(error.localizedDescription)")
+            Log.notifications.error("Permission request failed: \(error.localizedDescription)")
             return false
         }
     }
@@ -39,9 +39,9 @@ final class NotificationService {
     func registerToken(_ token: String) async {
         do {
             try await APIClient.shared.registerDeviceToken(token)
-            print("[Notifications] Token registered with backend")
+            Log.notifications.info("Token registered with backend")
         } catch {
-            print("[Notifications] Token registration failed: \(error.localizedDescription)")
+            Log.notifications.error("Token registration failed: \(error.localizedDescription)")
         }
     }
 }

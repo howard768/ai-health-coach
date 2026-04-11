@@ -336,6 +336,8 @@ private struct TrendCard: View {
                     highlightColor: chartHighlightColor
                 )
                 .frame(height: 64)
+                .accessibilityLabel("\(metric.accessibilityName) trend chart")
+                .accessibilityValue("\(trendText). Current value \(currentValue) \(currentUnit).")
 
                 // Context line
                 Text(contextText)

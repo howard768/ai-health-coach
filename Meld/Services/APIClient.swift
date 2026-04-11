@@ -94,6 +94,103 @@ actor APIClient {
         return (data, response)
     }
 
+    // MARK: - Generic send helpers
+    //
+    // P2-1: These helpers dedup the ~20 places that each wrote:
+    //   let (data, response) = try await authedData(for: request)
+    //   guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+    //       throw APIError.serverError
+    //   }
+    //
+    // Now endpoints just call send(_:) for fire-and-forget writes or
+    // sendDecoding(_:as:) for endpoints that return a Decodable body.
+    //
+    // NSURLErrorNotConnectedToInternet and friends are mapped to .networkError
+    // so offline shows a useful message instead of a generic "server error".
+
+    /// Execute a request where we only care about success — discards the body.
+    /// Throws on non-200 or network failure.
+    private func send(_ request: URLRequest) async throws {
+        let (_, response) = try await authedDataOrNetworkError(for: request)
+        try ensureOK(response)
+    }
+
+    /// Execute a request and decode the response body as `T`.
+    /// Throws `.serverError` on non-200, `.decodingError` on bad payload,
+    /// or `.networkError` on offline / transport failures.
+    private func sendDecoding<T: Decodable>(
+        _ request: URLRequest,
+        as type: T.Type = T.self
+    ) async throws -> T {
+        let (data, response) = try await authedDataOrNetworkError(for: request)
+        try ensureOK(response)
+        do {
+            return try decoder.decode(T.self, from: data)
+        } catch {
+            throw APIError.decodingError
+        }
+    }
+
+    /// Variant for endpoints where 404 is a valid "not found" answer (barcode lookup).
+    /// Returns nil on 404, decoded `T` on 200, throws on other statuses.
+    private func sendDecodingOrNilOn404<T: Decodable>(
+        _ request: URLRequest,
+        as type: T.Type = T.self
+    ) async throws -> T? {
+        let (data, response) = try await authedDataOrNetworkError(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw APIError.serverError
+        }
+        if http.statusCode == 404 { return nil }
+        guard http.statusCode == 200 else { throw APIError.serverError }
+        do {
+            return try decoder.decode(T.self, from: data)
+        } catch {
+            throw APIError.decodingError
+        }
+    }
+
+    /// Wrap authedData(for:) with network-error translation so callers see
+    /// `APIError.networkError` instead of raw NSError when offline.
+    private func authedDataOrNetworkError(for request: URLRequest) async throws -> (Data, URLResponse) {
+        do {
+            return try await authedData(for: request)
+        } catch let apiError as APIError {
+            throw apiError
+        } catch let urlError as URLError {
+            switch urlError.code {
+            case .notConnectedToInternet, .networkConnectionLost,
+                 .dataNotAllowed, .cannotConnectToHost, .timedOut,
+                 .cannotFindHost, .dnsLookupFailed:
+                throw APIError.networkError
+            default:
+                throw APIError.serverError
+            }
+        } catch {
+            throw APIError.serverError
+        }
+    }
+
+    /// Validate that a URLResponse is HTTPURLResponse with status 200.
+    private func ensureOK(_ response: URLResponse) throws {
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw APIError.serverError
+        }
+    }
+
+    /// Build a URLRequest with the given method, URL, and JSON body.
+    private func jsonRequest<Body: Encodable>(
+        url: URL,
+        method: String,
+        body: Body
+    ) throws -> URLRequest {
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(body)
+        return request
+    }
+
     // MARK: - Auth endpoints
     //
     // These hit /auth/* which does NOT go through authedData — they either
@@ -126,7 +223,7 @@ actor APIClient {
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             if let body = String(data: data, encoding: .utf8) {
-                print("[APIClient] /auth/apple failed: \(body)")
+                Log.auth.error("/auth/apple failed: \(body, privacy: .private)")
             }
             throw APIError.serverError
         }
@@ -196,65 +293,34 @@ actor APIClient {
 
     func fetchDashboard() async throws -> APIDashboardResponse {
         let url = baseURL.appendingPathComponent("dashboard")
-        let request = URLRequest(url: url)
-        let (data, response) = try await authedData(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw APIError.serverError
-        }
-
-        return try decoder.decode(APIDashboardResponse.self, from: data)
+        return try await sendDecoding(URLRequest(url: url))
     }
 
     // MARK: - Coach Chat
 
     func sendMessage(_ message: String) async throws -> APIChatResponse {
         let url = baseURL.appendingPathComponent("coach/chat")
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        let body = APIChatRequest(message: message)
-        request.httpBody = try JSONEncoder().encode(body)
-
-        let (data, response) = try await authedData(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw APIError.serverError
-        }
-
-        return try decoder.decode(APIChatResponse.self, from: data)
+        let request = try jsonRequest(url: url, method: "POST", body: APIChatRequest(message: message))
+        return try await sendDecoding(request)
     }
 
     // MARK: - Feedback
 
     func submitFeedback(messageId: Int, feedback: String) async throws {
         let url = baseURL.appendingPathComponent("coach/feedback")
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        let body = ["message_id": messageId, "feedback": feedback] as [String: Any]
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-        let (_, response) = try await authedData(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw APIError.serverError
-        }
+        let request = try jsonRequest(
+            url: url,
+            method: "POST",
+            body: APIFeedbackRequest(message_id: messageId, feedback: feedback)
+        )
+        try await send(request)
     }
 
     // MARK: - Chat History
 
     func fetchChatHistory() async throws -> [APIHistoryMessage] {
         let url = baseURL.appendingPathComponent("coach/history")
-        let request = URLRequest(url: url)
-        let (data, response) = try await authedData(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw APIError.serverError
-        }
-
-        let historyResponse = try decoder.decode(APIHistoryResponse.self, from: data)
+        let historyResponse: APIHistoryResponse = try await sendDecoding(URLRequest(url: url))
         return historyResponse.messages
     }
 
@@ -264,60 +330,39 @@ actor APIClient {
         let url = serverRoot.appendingPathComponent("api/sync/oura")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-
-        let (_, response) = try await authedData(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw APIError.serverError
-        }
+        try await send(request)
     }
 
     // MARK: - Garmin
 
     func loginGarmin(username: String, password: String) async throws {
         let url = serverRoot.appendingPathComponent("auth/garmin/login")
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        let body = ["username": username, "password": password]
-        request.httpBody = try JSONEncoder().encode(body)
-
-        let (_, response) = try await authedData(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw APIError.serverError
-        }
+        let request = try jsonRequest(
+            url: url,
+            method: "POST",
+            body: APICredentialsRequest(username: username, password: password)
+        )
+        try await send(request)
     }
 
     // MARK: - Peloton
 
     func loginPeloton(username: String, password: String) async throws {
         let url = serverRoot.appendingPathComponent("auth/peloton/login")
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        let body = ["username": username, "password": password]
-        request.httpBody = try JSONEncoder().encode(body)
-
-        let (_, response) = try await authedData(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw APIError.serverError
-        }
+        let request = try jsonRequest(
+            url: url,
+            method: "POST",
+            body: APICredentialsRequest(username: username, password: password)
+        )
+        try await send(request)
     }
 
     // MARK: - HealthKit Sync
 
     func syncHealthKitMetrics(_ metrics: [HealthKitService.HealthMetricPayload]) async throws {
         let url = serverRoot.appendingPathComponent("api/health/apple-health")
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(metrics)
-
-        let (_, response) = try await authedData(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw APIError.serverError
-        }
+        let request = try jsonRequest(url: url, method: "POST", body: metrics)
+        try await send(request)
     }
 
     // MARK: - Trends
@@ -326,13 +371,7 @@ actor APIClient {
         let url = serverRoot.appendingPathComponent("api/trends")
         var components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
         components.queryItems = [URLQueryItem(name: "range", value: "\(rangeDays)")]
-
-        let request = URLRequest(url: components.url!)
-        let (data, response) = try await authedData(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw APIError.serverError
-        }
-        return try decoder.decode(APITrendsResponse.self, from: data)
+        return try await sendDecoding(URLRequest(url: components.url!))
     }
 
     // MARK: - Notifications
@@ -340,42 +379,25 @@ actor APIClient {
     func registerDeviceToken(_ token: String) async throws {
         let url = baseURL.deletingLastPathComponent()
             .appendingPathComponent("api/notifications/register")
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        let body = ["device_token": token, "platform": "ios"]
-        request.httpBody = try JSONEncoder().encode(body)
-
-        let (_, response) = try await authedData(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw APIError.serverError
-        }
+        let request = try jsonRequest(
+            url: url,
+            method: "POST",
+            body: APIDeviceTokenRegister(device_token: token, platform: "ios")
+        )
+        try await send(request)
     }
 
     func fetchNotificationPreferences() async throws -> APINotificationPreferences {
         let url = baseURL.deletingLastPathComponent()
             .appendingPathComponent("api/notifications/preferences")
-        let request = URLRequest(url: url)
-        let (data, response) = try await authedData(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw APIError.serverError
-        }
-        return try decoder.decode(APINotificationPreferences.self, from: data)
+        return try await sendDecoding(URLRequest(url: url))
     }
 
     func updateNotificationPreferences(_ prefs: APINotificationPreferences) async throws {
         let url = baseURL.deletingLastPathComponent()
             .appendingPathComponent("api/notifications/preferences")
-        var request = URLRequest(url: url)
-        request.httpMethod = "PUT"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(prefs)
-
-        let (_, response) = try await authedData(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw APIError.serverError
-        }
+        let request = try jsonRequest(url: url, method: "PUT", body: prefs)
+        try await send(request)
     }
 
     // MARK: - Meals & Food
@@ -383,30 +405,19 @@ actor APIClient {
     func recognizeFood(imageData: Data) async throws -> [FoodItem] {
         let url = baseURL.deletingLastPathComponent()
             .appendingPathComponent("api/food/recognize")
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
         let base64 = imageData.base64EncodedString()
-        let body: [String: String] = ["image_base64": base64, "media_type": "image/jpeg"]
-        request.httpBody = try JSONEncoder().encode(body)
-
-        let (data, response) = try await authedData(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw APIError.serverError
-        }
-
-        let result = try decoder.decode(APIFoodRecognitionResponse.self, from: data)
+        let request = try jsonRequest(
+            url: url,
+            method: "POST",
+            body: APIFoodRecognitionRequest(image_base64: base64, media_type: "image/jpeg")
+        )
+        let result: APIFoodRecognitionResponse = try await sendDecoding(request)
         return result.items.map { $0.toFoodItem() }
     }
 
     func logMeal(_ meal: Meal) async throws {
         let url = baseURL.deletingLastPathComponent()
             .appendingPathComponent("api/meals")
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
         let body = APIMealCreate(
             meal_type: meal.mealType.rawValue.lowercased(),
             source: meal.source.rawValue,
@@ -425,12 +436,8 @@ actor APIClient {
                 )
             }
         )
-        request.httpBody = try JSONEncoder().encode(body)
-
-        let (_, response) = try await authedData(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw APIError.serverError
-        }
+        let request = try jsonRequest(url: url, method: "POST", body: body)
+        try await send(request)
     }
 
     func fetchMeals(date: String) async throws -> APIDailyMealsResponse {
@@ -438,90 +445,50 @@ actor APIClient {
             .appendingPathComponent("api/meals")
         var components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
         components.queryItems = [URLQueryItem(name: "date", value: date)]
-
-        let request = URLRequest(url: components.url!)
-        let (data, response) = try await authedData(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw APIError.serverError
-        }
-
-        return try decoder.decode(APIDailyMealsResponse.self, from: data)
+        return try await sendDecoding(URLRequest(url: components.url!))
     }
 
     func searchFood(_ query: String) async throws -> [FoodItem] {
         let url = baseURL.deletingLastPathComponent()
             .appendingPathComponent("api/food/search")
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        let body = ["query": query]
-        request.httpBody = try JSONEncoder().encode(body)
-
-        let (data, response) = try await authedData(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw APIError.serverError
-        }
-
-        let result = try decoder.decode(APIFoodSearchResponse.self, from: data)
+        let request = try jsonRequest(
+            url: url,
+            method: "POST",
+            body: APIFoodSearchRequest(query: query)
+        )
+        let result: APIFoodSearchResponse = try await sendDecoding(request)
         return result.results.map { $0.toFoodItem() }
     }
 
     func lookupBarcode(_ code: String) async throws -> FoodItem? {
         let url = baseURL.deletingLastPathComponent()
             .appendingPathComponent("api/food/barcode/\(code)")
-        let request = URLRequest(url: url)
-        let (data, response) = try await authedData(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.serverError
-        }
-        if httpResponse.statusCode == 404 { return nil }
-        guard httpResponse.statusCode == 200 else { throw APIError.serverError }
-
-        let item = try decoder.decode(APIFoodItemResponse.self, from: data)
-        return item.toFoodItem()
+        let item: APIFoodItemResponse? = try await sendDecodingOrNilOn404(URLRequest(url: url))
+        return item?.toFoodItem()
     }
 
     // MARK: - User Profile
 
     func fetchUserProfile() async throws -> APIUserProfile {
         let url = serverRoot.appendingPathComponent("api/user/profile")
-        let request = URLRequest(url: url)
-        let (data, response) = try await authedData(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw APIError.serverError
-        }
-        return try decoder.decode(APIUserProfile.self, from: data)
+        return try await sendDecoding(URLRequest(url: url))
     }
 
     func updateUserProfile(_ update: APIUserProfileUpdate) async throws -> APIUserProfile {
         let url = serverRoot.appendingPathComponent("api/user/profile")
-        var request = URLRequest(url: url)
-        request.httpMethod = "PUT"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(update)
-
-        let (data, response) = try await authedData(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw APIError.serverError
-        }
-        return try decoder.decode(APIUserProfile.self, from: data)
+        let request = try jsonRequest(url: url, method: "PUT", body: update)
+        return try await sendDecoding(request)
     }
 
     func reportNotificationOpened(notificationId: Int) async throws {
         let url = baseURL.deletingLastPathComponent()
             .appendingPathComponent("api/notifications/opened")
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        let body = ["notification_id": notificationId]
-        request.httpBody = try JSONEncoder().encode(body)
-
-        let (_, response) = try await authedData(for: request)
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            throw APIError.serverError
-        }
+        let request = try jsonRequest(
+            url: url,
+            method: "POST",
+            body: APINotificationOpenedRequest(notification_id: notificationId)
+        )
+        try await send(request)
     }
 
     // MARK: - Health Check
@@ -615,6 +582,38 @@ struct APIDashboardResponse: Codable {
 
 struct APIChatRequest: Codable {
     let message: String
+}
+
+// P2-1: Small request-body structs used by the generic send helpers. Previously
+// these were inline `[String: String]` dictionaries; giving them names lets
+// `jsonRequest(url:method:body:)` stay generic-Encodable without resorting to
+// Any or JSONSerialization.
+struct APICredentialsRequest: Codable {
+    let username: String
+    let password: String
+}
+
+struct APIDeviceTokenRegister: Codable {
+    let device_token: String
+    let platform: String
+}
+
+struct APIFeedbackRequest: Codable {
+    let message_id: Int
+    let feedback: String
+}
+
+struct APIFoodRecognitionRequest: Codable {
+    let image_base64: String
+    let media_type: String
+}
+
+struct APIFoodSearchRequest: Codable {
+    let query: String
+}
+
+struct APINotificationOpenedRequest: Codable {
+    let notification_id: Int
 }
 
 struct APIChatResponse: Codable {

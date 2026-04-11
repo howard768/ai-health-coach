@@ -51,7 +51,9 @@ def _get_cipher() -> Optional[Fernet]:
     try:
         _cipher = Fernet(settings.encryption_key.encode())
         return _cipher
-    except Exception as e:
+    except (ValueError, TypeError) as e:
+        # Fernet raises ValueError for invalid key length/format.
+        # TypeError if key is not bytes-convertible.
         logger.error("Failed to initialize Fernet cipher: %s", e)
         return None
 
@@ -82,7 +84,8 @@ def decrypt(ciphertext: str | None) -> str | None:
     except InvalidToken:
         # Legacy plaintext row — return as-is. Will be encrypted on next write.
         return ciphertext
-    except Exception as e:
+    except (ValueError, UnicodeDecodeError) as e:
+        # Malformed ciphertext or non-UTF8 payload.
         logger.error("Decryption failed: %s", e)
         return ciphertext
 

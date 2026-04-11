@@ -3,6 +3,7 @@ from sqlalchemy import String, Integer, Float, DateTime, Text, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
+from app.core.time import utcnow_naive
 
 
 class UserCorrelation(Base):
@@ -29,5 +30,5 @@ class UserCorrelation(Base):
     literature_match: Mapped[bool] = mapped_column(Boolean, default=False)
     literature_ref: Mapped[str] = mapped_column(Text, nullable=True)
     effect_size_description: Mapped[str] = mapped_column(Text)
-    discovered_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    last_validated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    discovered_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+    last_validated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)

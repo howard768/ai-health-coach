@@ -51,6 +51,12 @@ class Settings(BaseSettings):
     # store per user in the User model and look up per job.
     user_timezone: str = "America/New_York"
 
+    # P3-3: Public URLs for the backend, surfaced as config so we can change
+    # the production hostname (or run staging) without grepping for the
+    # Railway slug. Override via env var in CI/CD.
+    public_base_url: str = "https://zippy-forgiveness-production-0704.up.railway.app"
+    local_base_url: str = "http://localhost:8000"
+
     # Auth — Sign in with Apple + backend JWTs
     jwt_secret_key: str = ""  # HS256 secret for our own access tokens; from env
     apple_team_id: str = ""

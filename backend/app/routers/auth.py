@@ -22,6 +22,7 @@ from app.database import get_db
 from app.models.health import OuraToken
 from app.models.user import User
 from app.services.oura import OuraClient
+from app.core.time import utcnow_naive
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -72,7 +73,7 @@ async def oura_callback(
         user_id=state,
         access_token=token_data["access_token"],
         refresh_token=token_data.get("refresh_token", ""),
-        expires_at=datetime.utcnow() + timedelta(seconds=token_data.get("expires_in", 86400)),
+        expires_at=utcnow_naive() + timedelta(seconds=token_data.get("expires_in", 86400)),
     )
     db.add(oura_token)
     await db.commit()
