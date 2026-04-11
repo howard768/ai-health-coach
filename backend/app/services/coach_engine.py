@@ -309,7 +309,15 @@ class Deliberator:
 
         # 2. Complex cross-domain queries → Opus (check BEFORE rules)
         query_lower = query.lower()
-        cross_domain_keywords = ["why", "connect", "pattern", "correlation", "cause", "affect", "relationship", "correlate"]
+        # Substring matches handle inflections: "cause" matches "causes" but not
+        # "causing", so include stems explicitly. "caus" covers cause/causes/causing.
+        cross_domain_keywords = [
+            "why", "connect", "pattern", "correlation", "correlate",
+            "caus",  # cause/causes/causing/caused
+            "affect", "effect",  # affects/effected
+            "relationship", "related",
+            "explain",
+        ]
         if any(w in query_lower for w in cross_domain_keywords):
             return RoutingDecision(
                 tier=ModelTier.OPUS,

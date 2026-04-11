@@ -23,6 +23,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
 from app.api.deps import CurrentUser
 from app.core.apple import (
     is_private_relay_email,
@@ -41,6 +44,11 @@ from app.models.user import User
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger("meld.auth")
+
+# Per-IP rate limiter shared across auth endpoints. Tighter than the
+# global default — auth endpoints are the highest-value attack surface
+# (brute force, token enumeration, cost exhaustion via Apple JWT verify).
+limiter = Limiter(key_func=get_remote_address)
 
 
 # ── Request / Response Schemas ───────────────────────────────────────────────
@@ -140,13 +148,19 @@ async def _revoke_chain(db: AsyncSession, start_hash: str) -> None:
 
 
 @router.post("/apple", response_model=TokenPair)
+@limiter.limit("10/minute")
 async def sign_in_with_apple(
-    request: AppleSignInRequest,
+    request: Request,
+    body: AppleSignInRequest,
     db: AsyncSession = Depends(get_db),
 ) -> TokenPair:
-    """Verify an Apple identity token, upsert the user, and issue our tokens."""
+    """Verify an Apple identity token, upsert the user, and issue our tokens.
+
+    Rate-limited to 10/min per IP — protects against Apple JWKS verification
+    cost exhaustion and brute-force enumeration.
+    """
     try:
-        claims = verify_apple_identity_token(request.identity_token, request.raw_nonce)
+        claims = verify_apple_identity_token(body.identity_token, body.raw_nonce)
     except jwt.InvalidTokenError as e:
         logger.warning("Apple identity token verification failed: %s", e)
         raise HTTPException(
@@ -166,10 +180,10 @@ async def sign_in_with_apple(
         logger.info("Creating new user for Apple sub=%s", apple_sub[:12] + "...")
         user = User(
             apple_user_id=apple_sub,
-            email=request.email or claim_email,
-            name=request.full_name,
+            email=body.email or claim_email,
+            name=body.full_name,
             is_active=True,
-            is_private_email=is_private_relay_email(request.email or claim_email),
+            is_private_email=is_private_relay_email(body.email or claim_email),
         )
         db.add(user)
         await db.flush()
@@ -177,22 +191,24 @@ async def sign_in_with_apple(
         # Subsequent sign-ins: update name/email ONLY if we have new info.
         # Apple only returns these on the first sign-in, so if iOS sent them
         # again it's probably a fresh re-auth after credential deletion.
-        if request.full_name and not user.name:
-            user.name = request.full_name
-        if (request.email or claim_email) and not user.email:
-            email_to_set = request.email or claim_email
+        if body.full_name and not user.name:
+            user.name = body.full_name
+        if (body.email or claim_email) and not user.email:
+            email_to_set = body.email or claim_email
             user.email = email_to_set
             user.is_private_email = is_private_relay_email(email_to_set)
 
-    return await _issue_token_pair(db, user, request.device_id)
+    return await _issue_token_pair(db, user, body.device_id)
 
 
 # ── POST /auth/refresh ───────────────────────────────────────────────────────
 
 
 @router.post("/refresh", response_model=TokenPair)
+@limiter.limit("30/minute")
 async def refresh_token(
-    request: RefreshRequest,
+    request: Request,
+    body: RefreshRequest,
     db: AsyncSession = Depends(get_db),
 ) -> TokenPair:
     """Rotate a refresh token and issue a new access + refresh pair.
@@ -201,8 +217,11 @@ async def refresh_token(
     chain and revoke every descendant for the user. This is the primary
     defense against refresh token theft — once the attacker uses a stolen
     token, the legitimate client's next refresh will be rejected.
+
+    Rate-limited to 30/min per IP — generous enough for legitimate token
+    refresh on app launches, tight enough to flag enumeration attempts.
     """
-    token_hash = hash_refresh_token(request.refresh_token)
+    token_hash = hash_refresh_token(body.refresh_token)
     row = await db.get(RefreshToken, token_hash)
 
     if row is None:
@@ -269,16 +288,18 @@ async def refresh_token(
 
 
 @router.post("/logout")
+@limiter.limit("20/minute")
 async def logout(
+    request: Request,
     user: CurrentUser,
-    request: RefreshRequest,
+    body: RefreshRequest,
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Revoke the caller's refresh token. Access token remains valid until
     its 15-minute expiry, but without a refresh token the client can't
     extend the session.
     """
-    token_hash = hash_refresh_token(request.refresh_token)
+    token_hash = hash_refresh_token(body.refresh_token)
     row = await db.get(RefreshToken, token_hash)
     if row is not None and row.user_id == user.apple_user_id and row.revoked_at is None:
         row.revoked_at = datetime.utcnow()
@@ -290,7 +311,9 @@ async def logout(
 
 
 @router.post("/delete")
+@limiter.limit("3/minute")
 async def delete_account(
+    request: Request,
     user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ) -> dict:

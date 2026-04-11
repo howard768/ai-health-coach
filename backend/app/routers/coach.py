@@ -1,10 +1,12 @@
 import logging
 import time
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.api.deps import CurrentUser
 from app.database import get_db
@@ -14,6 +16,9 @@ from app.services.coach_engine import CoachEngine
 from app.services.health_data import get_latest_health_data
 
 logger = logging.getLogger("meld.coach")
+
+# Rate limit AI endpoints to prevent Claude API budget exhaustion (P1-4)
+limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter(prefix="/api/coach", tags=["coach"])
 
@@ -52,12 +57,18 @@ class HistoryResponse(BaseModel):
 # ============================================================
 
 @router.post("/chat", response_model=ChatResponse)
+@limiter.limit("30/minute")
 async def chat(
-    request: ChatRequest,
+    request: Request,
+    body: ChatRequest,
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
-    """Send a message, get AI response, persist both to DB."""
+    """Send a message, get AI response, persist both to DB.
+
+    Rate-limited to 30/min per IP — about one message every 2s. Generous
+    enough for normal back-and-forth but caps Claude budget exhaustion.
+    """
 
     user_id = current_user.apple_user_id
 
@@ -74,7 +85,7 @@ async def chat(
         conversation_id=conv.id,
         user_id=user_id,
         role="user",
-        content=request.message,
+        content=body.message,
     )
     db.add(user_msg)
     await db.flush()
@@ -91,7 +102,7 @@ async def chat(
     start_time = time.monotonic()
     result = await asyncio.to_thread(
         engine.process_query,
-        request.message,
+        body.message,
         health_data,
         user_name,
         user_goals,

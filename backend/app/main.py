@@ -2,14 +2,26 @@ from contextlib import asynccontextmanager
 
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from app.config import settings
 from app.database import init_db
 from app.routers import auth, auth_apple, health, coach, notifications, meals, user, peloton_auth, garmin_auth, webhooks
 from app.tasks.scheduler import start_scheduler, stop_scheduler
+
+
+# Rate limiter — keyed by remote IP. Default limits apply to every endpoint
+# unless overridden with @limiter.limit("..."). Stricter limits applied to
+# auth + AI endpoints to prevent cost-exhaustion attacks (P1-4).
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=["120/minute"],  # Generous baseline for normal app usage
+)
 
 
 @asynccontextmanager
@@ -28,6 +40,11 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+# Wire up rate limiter — slowapi attaches `request.app.state.limiter` and
+# auto-returns 429 with Retry-After when limits are exceeded.
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS — restrict to known origins
 app.add_middleware(

@@ -7,9 +7,11 @@ food database search (USDA + OFF), and barcode lookup.
 import logging
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.api.deps import CurrentUser
 from app.database import get_db
@@ -27,6 +29,9 @@ from app.services.openfoodfacts import off_client
 logger = logging.getLogger("meld.meals")
 
 router = APIRouter(prefix="/api", tags=["meals"])
+
+# Rate limit AI-backed food recognition to prevent budget exhaustion (P1-4)
+limiter = Limiter(key_func=get_remote_address)
 
 
 def _meal_type_from_time() -> str:
@@ -268,25 +273,27 @@ async def delete_food_item(
 # ── Food Recognition ────────────────────────────────────────
 
 @router.post("/food/recognize", response_model=FoodRecognitionResponse)
+@limiter.limit("20/minute")
 async def recognize_food(
-    request: FoodRecognitionRequest,
+    request: Request,
+    body: FoodRecognitionRequest,
     current_user: CurrentUser,
 ):
     """Recognize food items from a photo using Claude Vision.
 
-    Auth-gated to prevent Claude API budget exhaustion by unauthenticated
-    actors (cost-exhaustion DoS, P1-4).
+    Rate-limited to 20/min per IP — Claude Vision is the most expensive
+    endpoint per request. Auth-gating + rate limit together cap exposure.
     """
     import asyncio
     # food_recognition uses the synchronous Anthropic SDK — must offload
     # to a thread to avoid blocking the event loop for the full API call.
     items = await asyncio.to_thread(
         food_recognition.recognize_from_photo,
-        request.image_base64,
-        request.media_type,
+        body.image_base64,
+        body.media_type,
     )
 
-    meal_type = request.meal_type or _meal_type_from_time()
+    meal_type = body.meal_type or _meal_type_from_time()
 
     return FoodRecognitionResponse(
         items=[
