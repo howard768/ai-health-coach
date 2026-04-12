@@ -161,7 +161,7 @@ struct MetricDetailView: View {
         DSCard(style: .insight) {
             VStack(alignment: .leading, spacing: DSSpacing.md) {
                 HStack(spacing: DSSpacing.sm) {
-                    AnimatedMascot(state: .idle, size: 24)
+                    MeldMascot(state: .idle, size: 24)
 
                     Text("Coach's Take")
                         .font(DSTypography.h3)

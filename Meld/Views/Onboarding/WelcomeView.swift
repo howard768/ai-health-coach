@@ -22,7 +22,7 @@ struct WelcomeView: View {
 
                     // Brand: mascot + name
                     HStack(spacing: DSSpacing.md) {
-                        AnimatedMascot(state: .greeting, size: 40)
+                        MeldMascot(state: .greeting, size: 40)
                         Text("Meld")
                             .font(DSTypography.h2)
                             .foregroundStyle(DSColor.Text.primary)
@@ -170,7 +170,7 @@ struct WelcomeView: View {
     private var insightCard: some View {
         VStack(alignment: .leading, spacing: DSSpacing.md) {
             HStack(spacing: DSSpacing.sm) {
-                AnimatedMascot(state: .idle, size: 24)
+                MeldMascot(state: .idle, size: 24)
 
                 Text("Your Coach spotted this:")
                     .font(DSTypography.caption)
@@ -203,7 +203,7 @@ struct WelcomeView: View {
 
     private var socialProofCard: some View {
         HStack(spacing: DSSpacing.md) {
-            AnimatedMascot(state: .idle, size: 24)
+            MeldMascot(state: .idle, size: 24)
 
             Text("Built by a health tech team that's coached 3M+ people at Lark Health.")
                 .font(DSTypography.bodySM)

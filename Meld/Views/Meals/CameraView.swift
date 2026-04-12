@@ -30,7 +30,7 @@ struct CameraView: View {
 
                     if isRecognizing {
                         VStack(spacing: DSSpacing.md) {
-                            AnimatedMascot(state: .thinking, size: 48)
+                            MeldMascot(state: .thinking, size: 48)
                             Text(recognitionTimedOut ? "Taking longer than expected..." : "Identifying your food...")
                                 .font(DSTypography.body)
                                 .foregroundStyle(DSColor.Text.secondary)
@@ -49,7 +49,7 @@ struct CameraView: View {
                     VStack(spacing: DSSpacing.xxl) {
                         Spacer()
 
-                        AnimatedMascot(state: .idle, size: 64)
+                        MeldMascot(state: .idle, size: 64)
 
                         Text("Take a photo of your meal")
                             .font(DSTypography.h2)

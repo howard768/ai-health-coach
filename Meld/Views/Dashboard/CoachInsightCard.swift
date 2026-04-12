@@ -21,7 +21,7 @@ struct CoachInsightCard: View {
                     // Coach header: mascot + name + timestamp
                     HStack(spacing: DSSpacing.sm) {
                         // Actual SquatBlob mascot from Figma
-                        SquatBlobIcon(isActive: true, size: 32)
+                        MeldMascot(state: .idle, size: 32)
 
                         VStack(alignment: .leading, spacing: DSSpacing.xxs) {
                             Text("Your Coach")

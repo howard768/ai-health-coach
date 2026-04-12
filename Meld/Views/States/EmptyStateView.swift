@@ -28,7 +28,7 @@ struct CoachChatEmptyState: View {
         VStack(spacing: DSSpacing.xxl) {
             Spacer()
 
-            AnimatedMascot(state: .greeting, size: 64)
+            MeldMascot(state: .greeting, size: 64)
 
             VStack(spacing: DSSpacing.sm) {
                 Text("Your coach is ready")

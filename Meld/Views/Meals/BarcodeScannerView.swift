@@ -21,7 +21,7 @@ struct BarcodeScannerView: View {
                 if DataScannerViewController.isSupported && DataScannerViewController.isAvailable {
                     if isLooking {
                         VStack(spacing: DSSpacing.md) {
-                            AnimatedMascot(state: .thinking, size: 48)
+                            MeldMascot(state: .thinking, size: 48)
                             Text("Looking up product...")
                                 .font(DSTypography.body)
                                 .foregroundStyle(DSColor.Text.secondary)
@@ -29,7 +29,7 @@ struct BarcodeScannerView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else if notFound {
                         VStack(spacing: DSSpacing.md) {
-                            AnimatedMascot(state: .concerned, size: 48)
+                            MeldMascot(state: .concerned, size: 48)
                             Text("Product not found")
                                 .font(DSTypography.h3)
                                 .foregroundStyle(DSColor.Text.primary)

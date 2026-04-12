@@ -100,7 +100,7 @@ struct TrendsView: View {
 
     private var emptyCard: some View {
         VStack(spacing: DSSpacing.md) {
-            AnimatedMascot(state: .idle, size: 48)
+            MeldMascot(state: .idle, size: 48)
             Text("No trend data yet")
                 .font(DSTypography.h3)
                 .foregroundStyle(DSColor.Text.primary)
@@ -116,7 +116,7 @@ struct TrendsView: View {
 
     private func errorCard(message: String) -> some View {
         VStack(spacing: DSSpacing.md) {
-            AnimatedMascot(state: .concerned, size: 48)
+            MeldMascot(state: .concerned, size: 48)
             Text("Something went wrong")
                 .font(DSTypography.h3)
                 .foregroundStyle(DSColor.Text.primary)
@@ -167,7 +167,7 @@ struct TrendsView: View {
         DSCard(style: .insight) {
             VStack(alignment: .leading, spacing: DSSpacing.md) {
                 HStack(spacing: DSSpacing.sm) {
-                    AnimatedMascot(state: .idle, size: 24)
+                    MeldMascot(state: .idle, size: 24)
                     Text("This \(selectedRange.label.lowercased())")
                         .font(DSTypography.h3)
                         .foregroundStyle(DSColor.Purple.purple600)

@@ -173,7 +173,7 @@ struct MealsView: View {
         DSCard(style: .insight) {
             VStack(alignment: .leading, spacing: DSSpacing.md) {
                 HStack(spacing: DSSpacing.sm) {
-                    AnimatedMascot(state: .idle, size: 24)
+                    MeldMascot(state: .idle, size: 24)
                     Text("Food Insight")
                         .font(DSTypography.bodySM)
                         .foregroundStyle(DSColor.Purple.purple600)

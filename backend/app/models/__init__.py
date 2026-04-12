@@ -8,3 +8,4 @@ from app.models.peloton import PelotonToken, WorkoutRecord  # noqa
 from app.models.garmin import GarminToken, GarminDailyRecord  # noqa
 from app.models.correlation import UserCorrelation  # noqa
 from app.models.waitlist import WaitlistSignup  # noqa
+from app.models.mascot import UserMascotState  # noqa

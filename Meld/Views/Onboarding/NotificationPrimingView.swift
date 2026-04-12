@@ -24,7 +24,7 @@ struct NotificationPrimingView: View {
                     Spacer().frame(height: DSSpacing.xxl)
 
                     // Mascot
-                    AnimatedMascot(state: .greeting, size: 64)
+                    MeldMascot(state: .greeting, size: 64)
                         .frame(maxWidth: .infinity)
                         .padding(.bottom, DSSpacing.lg)
 
@@ -116,7 +116,7 @@ struct NotificationPrimingView: View {
                 .fill(DSColor.Purple.purple100)
                 .frame(width: 36, height: 36)
                 .overlay(
-                    AnimatedMascot(state: .idle, size: 24)
+                    MeldMascot(state: .idle, size: 24)
                 )
 
             VStack(alignment: .leading, spacing: DSSpacing.xs) {

@@ -107,7 +107,7 @@ struct TypingIndicator: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: DSSpacing.sm) {
-            AnimatedMascot(state: .thinking, size: 28)
+            MeldMascot(state: .thinking, size: 28)
 
             HStack(spacing: 6) {
                 ForEach(0..<3, id: \.self) { i in
@@ -140,7 +140,7 @@ struct SyncProgressOverlay: View {
 
     var body: some View {
         VStack(spacing: DSSpacing.xxl) {
-            AnimatedMascot(state: .thinking, size: 56)
+            MeldMascot(state: .thinking, size: 56)
 
             VStack(spacing: DSSpacing.md) {
                 Text(message)

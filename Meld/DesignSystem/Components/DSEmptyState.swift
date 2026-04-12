@@ -50,8 +50,10 @@ struct DSEmptyState<Illustration: View>: View {
 
 // MARK: - Convenience: Empty state with mascot
 
-extension DSEmptyState where Illustration == SquatBlobIcon {
-    /// Empty state using the Squat Blob mascot as illustration
+extension DSEmptyState where Illustration == MeldMascot {
+    /// Empty state using the Meld mascot as illustration. Reads equipped
+    /// accessories from the global wardrobe so locked screens still show
+    /// off the user's earned customizations.
     init(
         title: String,
         message: String,
@@ -62,7 +64,7 @@ extension DSEmptyState where Illustration == SquatBlobIcon {
         self.message = message
         self.actionTitle = actionTitle
         self.action = action
-        self.illustration = { SquatBlobIcon(isActive: true, size: 80) }
+        self.illustration = { MeldMascot(state: .idle, size: 80) }
     }
 }
 

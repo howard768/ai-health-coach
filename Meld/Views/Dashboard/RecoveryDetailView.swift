@@ -42,7 +42,7 @@ struct RecoveryDetailView: View {
                 DSCard(style: .insight) {
                     VStack(alignment: .leading, spacing: DSSpacing.md) {
                         HStack(spacing: DSSpacing.sm) {
-                            AnimatedMascot(state: .idle, size: 24)
+                            MeldMascot(state: .idle, size: 24)
                             Text("What to do today")
                                 .font(DSTypography.h3)
                                 .foregroundStyle(DSColor.Purple.purple600)

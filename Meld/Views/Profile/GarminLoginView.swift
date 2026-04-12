@@ -66,7 +66,7 @@ struct GarminLoginView: View {
 
     private var connectedView: some View {
         VStack(spacing: DSSpacing.lg) {
-            AnimatedMascot(state: .celebrating, size: 64)
+            MeldMascot(state: .celebrating, size: 64)
             Text("Garmin connected")
                 .font(DSTypography.h2)
                 .foregroundStyle(DSColor.Text.primary)

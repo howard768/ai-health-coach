@@ -82,7 +82,7 @@ struct GoalsView: View {
             // Mascot subtle presence
             HStack {
                 Spacer()
-                AnimatedMascot(
+                MeldMascot(
                     state: viewModel.canProceedFromGoals ? .celebrating : .idle,
                     size: 32
                 )

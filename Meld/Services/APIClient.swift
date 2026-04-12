@@ -491,6 +491,45 @@ actor APIClient {
         try await send(request)
     }
 
+    // MARK: - Mascot Wardrobe
+    //
+    // Backs the mascot accessory customization system. The catalog of
+    // accessory_id strings lives client-side in `MascotAccessory.rawValue`;
+    // the backend treats them as opaque. Three operations:
+    //
+    //   GET    /api/user/mascot         — current state
+    //   PATCH  /api/user/mascot         — equip / unequip
+    //   POST   /api/user/mascot/unlock  — unlock (idempotent)
+    //
+    // The unlock endpoint is currently called from the wardrobe screen as
+    // a manual unlock path. When achievement detection ships server-side,
+    // the same endpoint will be called from a cron job instead.
+
+    func fetchMascotState() async throws -> APIMascotState {
+        let url = serverRoot.appendingPathComponent("api/user/mascot")
+        return try await sendDecoding(URLRequest(url: url))
+    }
+
+    func updateMascotEquip(accessoryId: String, equipped: Bool) async throws -> APIMascotState {
+        let url = serverRoot.appendingPathComponent("api/user/mascot")
+        let request = try jsonRequest(
+            url: url,
+            method: "PATCH",
+            body: APIMascotEquipRequest(accessory_id: accessoryId, equipped: equipped)
+        )
+        return try await sendDecoding(request)
+    }
+
+    func unlockMascotAccessory(accessoryId: String) async throws -> APIMascotUnlockResponse {
+        let url = serverRoot.appendingPathComponent("api/user/mascot/unlock")
+        let request = try jsonRequest(
+            url: url,
+            method: "POST",
+            body: APIMascotUnlockRequest(accessory_id: accessoryId)
+        )
+        return try await sendDecoding(request)
+    }
+
     // MARK: - Health Check
 
     func healthCheck() async -> Bool {
@@ -657,6 +696,34 @@ struct APIHistoryMessage: Codable {
 struct APIHistoryResponse: Codable {
     let messages: [APIHistoryMessage]
     let conversation_id: Int
+}
+
+// MARK: - Mascot Wardrobe API Models
+
+/// Snapshot of the user's mascot wardrobe.
+/// `unlocked` is everything they own, `equipped` is the subset currently
+/// shown on the home-screen mascot.
+struct APIMascotState: Codable, Equatable {
+    let unlocked: [String]
+    let equipped: [String]
+
+    static let empty = APIMascotState(unlocked: [], equipped: [])
+}
+
+struct APIMascotEquipRequest: Codable {
+    let accessory_id: String
+    let equipped: Bool
+}
+
+struct APIMascotUnlockRequest: Codable {
+    let accessory_id: String
+}
+
+struct APIMascotUnlockResponse: Codable {
+    /// True the FIRST time this accessory is unlocked for the user. False
+    /// on idempotent re-unlocks. iOS uses this to gate the celebration UI.
+    let newly_unlocked: Bool
+    let state: APIMascotState
 }
 
 // MARK: - Meal/Food API Models

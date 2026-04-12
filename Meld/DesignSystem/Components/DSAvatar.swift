@@ -67,7 +67,7 @@ struct DSMascotAvatar: View {
     let size: DSAvatarSize
 
     var body: some View {
-        SquatBlobIcon(isActive: true, size: size.points * 0.75)
+        MeldMascot(state: .idle, size: size.points * 0.75)
             .frame(width: size.points, height: size.points)
             .background(Color.hex(0xFAF0DA)) // Warm amber tint background for mascot
             .clipShape(Circle())

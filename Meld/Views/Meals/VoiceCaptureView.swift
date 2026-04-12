@@ -40,7 +40,7 @@ struct VoiceCaptureView: View {
                         .foregroundStyle(DSColor.Text.secondary)
                 } else {
                     VStack(spacing: DSSpacing.lg) {
-                        AnimatedMascot(state: .idle, size: 64)
+                        MeldMascot(state: .idle, size: 64)
                         Text("Say what you ate")
                             .font(DSTypography.h2)
                             .foregroundStyle(DSColor.Text.primary)
@@ -53,7 +53,7 @@ struct VoiceCaptureView: View {
 
                 if isSearching {
                     VStack(spacing: DSSpacing.md) {
-                        AnimatedMascot(state: .thinking, size: 48)
+                        MeldMascot(state: .thinking, size: 48)
                         Text("Looking that up...")
                             .font(DSTypography.bodySM)
                             .foregroundStyle(DSColor.Text.secondary)

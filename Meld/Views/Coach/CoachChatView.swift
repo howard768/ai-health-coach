@@ -110,7 +110,7 @@ struct CoachChatView: View {
 
             if !viewModel.inputText.isEmpty {
                 Button(action: { viewModel.sendMessage() }) {
-                    SquatBlobIcon(isActive: true, size: 36)
+                    MeldMascot(state: .idle, size: 36)
                         .frame(width: 44, height: 44)
                         .background(Color.hex(0xFAF0DA))
                         .clipShape(Circle())
@@ -149,7 +149,7 @@ private struct MessageView: View {
 
     private var coachBubble: some View {
         HStack(alignment: .top, spacing: DSSpacing.sm) {
-            AnimatedMascot(state: .idle, size: 28)
+            MeldMascot(state: .idle, size: 28)
                 .padding(.top, DSSpacing.xs)
 
             VStack(alignment: .leading, spacing: DSSpacing.sm) {

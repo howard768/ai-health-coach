@@ -168,7 +168,7 @@ struct ConnectDataView: View {
 
     private var coachAcknowledgement: some View {
         HStack(spacing: DSSpacing.md) {
-            AnimatedMascot(state: .celebrating, size: 32)
+            MeldMascot(state: .celebrating, size: 32)
 
             VStack(alignment: .leading, spacing: DSSpacing.xxs) {
                 Text("Your coach just got smarter!")

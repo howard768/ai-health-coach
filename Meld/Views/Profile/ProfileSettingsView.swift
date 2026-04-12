@@ -30,6 +30,9 @@ struct ProfileSettingsView: View {
                 // Section 1: You
                 youSection
 
+                // Section 1.5: Mascot Wardrobe
+                wardrobeSection
+
                 // Section 2: Data Sources
                 dataSourcesSection
 
@@ -156,6 +159,40 @@ struct ProfileSettingsView: View {
             settingsRow(title: "Height", value: profile?.heightString ?? "--")
             DSDivider()
             navigationRow(title: "Goals", subtitle: profile?.goalsString ?? "--")
+        }
+    }
+
+    // MARK: - Section 1.5: Wardrobe
+
+    private var wardrobeSection: some View {
+        settingsCard {
+            NavigationLink {
+                WardrobeView()
+            } label: {
+                HStack(spacing: DSSpacing.lg) {
+                    MeldMascot(state: .idle, size: 24, accessories: MascotWardrobe.shared.equipped)
+                        .frame(width: 36, height: 36)
+                        .background(Color.hex(0xFAF0DA))
+                        .clipShape(RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous))
+
+                    VStack(alignment: .leading, spacing: DSSpacing.xxs) {
+                        Text("Wardrobe")
+                            .font(DSTypography.bodyEmphasis)
+                            .foregroundStyle(DSColor.Text.primary)
+
+                        let count = MascotWardrobe.shared.unlocked.count
+                        Text("\(count) accessori\(count == 1 ? "e" : "es") unlocked")
+                            .font(DSTypography.caption)
+                            .foregroundStyle(DSColor.Text.tertiary)
+                    }
+
+                    Spacer()
+                    DSListChevron()
+                }
+                .padding(.vertical, DSSpacing.md)
+                .padding(.horizontal, DSSpacing.lg)
+            }
+            .buttonStyle(.plain)
         }
     }
 

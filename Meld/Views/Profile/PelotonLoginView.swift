@@ -20,7 +20,7 @@ struct PelotonLoginView: View {
                 if isConnected {
                     // Success state
                     VStack(spacing: DSSpacing.lg) {
-                        AnimatedMascot(state: .celebrating, size: 64)
+                        MeldMascot(state: .celebrating, size: 64)
                         Text("Peloton connected")
                             .font(DSTypography.h2)
                             .foregroundStyle(DSColor.Text.primary)

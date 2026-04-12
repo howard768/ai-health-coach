@@ -18,7 +18,7 @@ struct FullScreenError: View {
         VStack(spacing: DSSpacing.xxl) {
             Spacer()
 
-            AnimatedMascot(state: .concerned, size: 64)
+            MeldMascot(state: .concerned, size: 64)
 
             VStack(spacing: DSSpacing.sm) {
                 Text(title)

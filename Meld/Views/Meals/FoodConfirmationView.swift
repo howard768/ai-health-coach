@@ -39,7 +39,7 @@ struct FoodConfirmationView: View {
                         if items.isEmpty {
                             // No items recognized
                             VStack(spacing: DSSpacing.md) {
-                                AnimatedMascot(state: .concerned, size: 48)
+                                MeldMascot(state: .concerned, size: 48)
                                 Text("Couldn't identify any food")
                                     .font(DSTypography.body)
                                     .foregroundStyle(DSColor.Text.secondary)

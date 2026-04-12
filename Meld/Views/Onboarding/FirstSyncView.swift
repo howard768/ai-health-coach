@@ -20,7 +20,7 @@ struct FirstSyncView: View {
                     Spacer().frame(height: DSSpacing.huge)
 
                     // Mascot — large, animated
-                    AnimatedMascot(
+                    MeldMascot(
                         state: viewModel.isComplete ? .celebrating : .thinking,
                         size: 80
                     )
@@ -152,7 +152,7 @@ struct FirstSyncView: View {
 
     private var coachMessage: some View {
         HStack(spacing: DSSpacing.md) {
-            AnimatedMascot(state: .idle, size: 28)
+            MeldMascot(state: .idle, size: 28)
 
             VStack(alignment: .leading, spacing: DSSpacing.xxs) {
                 Text("Your Coach")
