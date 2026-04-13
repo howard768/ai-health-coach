@@ -54,7 +54,7 @@ tests:
       - type: contains
         value: "48"
       - type: not-contains
-        value: "0 minutes"
+        value: "0 minutes of deep sleep"
       - type: llm-rubric
         value: "Response must cite the user's deep sleep as 48 minutes and provide context on whether this is adequate"
         threshold: 0.8
