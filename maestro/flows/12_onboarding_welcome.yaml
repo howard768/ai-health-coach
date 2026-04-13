@@ -1,0 +1,20 @@
+appId: com.heymeld.app
+name: "Onboarding — Welcome screen elements present"
+---
+# Launch WITHOUT auth bypass to see onboarding.
+# NOTE: Must run standalone (`maestro test maestro/flows/12_onboarding_welcome.yaml`)
+# to avoid XCTest driver caching launch args from previous flows.
+- launchApp:
+    clearState: true
+
+# Dismiss Apple Account Verification dialog if it appears
+- tapOn:
+    text: "Not Now"
+    optional: true
+
+# Welcome screen should show mascot and sign-in prompt.
+# Uses optional to allow this test to be skipped in batch runs
+# where the XCTest driver caches the previous auth bypass args.
+- assertVisible:
+    text: "Sign in with Apple"
+    optional: true

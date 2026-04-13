@@ -1,0 +1,25 @@
+appId: com.heymeld.app
+name: "Coach Chat — Quick action chips"
+---
+- runFlow: ../helpers/auth_bypass.yaml
+
+- tapOn:
+    id: "tab-coach"
+
+# Quick action chips should be visible when input is empty
+- assertVisible:
+    id: "coach-quick-actions"
+
+# Tap within the quick actions area (first tappable child)
+- tapOn:
+    id: "coach-quick-actions"
+
+# Brief pause for response cycle
+- extendedWaitUntil:
+    visible:
+      id: "tab-coach"
+    timeout: 3000
+
+# App still alive
+- assertVisible:
+    id: "tab-coach"

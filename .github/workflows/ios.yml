@@ -8,6 +8,7 @@ on:
     paths:
       - 'Meld/**'
       - 'MeldTests/**'
+      - 'MeldSnapshotTests/**'
       - 'MeldNotificationServiceExtension/**'
       - 'project.yml'
       - '.github/workflows/ios.yml'
@@ -17,6 +18,7 @@ on:
     paths:
       - 'Meld/**'
       - 'MeldTests/**'
+      - 'MeldSnapshotTests/**'
       - 'MeldNotificationServiceExtension/**'
       - 'project.yml'
       - '.github/workflows/ios.yml'
@@ -93,6 +95,15 @@ jobs:
             ~/Library/Developer/Xcode/DerivedData/**/Logs/Build/*.xcactivitylog
           if-no-files-found: ignore
 
+      - name: Upload snapshot failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: snapshot-failures
+          path: |
+            **/MeldSnapshotTests/__Snapshots__/**/*.png
+          if-no-files-found: ignore
+
   swiftlint:
     name: SwiftLint
     runs-on: macos-15
@@ -108,5 +119,5 @@ jobs:
         # Don't fail the build on lint warnings — we haven't established a
         # baseline yet. This will become blocking once the codebase is clean.
         run: |
-          swiftlint --reporter github-actions-logging Meld/ MeldTests/ || \
+          swiftlint --reporter github-actions-logging Meld/ MeldTests/ MeldSnapshotTests/ || \
             echo "::warning::SwiftLint found issues"

@@ -1,0 +1,26 @@
+appId: com.heymeld.app
+name: "Meals — Search for a food item"
+---
+- runFlow: ../helpers/auth_bypass.yaml
+
+- tapOn:
+    id: "tab-meals"
+
+# Open the food logging sheet
+- tapOn:
+    id: "meals-fab"
+
+# Type in the search field
+- tapOn:
+    id: "food-search"
+- inputText: "chicken breast"
+
+# Brief pause for search results
+- extendedWaitUntil:
+    visible:
+      id: "food-search"
+    timeout: 4000
+
+# The sheet should still be open (no crash)
+- assertVisible:
+    id: "food-search"

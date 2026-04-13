@@ -1,0 +1,30 @@
+appId: com.heymeld.app
+name: "Profile — Delete account alert cancels correctly"
+---
+- runFlow: ../helpers/auth_bypass.yaml
+
+- tapOn:
+    id: "tab-profile"
+
+# Scroll until delete button is visible.
+# ProfileSettingsView has 160pt bottom padding so the button
+# sits well above the tab bar when scrolled into view.
+- scrollUntilVisible:
+    element:
+      id: "profile-delete-account"
+    direction: DOWN
+    timeout: 15000
+
+# Tap delete account
+- tapOn:
+    id: "profile-delete-account"
+
+# First confirmation alert should appear
+- assertVisible: "Delete your account?"
+
+# Cancel it
+- tapOn: "Cancel"
+
+# Should still be on profile screen
+- assertVisible:
+    id: "tab-profile"

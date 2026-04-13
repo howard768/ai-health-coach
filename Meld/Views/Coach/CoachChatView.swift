@@ -69,6 +69,7 @@ struct CoachChatView: View {
                     viewModel.sendQuickAction(action)
                 }
             }
+            .accessibilityIdentifier("coach-quick-actions")
             .padding(.vertical, DSSpacing.sm)
             .opacity(viewModel.isTyping ? 0 : 1)
             .allowsHitTesting(!viewModel.isTyping)
@@ -106,6 +107,7 @@ struct CoachChatView: View {
                     viewModel.sendMessage()
                 }
                 .accessibilityLabel("Message your coach")
+                .accessibilityIdentifier("coach-input")
                 .accessibilityHint("Type a question about your sleep, recovery, food, or training")
 
             if !viewModel.inputText.isEmpty {
@@ -117,6 +119,7 @@ struct CoachChatView: View {
                 }
                 .transition(.scale.combined(with: .opacity))
                 .accessibilityLabel("Send message")
+                .accessibilityIdentifier("coach-send")
                 .accessibilityHint("Sends your message to the coach")
             }
         }

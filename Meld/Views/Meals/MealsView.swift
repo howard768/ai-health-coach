@@ -231,6 +231,7 @@ struct MealsView: View {
         .padding(.trailing, M)
         .padding(.bottom, 96) // Above tab bar
         .accessibilityLabel("Log a meal")
+        .accessibilityIdentifier("meals-fab")
         .accessibilityHint("Opens the meal logging sheet")
     }
 }

@@ -1,0 +1,29 @@
+appId: com.heymeld.app
+name: "Coach Chat — Send a message"
+---
+- runFlow: ../helpers/auth_bypass.yaml
+
+- tapOn:
+    id: "tab-coach"
+
+# Tap input field and type a message
+- tapOn:
+    id: "coach-input"
+- inputText: "How is my sleep?"
+
+# Send the message
+- tapOn:
+    id: "coach-send"
+
+# Verify user message appears (the text we typed)
+- assertVisible: "How is my sleep?"
+
+# Brief pause for response cycle
+- extendedWaitUntil:
+    visible:
+      id: "tab-coach"
+    timeout: 3000
+
+# App should not crash — tabs still visible
+- assertVisible:
+    id: "tab-coach"

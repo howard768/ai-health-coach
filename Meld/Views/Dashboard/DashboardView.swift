@@ -62,6 +62,7 @@ struct DashboardView: View {
                     .padding(.top, DSSpacing.md)
                     .padding(.bottom, 120) // Room for tab bar
                 }
+                .accessibilityIdentifier("dashboard-scroll")
                 .refreshable {
                     await viewModel.refresh()
                 }

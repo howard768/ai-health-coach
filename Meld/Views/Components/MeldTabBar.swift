@@ -74,6 +74,7 @@ private struct MeldTabItem: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("tab-\(tab.rawValue)")
     }
 
     @ViewBuilder

@@ -12,8 +12,9 @@ import SwiftUI
 // Grid: 20pt margins, 8pt vertical rhythm.
 
 struct ProfileSettingsView: View {
-    @State private var showDeleteConfirmation = false
-    @State private var showDeleteConfirmation2 = false  // Second confirmation step
+    @State private var showDeleteDataConfirmation = false  // Privacy: "Delete My Data"
+    @State private var showDeleteAccountConfirmation = false  // Account deletion step 1
+    @State private var showDeleteAccountConfirmation2 = false  // Account deletion step 2
     @State private var showSignOutConfirmation = false
     @State private var profile: APIUserProfile?
     @State private var isDeletingAccount = false
@@ -30,14 +31,14 @@ struct ProfileSettingsView: View {
                 // Section 1: You
                 youSection
 
-                // Section 1.5: Mascot Wardrobe
-                wardrobeSection
-
                 // Section 2: Data Sources
                 dataSourcesSection
 
                 // Section 3: Coaching
                 coachingSection
+
+                // Section 3.5: Crisis Resources
+                crisisResourcesSection
 
                 // Section 4: Privacy & Data
                 privacySection
@@ -53,7 +54,7 @@ struct ProfileSettingsView: View {
             }
             .padding(.horizontal, M)
             .padding(.top, DSSpacing.md)
-            .padding(.bottom, DSSpacing.huge)
+            .padding(.bottom, 160)  // Extra room so bottom-most button clears tab bar when scrolled
         }
         .background(DSColor.Background.primary)
         .navigationTitle("Profile")
@@ -83,15 +84,15 @@ struct ProfileSettingsView: View {
         } message: {
             Text("Your data stays safe. You can sign back in any time.")
         }
-        .alert("Delete your account?", isPresented: $showDeleteConfirmation) {
+        .alert("Delete your account?", isPresented: $showDeleteAccountConfirmation) {
             Button("Cancel", role: .cancel) {}
             Button("Continue", role: .destructive) {
-                showDeleteConfirmation2 = true
+                showDeleteAccountConfirmation2 = true
             }
         } message: {
             Text("This permanently removes your account and all of your health data. This cannot be undone.")
         }
-        .alert("Are you sure?", isPresented: $showDeleteConfirmation2) {
+        .alert("Are you sure?", isPresented: $showDeleteAccountConfirmation2) {
             Button("Cancel", role: .cancel) {}
             Button("Delete Forever", role: .destructive) {
                 Task {
@@ -159,40 +160,6 @@ struct ProfileSettingsView: View {
             settingsRow(title: "Height", value: profile?.heightString ?? "--")
             DSDivider()
             navigationRow(title: "Goals", subtitle: profile?.goalsString ?? "--")
-        }
-    }
-
-    // MARK: - Section 1.5: Wardrobe
-
-    private var wardrobeSection: some View {
-        settingsCard {
-            NavigationLink {
-                WardrobeView()
-            } label: {
-                HStack(spacing: DSSpacing.lg) {
-                    MeldMascot(state: .idle, size: 24, accessories: MascotWardrobe.shared.equipped)
-                        .frame(width: 36, height: 36)
-                        .background(Color.hex(0xFAF0DA))
-                        .clipShape(RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous))
-
-                    VStack(alignment: .leading, spacing: DSSpacing.xxs) {
-                        Text("Wardrobe")
-                            .font(DSTypography.bodyEmphasis)
-                            .foregroundStyle(DSColor.Text.primary)
-
-                        let count = MascotWardrobe.shared.unlocked.count
-                        Text("\(count) accessori\(count == 1 ? "e" : "es") unlocked")
-                            .font(DSTypography.caption)
-                            .foregroundStyle(DSColor.Text.tertiary)
-                    }
-
-                    Spacer()
-                    DSListChevron()
-                }
-                .padding(.vertical, DSSpacing.md)
-                .padding(.horizontal, DSSpacing.lg)
-            }
-            .buttonStyle(.plain)
         }
     }
 
@@ -328,6 +295,60 @@ struct ProfileSettingsView: View {
         }
     }
 
+    // MARK: - Crisis Resources
+    // Anti-dark-pattern: safety resources at the same depth as features.
+    // Not red/alarming — uses brand purple to normalize help-seeking.
+
+    private var crisisResourcesSection: some View {
+        settingsCard {
+            DSSectionHeader(title: "HELP IN A CRISIS")
+
+            Text("If you or someone you know is struggling, you are not alone.")
+                .font(DSTypography.bodySM)
+                .foregroundStyle(DSColor.Text.secondary)
+                .padding(.horizontal, DSSpacing.lg)
+                .padding(.bottom, DSSpacing.xs)
+
+            Button {
+                guard let url = URL(string: "tel:988") else { return }
+                UIApplication.shared.open(url)
+            } label: {
+                DSListRow(
+                    title: "988 Suicide & Crisis Lifeline",
+                    subtitle: "Call or text 988, available 24/7",
+                    leading: {
+                        Image(systemName: "phone.fill")
+                            .foregroundStyle(DSColor.Purple.purple500)
+                    },
+                    trailing: { DSListChevron() }
+                )
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("crisis-988")
+            .accessibilityHint("Calls the 988 Suicide and Crisis Lifeline")
+
+            DSDivider()
+
+            Button {
+                guard let url = URL(string: "sms:741741&body=HOME") else { return }
+                UIApplication.shared.open(url)
+            } label: {
+                DSListRow(
+                    title: "Crisis Text Line",
+                    subtitle: "Text HOME to 741741",
+                    leading: {
+                        Image(systemName: "message.fill")
+                            .foregroundStyle(DSColor.Purple.purple500)
+                    },
+                    trailing: { DSListChevron() }
+                )
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("crisis-text-line")
+            .accessibilityHint("Opens a text message to the Crisis Text Line")
+        }
+    }
+
     // MARK: - Section 4: Privacy & Data
 
     private var privacySection: some View {
@@ -340,7 +361,7 @@ struct ProfileSettingsView: View {
             DSDivider()
 
             // Delete My Data — destructive, plain language, not buried
-            Button(action: { showDeleteConfirmation = true }) {
+            Button(action: { showDeleteDataConfirmation = true }) {
                 HStack {
                     Text("Delete My Data")
                         .font(DSTypography.body)
@@ -357,7 +378,7 @@ struct ProfileSettingsView: View {
             DSDivider()
             navigationRow(title: "Privacy Policy", subtitle: nil)
         }
-        .alert("Delete all your health data?", isPresented: $showDeleteConfirmation) {
+        .alert("Delete all your health data?", isPresented: $showDeleteDataConfirmation) {
             Button("Cancel", role: .cancel) {}
             Button("Delete Everything", role: .destructive) {
                 // Delete data action
@@ -384,6 +405,7 @@ struct ProfileSettingsView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, DSSpacing.md)
             }
+            .accessibilityIdentifier("profile-sign-out")
             .accessibilityHint("Signs you out of Meld on this device")
         }
     }
@@ -409,7 +431,7 @@ struct ProfileSettingsView: View {
     private var deleteAccountSection: some View {
         VStack(spacing: DSSpacing.sm) {
             Button(action: {
-                showDeleteConfirmation = true
+                showDeleteAccountConfirmation = true
             }) {
                 if isDeletingAccount {
                     ProgressView()
@@ -422,6 +444,7 @@ struct ProfileSettingsView: View {
             }
             .disabled(isDeletingAccount)
             .accessibilityLabel(isDeletingAccount ? "Deleting account" : "Delete account")
+            .accessibilityIdentifier("profile-delete-account")
             .accessibilityHint("Permanently removes your Meld account and all your data")
 
             Text("This permanently removes your account and all data.")

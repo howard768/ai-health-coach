@@ -55,6 +55,17 @@
             parallelizable = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
+               BlueprintIdentifier = "CEE452FDA199B4E760E2B622"
+               BuildableName = "MeldSnapshotTests.xctest"
+               BlueprintName = "MeldSnapshotTests"
+               ReferencedContainer = "container:Meld.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
                BlueprintIdentifier = "AF5FE20FFC42ED85DFA9D7AC"
                BuildableName = "MeldUITests.xctest"
                BlueprintName = "MeldUITests"

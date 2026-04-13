@@ -1,0 +1,27 @@
+appId: com.heymeld.app
+name: "Profile — Sign out alert cancels correctly"
+---
+- runFlow: ../helpers/auth_bypass.yaml
+
+- tapOn:
+    id: "tab-profile"
+
+# Scroll to sign out button
+- scrollUntilVisible:
+    element:
+      id: "profile-sign-out"
+    direction: DOWN
+
+# Tap sign out
+- tapOn:
+    id: "profile-sign-out"
+
+# Alert should appear
+- assertVisible: "Sign out?"
+
+# Cancel the alert
+- tapOn: "Cancel"
+
+# Should still be on profile screen (tabs visible)
+- assertVisible:
+    id: "tab-profile"

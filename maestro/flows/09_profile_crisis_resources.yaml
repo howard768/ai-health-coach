@@ -1,0 +1,19 @@
+appId: com.heymeld.app
+name: "Profile — Crisis resources visible and accessible"
+---
+- runFlow: ../helpers/auth_bypass.yaml
+
+- tapOn:
+    id: "tab-profile"
+
+# Scroll to find crisis section
+- scrollUntilVisible:
+    element:
+      id: "crisis-988"
+    direction: DOWN
+
+# Verify both crisis resources have the right identifiers
+- assertVisible:
+    id: "crisis-988"
+- assertVisible:
+    id: "crisis-text-line"

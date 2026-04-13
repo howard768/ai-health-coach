@@ -59,6 +59,7 @@ struct CoachInsightCard: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("dashboard-coach-cta")
         // MARK: Accessibility
         .accessibilityElement(children: .combine)
         .accessibilityLabel(insightAccessibilityLabel)

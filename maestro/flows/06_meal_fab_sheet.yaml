@@ -1,0 +1,21 @@
+appId: com.heymeld.app
+name: "Meals — FAB opens LogFoodSheet with all input methods"
+---
+- runFlow: ../helpers/auth_bypass.yaml
+
+- tapOn:
+    id: "tab-meals"
+
+# Tap the floating action button
+- tapOn:
+    id: "meals-fab"
+
+# Verify LogFoodSheet opened with search and input method buttons
+- assertVisible:
+    id: "food-search"
+- assertVisible:
+    id: "food-photo"
+- assertVisible:
+    id: "food-barcode"
+- assertVisible:
+    id: "food-voice"

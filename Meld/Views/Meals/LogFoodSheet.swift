@@ -29,6 +29,7 @@ struct LogFoodSheet: View {
                             viewModel.searchFood(newValue)
                         }
                         .accessibilityLabel("Search food")
+                        .accessibilityIdentifier("food-search")
                         .accessibilityHint("Type the name of a food to search the database")
 
                     if !viewModel.searchText.isEmpty {
@@ -162,6 +163,7 @@ struct LogFoodSheet: View {
                         } label: {
                             quickLogButton(icon: "camera.fill", title: "Photo")
                         }
+                        .accessibilityIdentifier("food-photo")
 
                         Button {
                             viewModel.showInputSheet = false
@@ -171,6 +173,7 @@ struct LogFoodSheet: View {
                         } label: {
                             quickLogButton(icon: "barcode.viewfinder", title: "Barcode")
                         }
+                        .accessibilityIdentifier("food-barcode")
 
                         Button {
                             viewModel.showInputSheet = false
@@ -180,6 +183,7 @@ struct LogFoodSheet: View {
                         } label: {
                             quickLogButton(icon: "mic.fill", title: "Voice")
                         }
+                        .accessibilityIdentifier("food-voice")
                     }
                     .frame(maxWidth: .infinity)
                 }

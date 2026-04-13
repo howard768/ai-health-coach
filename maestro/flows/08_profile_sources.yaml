@@ -1,0 +1,12 @@
+appId: com.heymeld.app
+name: "Profile — Data sources section visible"
+---
+- runFlow: ../helpers/auth_bypass.yaml
+
+- tapOn:
+    id: "tab-profile"
+
+# Data sources section should list providers
+- assertVisible: "DATA SOURCES"
+- assertVisible: "Oura"
+- assertVisible: "Apple Health"

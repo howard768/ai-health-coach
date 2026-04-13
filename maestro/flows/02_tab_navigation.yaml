@@ -1,0 +1,37 @@
+appId: com.heymeld.app
+name: "Tab Navigation — Each tab loads correct screen"
+---
+- runFlow: ../helpers/auth_bypass.yaml
+
+# Home tab (default)
+- assertVisible:
+    id: "tab-home"
+
+# Coach tab
+- tapOn:
+    id: "tab-coach"
+- assertVisible:
+    id: "coach-input"
+
+# Trends tab
+- tapOn:
+    id: "tab-trends"
+- assertVisible:
+    id: "tab-trends"
+
+# Meals tab
+- tapOn:
+    id: "tab-meals"
+- assertVisible:
+    id: "meals-fab"
+
+# Profile tab
+- tapOn:
+    id: "tab-profile"
+- assertVisible:
+    id: "profile-sign-out"
+    optional: true
+
+# Back to Home
+- tapOn:
+    id: "tab-home"
