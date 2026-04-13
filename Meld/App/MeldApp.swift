@@ -66,8 +66,12 @@ struct MeldApp: App {
                     do {
                         let pair = try await APIClient.shared.devLogin()
                         print("[MELD-DEBUG] .task: dev-login success, token=\(pair.accessToken.prefix(20))...")
-                        try await KeychainStore.shared.saveAccessToken(pair.accessToken)
-                        try await KeychainStore.shared.saveRefreshToken(pair.refreshToken)
+                        // Store in-memory for unsigned builds (Keychain may not work
+                        // without code signing entitlements).
+                        await APIClient.shared.setTestToken(pair.accessToken)
+                        // Also try Keychain as fallback for signed debug builds.
+                        try? await KeychainStore.shared.saveAccessToken(pair.accessToken)
+                        try? await KeychainStore.shared.saveRefreshToken(pair.refreshToken)
                     } catch {
                         print("[MELD-DEBUG] .task: dev-login FAILED: \(error)")
                     }

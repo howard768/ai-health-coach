@@ -11,13 +11,26 @@ actor APIClient {
     private let decoder: JSONDecoder
     private let session: URLSession
 
+    #if DEBUG
+    /// In-memory token for test builds where Keychain is unavailable
+    /// (e.g., unsigned simulator builds with CODE_SIGNING_ALLOWED=NO).
+    private var testAccessToken: String?
+
+    func setTestToken(_ token: String) {
+        testAccessToken = token
+    }
+    #endif
+
     private init() {
         // URL resolution priority:
         // 1. Simulator: always localhost (same machine as backend)
         // 2. Device: API_BASE_URL from Info.plist (injected per Debug/Release config)
         // 3. Last-resort fallback: Railway production URL
         #if targetEnvironment(simulator)
-        self.baseURL = URL(string: "http://localhost:8000/api")!
+        // Use 127.0.0.1 instead of localhost — the simulator resolves
+        // localhost to ::1 (IPv6) first, which fails when the backend
+        // only listens on 0.0.0.0 (IPv4).
+        self.baseURL = URL(string: "http://127.0.0.1:8000/api")!
         #else
         let plistURL = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String
         let resolvedURL: String = {
@@ -59,6 +72,13 @@ actor APIClient {
     // On second 401, we throw .unauthorized and AuthManager wipes the session.
 
     private func attachAuth(_ request: inout URLRequest) async {
+        #if DEBUG
+        // Prefer in-memory test token (unsigned builds can't access Keychain)
+        if let token = testAccessToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            return
+        }
+        #endif
         // Read token from Keychain directly (AuthManager's validAccessToken also reads it).
         // We don't refresh preemptively — only on 401.
         if let token = try? await KeychainStore.shared.readAccessToken() {

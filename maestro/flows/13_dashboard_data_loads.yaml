@@ -6,15 +6,14 @@ name: "Dashboard — Real metric values load (not '--' or '0')"
 - tapOn:
     id: "tab-home"
 
-# Wait for dashboard data to load
+# Wait for dashboard data to load (metric labels are uppercase)
 - extendedWaitUntil:
-    visible: "Sleep"
+    visible: "SLEEP EFFICIENCY"
     timeout: 10000
 
-# Verify at least one metric card is visible with a real value
-# The dashboard should show metric names (these come from the API)
-- assertVisible: "Sleep"
-- assertVisible: "HRV"
+# Verify metric cards are visible with real values
+- assertVisible: "SLEEP EFFICIENCY"
+- assertVisible: "HRV STATUS"
 
 # Screenshot for visual verification
 - takeScreenshot: dashboard_data_loaded
