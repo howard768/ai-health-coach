@@ -19,7 +19,7 @@ on:
 
 jobs:
   pytest:
-    name: pytest (37 tests)
+    name: pytest (70 tests)
     runs-on: ubuntu-latest
     timeout-minutes: 10
 

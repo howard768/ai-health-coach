@@ -23,6 +23,7 @@ from app.services.notification_content import content_generator
 from app.services.anti_fatigue import can_send
 from app.services.notification_templates import seed_templates, pick_template
 from app.services.coach_engine import SafetyCheck
+from app.services.health_data import get_latest_health_data
 from app.services.oura_sync import sync_user_data as oura_sync
 from app.services.peloton_sync import sync_user_data as peloton_sync
 from app.services.garmin_sync import sync_user_data as garmin_sync
@@ -101,23 +102,13 @@ async def _get_active_tokens(db, user_id: str) -> list:
 
 
 async def _get_latest_health_data(db, user_id: str) -> dict:
-    """Get latest health data from SleepRecord for a specific user."""
-    result = await db.execute(
-        select(SleepRecord)
-        .where(SleepRecord.user_id == user_id)
-        .order_by(desc(SleepRecord.date))
-        .limit(1)
-    )
-    sr = result.scalar_one_or_none()
-    if not sr:
-        return {}
-    return {
-        "sleep_efficiency": sr.efficiency,
-        "hrv_average": sr.hrv_average,
-        "resting_hr": sr.resting_hr,
-        "readiness_score": sr.readiness_score,
-        "total_sleep_hours": (sr.total_sleep_seconds or 0) / 3600,
-    }
+    """Get latest reconciled health data for scheduler jobs.
+
+    Delegates to the canonical health_data.get_latest_health_data() so that
+    scheduler notifications use the same multi-source reconciled data as the
+    coach and dashboard — not stale SleepRecord-only data.
+    """
+    return await get_latest_health_data(db, user_id)
 
 
 async def _send_notification(db, user_id: str, tokens: list, content: dict):

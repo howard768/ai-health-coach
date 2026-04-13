@@ -45,23 +45,45 @@ async def get_latest_health_data(db: AsyncSession, user_id: str) -> dict:
     # Start from yesterday (sleep + recovery baseline) and overlay today
     # (steps, active calories, anything that accumulates during the day).
     reconciled: dict = {}
+    # Merge sources from both days — yesterday's sources are the fallback
+    # for any metric that carries forward (e.g. steps when today has none).
+    merged_sources: dict = {}
     if yesterday_metrics:
         reconciled.update(yesterday_metrics)
+        merged_sources.update(yesterday_metrics.get("_sources", {}))
     if today_metrics:
         reconciled.update(today_metrics)
+        merged_sources.update(today_metrics.get("_sources", {}))
         # If today is overwriting yesterday's sleep metrics with stale/missing
         # values, restore yesterday's sleep fields.
         for key in SLEEP_METRIC_KEYS:
             if key not in today_metrics and key in yesterday_metrics:
                 reconciled[key] = yesterday_metrics[key]
+                # Also restore the source attribution for carried-forward metrics
+                yesterday_sources = yesterday_metrics.get("_sources", {})
+                if key in yesterday_sources:
+                    merged_sources[key] = yesterday_sources[key]
 
     if reconciled:
         # Get 7-day baselines from reconciled data
         baselines = await _get_reconciled_baselines(db, user_id, days=7)
+
+        # Deep sleep isn't in HealthMetricRecord yet — pull from SleepRecord
+        deep_sleep_min = 0
+        sr = await db.execute(
+            select(SleepRecord)
+            .where(SleepRecord.user_id == user_id)
+            .order_by(desc(SleepRecord.date))
+            .limit(1)
+        )
+        latest_sleep = sr.scalar_one_or_none()
+        if latest_sleep and latest_sleep.deep_sleep_seconds:
+            deep_sleep_min = round(latest_sleep.deep_sleep_seconds / 60)
+
         return {
             "sleep_efficiency": reconciled.get("sleep_efficiency", 0),
             "sleep_duration_hours": reconciled.get("sleep_duration", 0),
-            "deep_sleep_minutes": 0,  # Not in HealthMetricRecord yet
+            "deep_sleep_minutes": deep_sleep_min,
             "hrv_average": reconciled.get("hrv", 0),
             "baseline_hrv": baselines.get("hrv", 0),
             "resting_hr": reconciled.get("resting_hr", 0),
@@ -69,7 +91,7 @@ async def get_latest_health_data(db: AsyncSession, user_id: str) -> dict:
             "readiness_score": reconciled.get("readiness", 0),
             "steps": reconciled.get("steps", 0),
             "active_calories": reconciled.get("active_calories", 0),
-            "data_sources": reconciled.get("_sources", {}),
+            "data_sources": merged_sources,
         }
 
     # Fallback: read directly from SleepRecord (Oura-only, pre-reconciliation)
@@ -87,7 +109,7 @@ async def get_health_data_for_date(db: AsyncSession, user_id: str, target_date: 
 
 async def get_health_data_range(db: AsyncSession, user_id: str, days: int = 7) -> list[dict]:
     """Get reconciled health data for a date range (for trends)."""
-    start = (date.today() - timedelta(days=days)).isoformat()
+    start = (date.today() - timedelta(days=days - 1)).isoformat()
     results = []
 
     result = await db.execute(
@@ -139,7 +161,7 @@ async def _get_reconciled_metrics(db: AsyncSession, user_id: str, target_date: s
 
 async def _get_reconciled_baselines(db: AsyncSession, user_id: str, days: int = 7) -> dict:
     """Compute 7-day rolling averages from canonical metrics."""
-    start = (date.today() - timedelta(days=days)).isoformat()
+    start = (date.today() - timedelta(days=days - 1)).isoformat()
 
     result = await db.execute(
         select(HealthMetricRecord).where(

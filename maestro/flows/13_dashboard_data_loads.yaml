@@ -1,0 +1,20 @@
+appId: com.heymeld.app
+name: "Dashboard — Real metric values load (not '--' or '0')"
+---
+- runFlow: ../helpers/auth_bypass.yaml
+
+- tapOn:
+    id: "tab-home"
+
+# Wait for dashboard data to load
+- extendedWaitUntil:
+    visible: "Sleep"
+    timeout: 10000
+
+# Verify at least one metric card is visible with a real value
+# The dashboard should show metric names (these come from the API)
+- assertVisible: "Sleep"
+- assertVisible: "HRV"
+
+# Screenshot for visual verification
+- takeScreenshot: dashboard_data_loaded

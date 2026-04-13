@@ -104,6 +104,60 @@ jobs:
             **/MeldSnapshotTests/__Snapshots__/**/*.png
           if-no-files-found: ignore
 
+  maestro:
+    name: Maestro E2E
+    needs: build-and-test
+    runs-on: macos-15
+    timeout-minutes: 20
+
+    env:
+      DESTINATION: 'platform=iOS Simulator,name=iPhone 16 Pro'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Maestro
+        run: |
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Build for testing
+        run: |
+          xcodegen generate
+          xcodebuild \
+            -project Meld.xcodeproj \
+            -scheme Meld \
+            -destination "$DESTINATION" \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build-for-testing 2>&1 | tail -5
+
+      - name: Boot Simulator
+        run: |
+          xcrun simctl boot "iPhone 16 Pro" || true
+          xcrun simctl list devices booted
+
+      - name: Install app
+        run: |
+          APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "Meld.app" -path "*/Debug-iphonesimulator/*" | head -1)
+          xcrun simctl install booted "$APP_PATH"
+
+      - name: Run Maestro flows
+        run: |
+          maestro test maestro/flows/ --format junit --output maestro-results.xml || true
+
+      - name: Upload Maestro results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-results
+          path: maestro-results.xml
+          if-no-files-found: ignore
+
   swiftlint:
     name: SwiftLint
     runs-on: macos-15

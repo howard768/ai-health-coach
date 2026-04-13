@@ -20,7 +20,7 @@ settings:
     Debug:
       # Debug builds on a physical device talk to the Mac's LAN IP.
       # Override per developer by setting API_BASE_URL in the scheme env.
-      API_BASE_URL: "http:/$()/192.168.86.30:8000/api"
+      API_BASE_URL: "http:/$()/192.168.86.33:8000/api"
     Release:
       # TestFlight + App Store builds hit Railway.
       API_BASE_URL: "https:/$()/zippy-forgiveness-production-0704.up.railway.app/api"

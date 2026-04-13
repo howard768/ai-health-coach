@@ -106,6 +106,66 @@ jobs:
             evals/results.json
             evals/eval-output.txt
 
+  data-fidelity:
+    name: Data Fidelity (13 golden tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Promptfoo
+        run: npm install -g promptfoo
+
+      - name: Run data fidelity evals
+        working-directory: evals
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          npx promptfoo eval -c golden_data_fidelity.yaml --no-cache -o fidelity-results.json 2>&1 | tee fidelity-output.txt
+
+      - name: Data fidelity gate
+        working-directory: evals
+        run: |
+          python3 -c "
+          import json, sys
+
+          with open('fidelity-results.json') as f:
+              data = json.load(f)
+
+          results = data.get('results', {})
+          stats = results.get('stats', {})
+          successes = stats.get('successes', 0)
+          failures = stats.get('failures', 0)
+          total = successes + failures
+          pass_rate = (successes / total * 100) if total > 0 else 0
+
+          print(f'Data Fidelity: {successes}/{total} passed ({pass_rate:.1f}%)')
+
+          # All data fidelity tests must pass — these are the most critical
+          if failures > 0:
+              print(f'DATA FIDELITY GATE FAILED: {failures} test(s) failed')
+              for r in results.get('results', []):
+                  if not r.get('success', True):
+                      print(f'  - {r.get(\"description\", \"unknown\")}')
+              sys.exit(1)
+
+          print('All data fidelity tests passed.')
+          "
+
+      - name: Upload fidelity results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fidelity-results
+          path: |
+            evals/fidelity-results.json
+            evals/fidelity-output.txt
+
   python-quality:
     name: Quality checks (reading level, faithfulness, uniqueness)
     runs-on: ubuntu-latest
@@ -140,7 +200,7 @@ jobs:
 
   pr-comment:
     name: PR Summary
-    needs: [promptfoo, python-quality]
+    needs: [promptfoo, data-fidelity, python-quality]
     if: github.event_name == 'pull_request' && always()
     runs-on: ubuntu-latest
     steps:

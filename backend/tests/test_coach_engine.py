@@ -227,6 +227,61 @@ def test_deliberator_causing_matches_cross_domain():
     assert decision.tier == ModelTier.OPUS
 
 
+# ── Zero-value safety gate hardening ────────────────────────────────────────
+
+
+@pytest.mark.parametrize("hrv_value", [0, 0.0])
+def test_safety_check_fires_at_zero_hrv(hrv_value):
+    """HRV=0 (sensor error or critical) must still trigger the safety gate.
+    Regression test: falsy check `if hrv and hrv < 20` silently skipped at 0."""
+    data = {"hrv_average": hrv_value}
+    check = SafetyCheck.check_health_data(data)
+    assert check.is_concerning
+    assert any("HRV" in r for r in check.reasons)
+
+
+def test_safety_check_fires_at_zero_readiness():
+    """Readiness=0 must trigger the safety gate."""
+    data = {"readiness_score": 0}
+    check = SafetyCheck.check_health_data(data)
+    assert check.is_concerning
+    assert any("Readiness" in r for r in check.reasons)
+
+
+def test_safety_check_fires_at_zero_sleep_efficiency():
+    """Sleep efficiency=0 must trigger the safety gate."""
+    data = {"sleep_efficiency": 0}
+    check = SafetyCheck.check_health_data(data)
+    assert check.is_concerning
+    assert any("Sleep efficiency" in r for r in check.reasons)
+
+
+def test_safety_check_rhr_zero_not_concerning():
+    """RHR=0 should NOT trigger tachycardia flag (0 is not > 100)."""
+    data = {"resting_hr": 0}
+    check = SafetyCheck.check_health_data(data)
+    assert not any("Resting HR" in r for r in check.reasons)
+
+
+def test_safety_check_baseline_deviation_zero_baseline():
+    """Zero baseline HRV should not cause division-by-zero crash."""
+    data = {"hrv_average": 30, "baseline_hrv": 0}
+    check = SafetyCheck.check_health_data(data)
+    # Should not crash; 0 baseline means no meaningful comparison
+    assert isinstance(check.is_concerning, bool)
+
+
+def test_deliberator_hrv_rules_with_zero_values():
+    """HRV=0 with baseline should still evaluate rule path without crash."""
+    can, answer = Deliberator.can_answer_from_rules(
+        "how is my HRV?",
+        {"hrv_average": 0, "baseline_hrv": 50},
+    )
+    # Should return a rule answer (HRV below baseline)
+    assert can
+    assert answer is not None
+
+
 def test_deliberator_inflections_all_match():
     """All inflections of cross-domain keywords route to Opus."""
     safety = SafetyCheck(False, [], False, False)

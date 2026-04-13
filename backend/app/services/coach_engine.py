@@ -74,31 +74,31 @@ class SafetyCheck:
 
         # HRV critically low (< 20ms suggests autonomic dysfunction)
         hrv = data.get("hrv_average")
-        if hrv and hrv < 20:
+        if hrv is not None and hrv < 20:
             reasons.append(f"HRV critically low ({hrv}ms)")
             concerning = True
 
         # Resting HR elevated (> 100 bpm at rest is tachycardia)
         rhr = data.get("resting_hr")
-        if rhr and rhr > 100:
+        if rhr is not None and rhr > 100:
             reasons.append(f"Resting HR elevated ({rhr} bpm)")
             concerning = True
 
         # Sleep efficiency critically low (< 50%)
         efficiency = data.get("sleep_efficiency")
-        if efficiency and efficiency < 50:
+        if efficiency is not None and efficiency < 50:
             reasons.append(f"Sleep efficiency very low ({efficiency}%)")
             concerning = True
 
         # Readiness critically low
         readiness = data.get("readiness_score")
-        if readiness and readiness < 20:
+        if readiness is not None and readiness < 20:
             reasons.append(f"Readiness critically low ({readiness})")
             concerning = True
 
         # Sudden large changes (> 30% deviation from baseline)
         baseline_hrv = data.get("baseline_hrv")
-        if hrv and baseline_hrv and abs(hrv - baseline_hrv) / baseline_hrv > 0.3:
+        if hrv is not None and baseline_hrv is not None and baseline_hrv > 0 and abs(hrv - baseline_hrv) / baseline_hrv > 0.3:
             reasons.append(f"HRV deviated {abs(hrv - baseline_hrv):.0f}ms from baseline")
             concerning = True
 
@@ -107,6 +107,42 @@ class SafetyCheck:
             reasons=reasons,
             requires_disclaimer=concerning,
             requires_opus=concerning,
+        )
+
+    @staticmethod
+    def check_message_content(text: str) -> "SafetyCheck":
+        """Detect potential crisis language in user messages.
+
+        Runs BEFORE AI processing. If crisis language is found, forces
+        Opus routing for deeper, more careful reasoning.
+        """
+        crisis_phrases = [
+            "want to die", "want to end it", "kill myself", "end my life",
+            "no reason to live", "better off without me",
+            "can't go on", "cant go on",
+            "hurt myself", "self-harm", "self harm", "suicide", "suicidal",
+            "don't want to be here", "dont want to be here",
+            "not worth living",
+            "no point in living", "want it to be over",
+            "feeling like a burden", "everyone would be better off",
+            "don't want to live", "dont want to live",
+            "can't take it anymore", "cant take it anymore",
+            "i don't want to be alive", "i dont want to be alive",
+        ]
+        text_lower = text.lower()
+        reasons = []
+        for phrase in crisis_phrases:
+            if phrase in text_lower:
+                reasons.append(f"Crisis language detected: '{phrase}'")
+
+        is_crisis = len(reasons) > 0
+        return SafetyCheck(
+            is_concerning=is_crisis,
+            reasons=reasons,
+            # Don't add health-metric disclaimer for emotional crisis —
+            # the prompt's Rule 8 handles the response tone.
+            requires_disclaimer=False,
+            requires_opus=is_crisis,
         )
 
 
@@ -236,7 +272,7 @@ class Deliberator:
         # HRV queries with clear baseline comparison
         hrv = health_data.get("hrv_average")
         baseline_hrv = health_data.get("baseline_hrv")
-        if hrv and baseline_hrv and any(w in query_lower for w in ["hrv", "heart rate variability"]):
+        if hrv is not None and baseline_hrv is not None and any(w in query_lower for w in ["hrv", "heart rate variability"]):
             if hrv > baseline_hrv * 1.05:
                 return True, Deliberator.RULES["hrv_above_baseline"]
             elif hrv < baseline_hrv * 0.95:
@@ -330,7 +366,7 @@ CRITICAL RULES:
 
 7. Do NOT use markdown formatting (no **, no ##, no bullet points with *). Write in plain text with line breaks. The chat UI does not render markdown.
 
-8. When users express emotional distress (anxiety, hopelessness, not wanting to get out of bed), ALWAYS validate their feelings FIRST, then offer 1-2 immediate calming techniques (deep breathing, grounding exercise), then discuss data. If language suggests a mental health crisis, provide the 988 Suicide & Crisis Lifeline and urge them to reach out to a mental health professional. Do NOT just give health tips.
+8. When users express emotional distress (anxiety, hopelessness, not wanting to get out of bed), ALWAYS validate their feelings FIRST, then offer 1-2 immediate calming techniques (deep breathing, grounding exercise), then discuss data. If language suggests a mental health crisis (self-harm, suicidal thoughts, wanting to die, feeling like a burden, no reason to live), IMMEDIATELY provide crisis resources: 988 Suicide & Crisis Lifeline (call or text 988) and Crisis Text Line (text HOME to 741741). Urge them to reach out to a mental health professional. Do NOT just give health tips.
 
 9. For requests outside your scope (detailed meal plans, specific exercise programs, financial advice), acknowledge the limit and recommend the appropriate professional (dietitian, trainer, financial advisor).
 
@@ -385,7 +421,16 @@ class CoachEngine:
         """
 
         # Step 1: Safety check (ILION: deterministic pre-execution gates)
-        safety = SafetyCheck.check_health_data(health_data)
+        health_safety = SafetyCheck.check_health_data(health_data)
+        message_safety = SafetyCheck.check_message_content(query)
+
+        # Merge: either concerning health data OR crisis language → flag
+        safety = SafetyCheck(
+            is_concerning=health_safety.is_concerning or message_safety.is_concerning,
+            reasons=health_safety.reasons + message_safety.reasons,
+            requires_disclaimer=health_safety.requires_disclaimer,
+            requires_opus=health_safety.requires_opus or message_safety.requires_opus,
+        )
         logger.info(f"Safety check: concerning={safety.is_concerning}, reasons={safety.reasons}")
 
         # Step 2: Deliberation-first routing (DOVA: decide before computing)
@@ -453,8 +498,23 @@ class CoachEngine:
             # Covers anthropic.APIConnectionError, APITimeoutError, APIStatusError,
             # RateLimitError, AuthenticationError, and BadRequestError.
             logger.error("Claude API call failed: %s", e)
+
+            # P1 safety: if the user sent crisis language but the API is down,
+            # we MUST still surface crisis resources — not a generic retry message.
+            if message_safety.is_concerning:
+                fallback_text = (
+                    "I'm having trouble connecting right now, but I want to make sure you're safe.\n\n"
+                    "If you're in crisis, please reach out:\n"
+                    "988 Suicide & Crisis Lifeline — call or text 988\n"
+                    "Crisis Text Line — text HOME to 741741\n"
+                    "If you're in immediate danger, call 911.\n\n"
+                    "You're not alone. Please talk to someone."
+                )
+            else:
+                fallback_text = "I'm having trouble connecting right now. Please try again in a moment."
+
             return {
-                "response": "I'm having trouble connecting right now. Please try again in a moment.",
+                "response": fallback_text,
                 "routing": routing.to_dict(),
                 # Preserve the real safety check — data can still be concerning
                 # even when the Claude call fails. Monitoring depends on this.

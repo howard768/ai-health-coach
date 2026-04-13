@@ -49,11 +49,8 @@ struct TrendsView: View {
                         TrendCard(metric: metric, range: selectedRange, apiData: trendsData)
                     }
 
-                    // Cross-domain trend insight
-                    crossDomainTrendInsight
-
-                    // Nutrition trend (if meals logged)
-                    nutritionTrendCard
+                    // Cross-domain and nutrition — only shown when backed by real data
+                    // (pattern detection and nutrition APIs not yet wired)
                 }
             }
             .padding(.horizontal, M)
@@ -183,89 +180,33 @@ struct TrendsView: View {
     }
 
     private var summaryText: String {
-        switch selectedRange {
-        case .week:
-            "Your sleep and HRV are both trending up. Resting heart rate is stable. You trained 5 of 7 days. Strong week."
-        case .month:
-            "Your sleep got better over the last 30 days. HRV is up 8% from where you started. Your body is adapting to your training."
-        case .quarter:
-            "Big picture: your fitness is improving. Resting HR dropped 4 bpm, HRV is up 15%, and you've been consistent 80% of the time."
+        guard let data = trendsData, !data.metrics.isEmpty else {
+            return "Keep tracking — more data means better insights."
         }
+        var parts: [String] = []
+
+        if let sleep = data.metrics["sleep_efficiency"], sleep.values.count >= 2 {
+            let diff = (sleep.values.last ?? 0) - (sleep.values.first ?? 0)
+            if diff > 2 { parts.append("Your sleep efficiency is trending up") }
+            else if diff < -2 { parts.append("Your sleep efficiency dipped a bit") }
+            else { parts.append("Your sleep efficiency is holding steady") }
+        }
+        if let hrv = data.metrics["hrv"], hrv.values.count >= 2 {
+            let diff = (hrv.values.last ?? 0) - (hrv.values.first ?? 0)
+            if diff > 2 { parts.append("HRV is improving") }
+            else if diff < -2 { parts.append("HRV dropped a bit") }
+            else { parts.append("HRV is stable") }
+        }
+        if let rhr = data.metrics["resting_hr"], rhr.values.count >= 2 {
+            let diff = (rhr.values.last ?? 0) - (rhr.values.first ?? 0)
+            if diff < -1 { parts.append("Resting heart rate is dropping — good sign") }
+            else if diff > 1 { parts.append("Resting heart rate is up a bit") }
+            else { parts.append("Resting heart rate is stable") }
+        }
+        if parts.isEmpty { return "Keep tracking — more data means better insights." }
+        return parts.joined(separator: ". ") + "."
     }
 
-    // MARK: - Cross-Domain Trend
-
-    private var crossDomainTrendInsight: some View {
-        DSCard(style: .data) {
-            VStack(alignment: .leading, spacing: DSSpacing.md) {
-                Text("Pattern Found")
-                    .font(DSTypography.h3)
-                    .foregroundStyle(DSColor.Text.primary)
-
-                Text("Your HRV tends to be higher on days after you eat dinner before 7pm. This pattern showed up 5 out of the last 7 times.")
-                    .font(DSTypography.body)
-                    .foregroundStyle(DSColor.Text.secondary)
-                    .lineSpacing(4)
-
-                DSChip(title: "Ask coach about this") {
-                    NotificationCenter.default.post(name: .init("MeldSwitchTab"), object: nil, userInfo: ["tab": "coach"])
-                    DSHaptic.light()
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-
-    // MARK: - Nutrition Trend
-
-    private var nutritionTrendCard: some View {
-        DSCard(style: .metric) {
-            VStack(alignment: .leading, spacing: DSSpacing.md) {
-                Text("NUTRITION")
-                    .dsLabel()
-                    .foregroundStyle(DSColor.Text.tertiary)
-
-                HStack(spacing: DSSpacing.xxl) {
-                    VStack(alignment: .leading, spacing: DSSpacing.xxs) {
-                        Text("Avg Protein")
-                            .font(DSTypography.caption)
-                            .foregroundStyle(DSColor.Text.tertiary)
-                        Text("138g")
-                            .font(DSTypography.h3)
-                            .foregroundStyle(DSColor.Text.primary)
-                        Text("Target: 150g")
-                            .font(DSTypography.caption)
-                            .foregroundStyle(DSColor.Status.warning)
-                    }
-
-                    VStack(alignment: .leading, spacing: DSSpacing.xxs) {
-                        Text("Avg Calories")
-                            .font(DSTypography.caption)
-                            .foregroundStyle(DSColor.Text.tertiary)
-                        Text("2,050")
-                            .font(DSTypography.h3)
-                            .foregroundStyle(DSColor.Text.primary)
-                        Text("Target: 2,200")
-                            .font(DSTypography.caption)
-                            .foregroundStyle(DSColor.Accessible.greenText)
-                    }
-
-                    VStack(alignment: .leading, spacing: DSSpacing.xxs) {
-                        Text("Logged")
-                            .font(DSTypography.caption)
-                            .foregroundStyle(DSColor.Text.tertiary)
-                        Text("12/14")
-                            .font(DSTypography.h3)
-                            .foregroundStyle(DSColor.Text.primary)
-                        Text("days")
-                            .font(DSTypography.caption)
-                            .foregroundStyle(DSColor.Text.tertiary)
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
 }
 
 // MARK: - Time Range
@@ -350,13 +291,22 @@ private struct TrendCard: View {
 
     // MARK: - Per-Metric Data
 
-    private var currentValue: String {
+    private var apiKey: String {
         switch metric {
-        case .sleepEfficiency: "91"
-        case .hrv: "68"
-        case .restingHR: "58"
-        case .consistency: "5/7"
+        case .sleepEfficiency: "sleep_efficiency"
+        case .hrv: "hrv"
+        case .restingHR: "resting_hr"
+        case .consistency: "readiness"
         }
+    }
+
+    private var metricData: APIMetricTrend? {
+        apiData?.metrics[apiKey]
+    }
+
+    private var currentValue: String {
+        guard let data = metricData, let latest = data.values.last else { return "--" }
+        return "\(Int(latest))"
     }
 
     private var currentUnit: String {
@@ -364,71 +314,57 @@ private struct TrendCard: View {
         case .sleepEfficiency: "%"
         case .hrv: "ms"
         case .restingHR: "bpm"
-        case .consistency: "days"
+        case .consistency: "score"
         }
     }
 
     private var trendData: [Double] {
-        // Use real API data if available, fall back to hardcoded
-        let apiKey: String
-        switch metric {
-        case .sleepEfficiency: apiKey = "sleep_efficiency"
-        case .hrv: apiKey = "hrv"
-        case .restingHR: apiKey = "resting_hr"
-        case .consistency: apiKey = "readiness"
-        }
-        if let values = apiData?.metrics[apiKey]?.values, !values.isEmpty {
-            return values
-        }
-        // Fallback (only used if API hasn't loaded yet)
-        switch metric {
-        case .sleepEfficiency: return [82, 85, 88, 84, 91, 87, 91]
-        case .hrv: return [52, 55, 58, 62, 58, 64, 68]
-        case .restingHR: return [64, 62, 63, 60, 61, 59, 58]
-        case .consistency: return [3, 4, 5, 4, 5, 5, 5]
-        }
+        if let values = metricData?.values, !values.isEmpty { return values }
+        return []
     }
 
     private var baselineValue: Double {
-        let apiKey: String
-        switch metric {
-        case .sleepEfficiency: apiKey = "sleep_efficiency"
-        case .hrv: apiKey = "hrv"
-        case .restingHR: apiKey = "resting_hr"
-        case .consistency: apiKey = "readiness"
-        }
-        if let baseline = apiData?.metrics[apiKey]?.baseline, baseline > 0 {
-            return baseline
-        }
-        switch metric {
-        case .sleepEfficiency: return 85
-        case .hrv: return 58
-        case .restingHR: return 62
-        case .consistency: return 4
-        }
+        if let baseline = metricData?.baseline, baseline > 0 { return baseline }
+        return 0
+    }
+
+    private var trendDirection: Double {
+        guard let data = metricData, data.values.count >= 2,
+              let first = data.values.first, let last = data.values.last else { return 0 }
+        return last - first
     }
 
     private var trendIcon: String {
-        switch metric {
-        case .sleepEfficiency, .hrv, .consistency: "arrow.up.right"
-        case .restingHR: "arrow.down.right" // Lower is better
-        }
+        let diff = trendDirection
+        if abs(diff) < 1 { return "minus" }
+        if metric == .restingHR { return diff < 0 ? "arrow.down.right" : "arrow.up.right" }
+        return diff > 0 ? "arrow.up.right" : "arrow.down.right"
     }
 
     private var trendColor: Color {
-        switch metric {
-        case .sleepEfficiency, .hrv, .consistency: DSColor.Status.success
-        case .restingHR: DSColor.Status.success // Down is good for HR
+        let diff = trendDirection
+        if abs(diff) < 1 { return DSColor.Text.secondary }
+        if metric == .restingHR {
+            return diff < 0 ? DSColor.Status.success : DSColor.Status.warning
         }
+        return diff > 0 ? DSColor.Status.success : DSColor.Status.warning
     }
 
     private var trendText: String {
-        switch metric {
-        case .sleepEfficiency: "+6% this \(range.label.lowercased())"
-        case .hrv: "+17% this \(range.label.lowercased())"
-        case .restingHR: "-4 bpm this \(range.label.lowercased())"
-        case .consistency: "On track"
+        guard let data = metricData, data.values.count >= 2,
+              let first = data.values.first, let last = data.values.last else {
+            return "No trend yet"
         }
+        let diff = last - first
+        if metric == .restingHR {
+            if abs(diff) < 1 { return "Stable this \(range.label.lowercased())" }
+            let sign = diff < 0 ? "" : "+"
+            return "\(sign)\(Int(diff)) bpm this \(range.label.lowercased())"
+        }
+        let pctChange = first > 0 ? Int(abs(diff) / first * 100) : 0
+        if pctChange < 1 { return "Stable this \(range.label.lowercased())" }
+        let sign = diff > 0 ? "+" : "-"
+        return "\(sign)\(pctChange)% this \(range.label.lowercased())"
     }
 
     private var chartFillColor: Color {
@@ -459,11 +395,22 @@ private struct TrendCard: View {
     }
 
     private var contextText: String {
+        guard let data = metricData else { return "Dashed line = your average" }
+        let avg = Int(data.personal_average)
+        let best = Int(data.personal_max)
         switch metric {
-        case .sleepEfficiency: "Avg: 85% · Best: 91% · Dashed line = your average"
-        case .hrv: "Avg: 58ms · Today: 68ms · Trending up"
-        case .restingHR: "Avg: 62 bpm · Today: 58 bpm · Getting lower (good)"
-        case .consistency: "4.4 avg days/week · Target: 5 days"
+        case .sleepEfficiency:
+            return "Avg: \(avg)% · Best: \(best)% · Dashed line = your average"
+        case .hrv:
+            guard let latest = data.values.last else { return "Avg: \(avg)ms" }
+            let dir = latest > data.personal_average ? "Trending up" : latest < data.personal_average ? "Trending down" : "Stable"
+            return "Avg: \(avg)ms · Latest: \(Int(latest))ms · \(dir)"
+        case .restingHR:
+            guard let latest = data.values.last else { return "Avg: \(avg) bpm" }
+            let dir = latest < data.personal_average ? "Getting lower (good)" : latest > data.personal_average ? "Trending up" : "Stable"
+            return "Avg: \(avg) bpm · Latest: \(Int(latest)) bpm · \(dir)"
+        case .consistency:
+            return "Avg: \(avg) · Dashed line = your average"
         }
     }
 }

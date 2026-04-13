@@ -31,6 +31,8 @@ PARITY_PHRASES = [
     "wellness coach, NOT a doctor",
     "NEVER recommend specific supplement dosages",
     "988",  # Crisis lifeline
+    "741741",  # Crisis Text Line
+    "Crisis Text Line",  # Second crisis resource
     "supplement questions",  # Rule 2 carve-out
     "general evidence-based knowledge",
 ]

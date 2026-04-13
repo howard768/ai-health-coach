@@ -74,6 +74,10 @@ final class CoachViewModel {
         simulateCoachResponse(to: text)
     }
 
+    func prefill(_ text: String) {
+        inputText = text
+    }
+
     func sendQuickAction(_ action: QuickAction) {
         let userMsg = ChatMessage(role: .user, text: action.title)
         messages.append(userMsg)

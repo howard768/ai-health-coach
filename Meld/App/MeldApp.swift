@@ -8,14 +8,26 @@ struct MeldApp: App {
 
     #if DEBUG
     private static var isUITesting: Bool {
-        UserDefaults.standard.bool(forKey: "uitesting-skip-auth")
+        ProcessInfo.processInfo.arguments.contains("-uitesting-skip-auth")
+            || UserDefaults.standard.bool(forKey: "uitesting-skip-auth")
     }
     private let skipAuth = MeldApp.isUITesting
+    @State private var devLoginReady = false
     #endif
 
     init() {
         #if DEBUG
         DSFontDebug.verifyFonts()
+        // Debug file for tracing auth bypass in simulator
+        let debugMsg = """
+        isUITesting=\(MeldApp.isUITesting)
+        skipAuth=\(skipAuth)
+        args=\(ProcessInfo.processInfo.arguments)
+        defaults=\(UserDefaults.standard.dictionaryRepresentation().filter { $0.key.contains("uitesting") })
+        """
+        if let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+            try? debugMsg.write(to: docs.appendingPathComponent("auth-debug.txt"), atomically: true, encoding: .utf8)
+        }
         if MeldApp.isUITesting {
             UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
             AuthSessionState.shared.isSignedIn = true
@@ -30,7 +42,11 @@ struct MeldApp: App {
             Group {
                 #if DEBUG
                 if skipAuth {
-                    MainTabView()
+                    if devLoginReady {
+                        MainTabView()
+                    } else {
+                        Color(DSColor.Background.primary)
+                    }
                 } else {
                     routedContent
                 }
@@ -43,7 +59,21 @@ struct MeldApp: App {
             }
             .task {
                 #if DEBUG
-                guard !MeldApp.isUITesting else { return }
+                if MeldApp.isUITesting {
+                    // Auth bypass: get a real API token via dev-login so live data works.
+                    // MainTabView is gated on devLoginReady to prevent a race with dashboard fetch.
+                    print("[MELD-DEBUG] .task: calling dev-login")
+                    do {
+                        let pair = try await APIClient.shared.devLogin()
+                        print("[MELD-DEBUG] .task: dev-login success, token=\(pair.accessToken.prefix(20))...")
+                        try await KeychainStore.shared.saveAccessToken(pair.accessToken)
+                        try await KeychainStore.shared.saveRefreshToken(pair.refreshToken)
+                    } catch {
+                        print("[MELD-DEBUG] .task: dev-login FAILED: \(error)")
+                    }
+                    devLoginReady = true
+                    return
+                }
                 #endif
                 // First-launch Keychain wipe (prevents refurbished-device token inheritance)
                 await KeychainStore.wipeKeychainOnFirstLaunchIfNeeded()

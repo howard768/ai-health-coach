@@ -7,6 +7,7 @@ import SwiftUI
 
 struct MainTabView: View {
     @State private var selectedTab: Tab = .home
+    @State private var coachViewModel = CoachViewModel()
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -19,7 +20,7 @@ struct MainTabView: View {
                         DashboardView(switchToTab: switchToTab)
                     }
                 case .coach:
-                    CoachChatView()
+                    CoachChatView(viewModel: coachViewModel)
                 case .trends:
                     NavigationStack {
                         TrendsView()
@@ -50,6 +51,10 @@ struct MainTabView: View {
         .onReceive(NotificationCenter.default.publisher(for: .init("MeldSwitchTab"))) { notification in
             if let tabName = notification.userInfo?["tab"] as? String,
                let tab = Tab(rawValue: tabName) {
+                // If a message was passed (e.g. "Ask coach about this"), auto-send it
+                if tab == .coach, let message = notification.userInfo?["message"] as? String {
+                    coachViewModel.prefill(message)
+                }
                 switchToTab(tab)
             }
         }

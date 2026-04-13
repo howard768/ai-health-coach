@@ -98,7 +98,8 @@ async def get_trends(
 
     Returns arrays of values, dates, baselines, and personal ranges per metric.
     """
-    start_date = (date.today() - timedelta(days=range)).isoformat()
+    # range=7 means "7 days including today": today minus 6 = 7 days total
+    start_date = (date.today() - timedelta(days=range - 1)).isoformat()
 
     result = await db.execute(
         select(SleepRecord)
@@ -196,6 +197,39 @@ async def sync_apple_health(
     return {"status": "ok", "records_saved": saved}
 
 
+@router.get("/health/canary")
+async def health_canary(
+    db: AsyncSession = Depends(get_db),
+):
+    """Synthetic health check: is the data pipeline returning non-empty data?
+
+    No auth required — designed for uptime monitoring and CI canary checks.
+    Uses the first active user's data to verify the full pipeline works.
+    """
+    from app.models.user import User
+    result = await db.execute(
+        select(User)
+        .where(User.is_active == True, User.apple_user_id != "default")
+        .order_by(User.created_at)
+        .limit(1)
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        return {"status": "no_users", "checks": {}}
+
+    data = await get_latest_health_data(db, user.apple_user_id)
+    checks = {
+        "has_data": bool(data),
+        "has_sleep": data.get("sleep_efficiency", 0) > 0,
+        "has_deep_sleep": "deep_sleep_minutes" in data,
+        "has_sources": bool(data.get("data_sources")),
+    }
+    return {
+        "status": "ok" if all(checks.values()) else "degraded",
+        "checks": checks,
+    }
+
+
 @router.post("/sync/oura")
 async def sync_oura(
     current_user: CurrentUser,
@@ -218,6 +252,8 @@ async def get_dashboard(
     job. Throttled by last_synced_at so rapid reloads don't hammer Oura's
     API quota.
     """
+
+    import sys; print(f">>> DASHBOARD endpoint hit for user={current_user.apple_user_id[:12]}...", file=sys.stderr, flush=True)
 
     hour = datetime.now().hour
     time_of_day = "morning" if 5 <= hour < 12 else "afternoon" if 12 <= hour < 17 else "evening" if 17 <= hour < 22 else "night"

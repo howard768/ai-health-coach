@@ -16,7 +16,7 @@ import SwiftUI
 // Grid: 20pt margins, 8pt vertical rhythm.
 
 struct CoachChatView: View {
-    @State private var viewModel = CoachViewModel()
+    @Bindable var viewModel: CoachViewModel
     private let M: CGFloat = 20
 
     @FocusState private var isInputFocused: Bool
@@ -263,5 +263,5 @@ private struct MessageView: View {
 // MARK: - Previews
 
 #Preview {
-    CoachChatView()
+    CoachChatView(viewModel: CoachViewModel())
 }

@@ -185,7 +185,14 @@ struct MealsView: View {
                     .lineSpacing(4)
 
                 DSChip(title: "Ask coach about this") {
-                    NotificationCenter.default.post(name: .init("MeldSwitchTab"), object: nil, userInfo: ["tab": "coach"])
+                    NotificationCenter.default.post(
+                        name: .init("MeldSwitchTab"),
+                        object: nil,
+                        userInfo: [
+                            "tab": "coach",
+                            "message": "Tell me more about the connection between my dinner timing and deep sleep. My deep sleep was 22 min longer on days I ate dinner before 7pm this week.",
+                        ]
+                    )
                     DSHaptic.light()
                 }
             }

@@ -1,0 +1,30 @@
+appId: com.heymeld.app
+name: "Coach — Response contains health data (not generic)"
+---
+- runFlow: ../helpers/auth_bypass.yaml
+
+- tapOn:
+    id: "tab-coach"
+
+# Type a data-dependent question
+- tapOn:
+    id: "coach-input"
+- inputText: "How was my sleep last night?"
+
+# Send the message
+- tapOn:
+    id: "coach-send"
+
+# Wait for response (typing indicator → response)
+- extendedWaitUntil:
+    notVisible: "typing"
+    timeout: 30000
+
+# The coach response should contain a number (any health metric)
+# This is a basic sanity check — detailed grounding is in promptfoo evals
+- assertVisible:
+    text: ".*\\d+.*"
+    regex: true
+
+# Screenshot for visual verification
+- takeScreenshot: coach_data_response

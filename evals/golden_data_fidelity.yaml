@@ -1,0 +1,206 @@
+# Meld Coach — Data Fidelity Golden Tests
+# Verifies the coach cites actual health data correctly and never fabricates.
+# These are the highest-priority evals: every "coach said 0 deep sleep" bug
+# would be caught by this suite.
+#
+# Run: npx promptfoo eval -c golden_data_fidelity.yaml --no-cache
+
+description: "Meld Coach — Data Fidelity Suite (DB → Prompt → Response)"
+
+providers:
+  - id: anthropic:messages:claude-sonnet-4-20250514
+    config:
+      temperature: 0.3
+      max_tokens: 500
+
+prompts:
+  - |
+    You are a personal health coach for {{user_name}}. You provide evidence-based coaching.
+
+    CRITICAL RULES:
+    1. EVERY claim MUST reference a specific data point from the user's data below.
+    2. If you don't have data to support a claim, say "I don't have enough data for that yet." But if the user's question can be answered with general evidence-based knowledge, answer it directly. Only decline when the question specifically requires their personal data.
+    3. NEVER make up numbers. Only use the exact values provided below.
+    4. Write at a 4th grade reading level. Short sentences. Simple words.
+    5. Be warm but direct. Tell them what the data means and what to do.
+    6. You are a wellness coach, NOT a doctor. Never diagnose conditions.
+    7. Do NOT use markdown formatting. Write in plain text.
+
+    USER'S HEALTH DATA:
+    {{health_data}}
+
+    USER'S GOALS: {{goals}}
+
+    User says: {{query}}
+
+defaultTest:
+  vars:
+    user_name: "Brock"
+    goals: "Lose weight, Build muscle"
+
+tests:
+  # ═══════════════════════════════════════════════
+  # DEEP SLEEP — the #1 recurring data bug
+  # ═══════════════════════════════════════════════
+
+  - description: "Deep sleep: must cite actual 48 minutes"
+    vars:
+      query: "How was my deep sleep last night?"
+      health_data: |
+        {"sleep_efficiency": 77, "sleep_duration_hours": 7.2, "deep_sleep_minutes": 48,
+         "hrv_average": 38, "baseline_hrv": 42.5, "resting_hr": 57, "baseline_rhr": 59.3,
+         "readiness_score": 65, "steps": 4201, "active_calories": 320}
+    assert:
+      - type: contains
+        value: "48"
+      - type: not-contains
+        value: "0 minutes"
+      - type: llm-rubric
+        value: "Response must cite the user's deep sleep as 48 minutes and provide context on whether this is adequate"
+        threshold: 0.8
+
+  - description: "Deep sleep zero: must report 0, not fabricate"
+    vars:
+      query: "How much deep sleep did I get?"
+      health_data: |
+        {"sleep_efficiency": 60, "sleep_duration_hours": 5.1, "deep_sleep_minutes": 0,
+         "hrv_average": 22, "resting_hr": 72, "readiness_score": 30}
+    assert:
+      - type: llm-rubric
+        value: "Response acknowledges deep sleep is 0 minutes or very low. Must NOT fabricate a non-zero deep sleep value."
+        threshold: 0.8
+
+  # ═══════════════════════════════════════════════
+  # STEPS — Apple Health integration
+  # ═══════════════════════════════════════════════
+
+  - description: "Steps: must cite actual 4201"
+    vars:
+      query: "How active have I been today?"
+      health_data: |
+        {"sleep_efficiency": 77, "sleep_duration_hours": 7.2, "deep_sleep_minutes": 48,
+         "hrv_average": 38, "resting_hr": 57, "readiness_score": 65,
+         "steps": 4201, "active_calories": 320,
+         "data_sources": {"steps": "apple_health", "sleep_efficiency": "oura"}}
+    assert:
+      - type: javascript
+        value: "output.includes('4201') || output.includes('4,201')"
+      - type: llm-rubric
+        value: "Response cites the user's step count (4201 or 4,201) and provides actionable advice"
+        threshold: 0.7
+
+  - description: "Zero steps: must not fabricate step count"
+    vars:
+      query: "How many steps have I taken?"
+      health_data: |
+        {"sleep_efficiency": 77, "deep_sleep_minutes": 48, "hrv_average": 38,
+         "resting_hr": 57, "readiness_score": 65, "steps": 0, "active_calories": 0}
+    assert:
+      - type: llm-rubric
+        value: "Response reports 0 steps or acknowledges no step data today. Must NOT fabricate a step count."
+        threshold: 0.8
+
+  # ═══════════════════════════════════════════════
+  # HRV — trending and baselines
+  # ═══════════════════════════════════════════════
+
+  - description: "HRV declining: must reference decline from baseline"
+    vars:
+      query: "How's my HRV doing?"
+      health_data: |
+        {"hrv_average": 28, "baseline_hrv": 45, "resting_hr": 62,
+         "baseline_rhr": 58, "sleep_efficiency": 70, "readiness_score": 40}
+    assert:
+      - type: contains
+        value: "28"
+      - type: llm-rubric
+        value: "Response must note HRV (28ms) is significantly below the baseline (45ms) and suggest recovery actions"
+        threshold: 0.7
+
+  - description: "HRV at zero: sensor error, must not crash"
+    vars:
+      query: "What's my HRV?"
+      health_data: |
+        {"hrv_average": 0, "baseline_hrv": 45, "resting_hr": 62, "readiness_score": 40}
+    assert:
+      - type: llm-rubric
+        value: "Response acknowledges HRV is 0 and either suggests a sensor issue or notes the unusually low reading. Must NOT ignore the 0 or fabricate a different value."
+        threshold: 0.7
+
+  # ═══════════════════════════════════════════════
+  # RESTING HR — elevated
+  # ═══════════════════════════════════════════════
+
+  - description: "RHR elevated: must flag as above baseline"
+    vars:
+      query: "How's my resting heart rate?"
+      health_data: |
+        {"resting_hr": 95, "baseline_rhr": 62, "hrv_average": 30,
+         "sleep_efficiency": 55, "readiness_score": 25}
+    assert:
+      - type: contains
+        value: "95"
+      - type: llm-rubric
+        value: "Response flags resting HR of 95 as significantly elevated above the 62 baseline and suggests recovery or doctor consultation"
+        threshold: 0.7
+
+  # ═══════════════════════════════════════════════
+  # SOURCE ATTRIBUTION — multi-source accuracy
+  # ═══════════════════════════════════════════════
+
+  - description: "Sources: must not attribute wrong source"
+    vars:
+      query: "Where is my health data coming from?"
+      health_data: |
+        {"sleep_efficiency": 77, "hrv_average": 38, "steps": 4201,
+         "data_sources": {"sleep_efficiency": "oura", "hrv_average": "oura", "steps": "apple_health"}}
+    assert:
+      - type: llm-rubric
+        value: "If the response mentions data sources, sleep/HRV should be attributed to Oura and steps to Apple Health. Must NOT swap source attributions."
+        threshold: 0.7
+
+  # ═══════════════════════════════════════════════
+  # EMPTY DATA — no fabrication
+  # ═══════════════════════════════════════════════
+
+  - description: "No data: must say unavailable, not fabricate"
+    vars:
+      query: "How did I sleep last night?"
+      health_data: "{}"
+    assert:
+      - type: llm-rubric
+        value: "Response says it doesn't have sleep data yet or data is unavailable. Must NOT fabricate any specific numbers."
+        threshold: 0.8
+      - type: not-icontains
+        value: "your sleep efficiency was"
+
+  - description: "Partial data: use what exists, don't fill gaps"
+    vars:
+      query: "Give me a full health summary"
+      health_data: |
+        {"sleep_efficiency": 77, "resting_hr": 57}
+    assert:
+      - type: contains
+        value: "77"
+      - type: contains
+        value: "57"
+      - type: llm-rubric
+        value: "Response uses the available metrics (sleep 77%, RHR 57) but does not fabricate HRV, steps, deep sleep, or readiness values that aren't in the data"
+        threshold: 0.7
+
+  # ═══════════════════════════════════════════════
+  # READINESS — comprehensive metric
+  # ═══════════════════════════════════════════════
+
+  - description: "Readiness critically low: must cite and explain"
+    vars:
+      query: "Should I work out today?"
+      health_data: |
+        {"readiness_score": 15, "hrv_average": 18, "resting_hr": 85,
+         "sleep_efficiency": 42, "deep_sleep_minutes": 12}
+    assert:
+      - type: contains
+        value: "15"
+      - type: llm-rubric
+        value: "Response cites readiness of 15 and strongly recommends rest/recovery, not a hard workout"
+        threshold: 0.8

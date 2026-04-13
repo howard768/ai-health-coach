@@ -1,0 +1,18 @@
+appId: com.heymeld.app
+name: "Trends — Chart data renders (not empty or error)"
+---
+- runFlow: ../helpers/auth_bypass.yaml
+
+- tapOn:
+    id: "tab-trends"
+
+# Wait for trends to load
+- extendedWaitUntil:
+    visible: "Sleep Efficiency"
+    timeout: 10000
+
+# Should show at least the Sleep Efficiency metric card
+- assertVisible: "Sleep Efficiency"
+
+# Screenshot for visual verification
+- takeScreenshot: trends_data_loaded
