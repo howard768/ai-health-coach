@@ -19,6 +19,7 @@ struct DSChip: View {
                 .foregroundStyle(isSelected ? DSColor.Text.onGreen : DSColor.Green.green500)
                 .padding(.vertical, DSSpacing.sm)
                 .padding(.horizontal, DSSpacing.lg)
+                .frame(minHeight: 44)
                 .background(isSelected ? DSColor.Green.green500 : Color.clear)
                 .clipShape(Capsule())
                 .overlay(
