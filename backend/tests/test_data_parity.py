@@ -43,6 +43,7 @@ SAMPLE_HEALTH_DATA = {
     "steps": 4201,
     "active_calories": 320,
     "data_sources": {"sleep_efficiency": "oura", "steps": "apple_health"},
+    "baseline_days": 7,
 }
 
 

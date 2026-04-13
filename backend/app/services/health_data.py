@@ -92,6 +92,7 @@ async def get_latest_health_data(db: AsyncSession, user_id: str) -> dict:
             "steps": reconciled.get("steps", 0),
             "active_calories": reconciled.get("active_calories", 0),
             "data_sources": merged_sources,
+            "baseline_days": baselines.get("_days", 0),
         }
 
     # Fallback: read directly from SleepRecord (Oura-only, pre-reconciliation)
@@ -160,7 +161,12 @@ async def _get_reconciled_metrics(db: AsyncSession, user_id: str, target_date: s
 
 
 async def _get_reconciled_baselines(db: AsyncSession, user_id: str, days: int = 7) -> dict:
-    """Compute 7-day rolling averages from canonical metrics."""
+    """Compute 7-day rolling averages from canonical metrics.
+
+    Returns a dict with metric averages plus a '_days' key indicating
+    how many distinct days contributed. Consumers should treat baselines
+    with < 3 days as unreliable (too noisy for deviation alerts).
+    """
     start = (date.today() - timedelta(days=days - 1)).isoformat()
 
     result = await db.execute(
@@ -174,8 +180,10 @@ async def _get_reconciled_baselines(db: AsyncSession, user_id: str, days: int = 
 
     # Group values by metric type
     values_by_type: dict[str, list[float]] = {}
+    distinct_dates: set[str] = set()
     for r in records:
         values_by_type.setdefault(r.metric_type, []).append(r.value)
+        distinct_dates.add(r.date)
 
     # Compute averages
     baselines = {}
@@ -183,6 +191,7 @@ async def _get_reconciled_baselines(db: AsyncSession, user_id: str, days: int = 
         if values:
             baselines[metric_type] = round(sum(values) / len(values), 1)
 
+    baselines["_days"] = len(distinct_dates)
     return baselines
 
 

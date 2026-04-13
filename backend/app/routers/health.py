@@ -253,8 +253,6 @@ async def get_dashboard(
     API quota.
     """
 
-    import sys; print(f">>> DASHBOARD endpoint hit for user={current_user.apple_user_id[:12]}...", file=sys.stderr, flush=True)
-
     hour = datetime.now().hour
     time_of_day = "morning" if 5 <= hour < 12 else "afternoon" if 12 <= hour < 17 else "evening" if 17 <= hour < 22 else "night"
 
@@ -343,9 +341,10 @@ async def get_dashboard(
     }
     try:
         import asyncio
+        user_goals = current_user.goals or []
         claude = ClaudeClient()
         insight_text = await asyncio.to_thread(
-            claude.generate_insight, insight_context, ["Lose weight", "Build muscle"]
+            claude.generate_insight, insight_context, user_goals
         )
     except anthropic.APIError:
         insight_text = f"Your sleep efficiency was {int(efficiency)}% with {hours}h {mins}m of total sleep. Readiness is {readiness_level.lower()}."

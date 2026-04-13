@@ -97,8 +97,12 @@ class SafetyCheck:
             concerning = True
 
         # Sudden large changes (> 30% deviation from baseline)
+        # Skip when baseline_days < 3 — too little history for meaningful comparison
         baseline_hrv = data.get("baseline_hrv")
-        if hrv is not None and baseline_hrv is not None and baseline_hrv > 0 and abs(hrv - baseline_hrv) / baseline_hrv > 0.3:
+        baseline_days = data.get("baseline_days", 0)
+        if (hrv is not None and baseline_hrv is not None and baseline_hrv > 0
+                and baseline_days >= 3
+                and abs(hrv - baseline_hrv) / baseline_hrv > 0.3):
             reasons.append(f"HRV deviated {abs(hrv - baseline_hrv):.0f}ms from baseline")
             concerning = True
 
@@ -270,9 +274,12 @@ class Deliberator:
                 return True, Deliberator.RULES["readiness_low"]
 
         # HRV queries with clear baseline comparison
+        # Only compare against baseline when we have >= 3 days of history
         hrv = health_data.get("hrv_average")
         baseline_hrv = health_data.get("baseline_hrv")
-        if hrv is not None and baseline_hrv is not None and any(w in query_lower for w in ["hrv", "heart rate variability"]):
+        baseline_days = health_data.get("baseline_days", 0)
+        if (hrv is not None and baseline_hrv is not None and baseline_days >= 3
+                and any(w in query_lower for w in ["hrv", "heart rate variability"])):
             if hrv > baseline_hrv * 1.05:
                 return True, Deliberator.RULES["hrv_above_baseline"]
             elif hrv < baseline_hrv * 0.95:

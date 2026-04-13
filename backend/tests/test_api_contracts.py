@@ -30,6 +30,7 @@ HEALTH_LATEST_REQUIRED_KEYS = {
     "steps",
     "active_calories",
     "data_sources",
+    "baseline_days",
 }
 
 # Keys when falling back to SleepRecord-only data
@@ -63,6 +64,7 @@ def test_health_latest_reconciled_shape():
         "steps": 4201,
         "active_calories": 320,
         "data_sources": {"sleep_efficiency": "oura"},
+        "baseline_days": 7,
     }
     missing = HEALTH_LATEST_REQUIRED_KEYS - set(sample.keys())
     assert not missing, f"Reconciled response missing keys: {missing}"

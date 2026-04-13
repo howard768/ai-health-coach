@@ -148,6 +148,7 @@ async def test_baselines_7day_average(db):
     result = await get_latest_health_data(db, "u1")
     # 7-day average of [30, 32, 34, 36, 38, 40, 42] = 36.0
     assert result["baseline_hrv"] == 36.0
+    assert result["baseline_days"] == 7
 
 
 @pytest.mark.asyncio

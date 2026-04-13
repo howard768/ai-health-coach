@@ -75,8 +75,8 @@ def test_safety_check_low_readiness():
 
 
 def test_safety_check_hrv_baseline_deviation():
-    """HRV more than 30% off baseline triggers a flag."""
-    data = {"hrv_average": 30, "baseline_hrv": 60}
+    """HRV more than 30% off baseline triggers a flag (with enough history)."""
+    data = {"hrv_average": 30, "baseline_hrv": 60, "baseline_days": 7}
     # 30 vs 60 = 50% deviation
     check = SafetyCheck.check_health_data(data)
     assert check.is_concerning
@@ -265,21 +265,39 @@ def test_safety_check_rhr_zero_not_concerning():
 
 def test_safety_check_baseline_deviation_zero_baseline():
     """Zero baseline HRV should not cause division-by-zero crash."""
-    data = {"hrv_average": 30, "baseline_hrv": 0}
+    data = {"hrv_average": 30, "baseline_hrv": 0, "baseline_days": 7}
     check = SafetyCheck.check_health_data(data)
     # Should not crash; 0 baseline means no meaningful comparison
     assert isinstance(check.is_concerning, bool)
+
+
+def test_safety_check_baseline_suppressed_for_new_user():
+    """Baseline deviation should NOT fire when user has < 3 days of data."""
+    data = {"hrv_average": 30, "baseline_hrv": 60, "baseline_days": 1}
+    # 50% deviation, but only 1 day of history — too noisy to flag
+    check = SafetyCheck.check_health_data(data)
+    assert not any("baseline" in r.lower() for r in check.reasons)
 
 
 def test_deliberator_hrv_rules_with_zero_values():
     """HRV=0 with baseline should still evaluate rule path without crash."""
     can, answer = Deliberator.can_answer_from_rules(
         "how is my HRV?",
-        {"hrv_average": 0, "baseline_hrv": 50},
+        {"hrv_average": 0, "baseline_hrv": 50, "baseline_days": 7},
     )
     # Should return a rule answer (HRV below baseline)
     assert can
     assert answer is not None
+
+
+def test_deliberator_hrv_skips_baseline_for_new_user():
+    """HRV baseline comparison should be skipped when < 3 days of data."""
+    can, answer = Deliberator.can_answer_from_rules(
+        "how is my HRV?",
+        {"hrv_average": 30, "baseline_hrv": 60, "baseline_days": 2},
+    )
+    # Not enough data for baseline comparison — should fall through to AI
+    assert not can
 
 
 def test_deliberator_inflections_all_match():
