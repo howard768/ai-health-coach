@@ -171,14 +171,28 @@ async def refresh_features_for_user(
     db: "AsyncSession",
     user_id: str,
     through_date: date,
+    lookback_days: int = 30,
 ) -> int:
     """Materialize the feature frame for a user through ``through_date``.
 
-    Implemented in Phase 1. Returns the number of feature rows written or
-    updated. Idempotent (uses ``UNIQUE (user_id, feature_key, feature_date,
-    feature_version)``).
+    Idempotent: rerunning on the same day with the same builder versions
+    recomputes identically. The underlying table enforces
+    ``UNIQUE (user_id, feature_key, feature_date, feature_version)``.
+
+    Does NOT commit. The caller owns the transaction (typically the
+    scheduler job wraps the call in ``async with db.begin()``).
+
+    Returns the number of rows written to ``ml_feature_values``.
     """
-    raise NotImplementedError("Phase 1: feature store materialization")
+    from datetime import timedelta
+
+    # Lazy import keeps cold-boot under the Railway budget. See
+    # ``backend/ml/__init__.py`` for the full rationale.
+    from ml.features.store import materialize_for_user
+
+    start = through_date - timedelta(days=lookback_days - 1)
+    result = await materialize_for_user(db, user_id, start, through_date)
+    return result.rows_written
 
 
 async def run_discovery_pipeline(

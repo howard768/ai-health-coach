@@ -430,6 +430,46 @@ async def webhook_renewal_job():
         logger.error("Webhook renewal failed: %s", e)
 
 
+async def feature_refresh_job():
+    """Nightly: materialize the Signal Engine feature store for the primary user.
+
+    Rebuilds the trailing 30 days of derived features so downstream ML jobs
+    (correlation engine, forecasting, ranker) always read a fresh, consistent
+    frame. Idempotent — rerunning the same day is a no-op against the data
+    (values may change as new Oura webhook rows land, which is the point).
+
+    Kept under the 60-second budget per the Phase 1 acceptance criteria in
+    ``~/.claude/plans/golden-floating-creek.md``. Scheduled at 03:30 UTC so
+    it completes before the correlation engine runs at 04:00 UTC on Sundays
+    and before morning brief in any user timezone.
+    """
+    from datetime import date
+
+    # Lazy import per boundary rules — the rest of app/ only reaches into
+    # ``ml.api`` (see tests/ml/test_boundary.py).
+    from ml import api as ml_api
+
+    logger.info("Running feature_refresh_job")
+    async with async_session() as db:
+        user_id = await _get_primary_user_id(db)
+        if user_id is None:
+            logger.info("feature_refresh_job: no primary user yet, skipping")
+            return
+        try:
+            rows = await ml_api.refresh_features_for_user(
+                db, user_id, through_date=date.today(), lookback_days=30
+            )
+            await db.commit()
+            logger.info(
+                "feature_refresh_job: wrote %d rows for user %s",
+                rows,
+                user_id,
+            )
+        except SQLAlchemyError as e:
+            await db.rollback()
+            logger.exception("feature_refresh_job DB error: %s", e)
+
+
 async def correlation_engine_job():
     """Weekly: discover cross-domain health correlations from user data."""
     logger.info("Running correlation_engine_job")
@@ -716,6 +756,17 @@ def start_scheduler():
         trigger=IntervalTrigger(minutes=30),
         id="oura_sync",
         name="Oura Background Sync",
+        replace_existing=True,
+    )
+
+    # Feature refresh: nightly at 03:30 UTC, before correlation engine runs at
+    # 04:00 UTC on Sundays and before user-local morning brief in any timezone.
+    # Signal Engine Phase 1 (see ~/.claude/plans/golden-floating-creek.md).
+    scheduler.add_job(
+        feature_refresh_job,
+        trigger=CronTrigger(hour=3, minute=30),
+        id="feature_refresh",
+        name="Signal Engine Feature Refresh",
         replace_existing=True,
     )
 
