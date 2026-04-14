@@ -333,6 +333,36 @@ actor APIClient {
         return try await sendDecoding(URLRequest(url: url))
     }
 
+    // MARK: - Signal Engine (Phase 4 insights)
+    //
+    // GET /api/insights/daily returns the Phase 4 ranked card OR an
+    // ``has_card=false`` response when the backend's shadow flag
+    // (``ml_shadow_insight_card``) is on, when the exposure cap is hit,
+    // or when no candidates were generated for today. iOS falls back to
+    // the legacy CoachInsightCard in any of those cases.
+    //
+    // POST /api/insights/{ranking_id}/feedback closes the feedback loop.
+    // Thumbs up / down / dismissed / already_knew feed the Phase 7 ranker
+    // training data.
+
+    func fetchDailyInsight() async throws -> APIDailyInsightResponse {
+        let url = baseURL.appendingPathComponent("insights/daily")
+        return try await sendDecoding(URLRequest(url: url))
+    }
+
+    func submitInsightFeedback(
+        rankingID: Int,
+        feedback: SignalInsightFeedback
+    ) async throws {
+        let url = baseURL.appendingPathComponent("insights/\(rankingID)/feedback")
+        let request = try jsonRequest(
+            url: url,
+            method: "POST",
+            body: APIInsightFeedbackRequest(feedback: feedback.rawValue)
+        )
+        try await send(request)
+    }
+
     // MARK: - Coach Chat
 
     func sendMessage(_ message: String) async throws -> APIChatResponse {
@@ -637,6 +667,60 @@ struct APIDeviceTokenRegister: Codable {
 
 struct APIFeedbackRequest: Codable {
     let message_id: Int
+    let feedback: String
+}
+
+// MARK: - Signal Engine (Phase 4) API types
+//
+// Decoded from GET /api/insights/daily and sent to POST
+// /api/insights/{id}/feedback. Shape mirrors DailyInsightResponse + the
+// nested card and payload types in backend/app/routers/insights.py.
+
+struct APIDailyInsightResponse: Codable {
+    let has_card: Bool
+    let card: APIDailyInsightCard?
+    /// Why has_card is false. Examples: "shadow_mode", "no_candidate_today",
+    /// "daily cap hit (1/1)", "weekly cap hit (3/3)".
+    let reason: String?
+}
+
+struct APIDailyInsightCard: Codable {
+    let ranking_id: Int
+    let candidate_id: String
+    let kind: String
+    let subject_metrics: [String]
+    let effect_size: Double
+    let confidence: Double
+    let score: Double
+    let ranker_version: String
+    let literature_support: Bool
+    /// Kind-specific payload. All fields optional; see SignalInsightPayload.
+    let payload: APIDailyInsightPayload
+}
+
+struct APIDailyInsightPayload: Codable {
+    // correlation-kind
+    let source_metric: String?
+    let target_metric: String?
+    let lag_days: Int?
+    let direction: String?
+    let pearson_r: Double?
+    let spearman_r: Double?
+    let sample_size: Int?
+    let effect_description: String?
+    let confidence_tier: String?
+    let literature_ref: String?
+    // anomaly-kind
+    let metric_key: String?
+    let observation_date: String?
+    let observed_value: Double?
+    let forecasted_value: Double?
+    let residual: Double?
+    let z_score: Double?
+    let confirmed_by_bocpd: Bool?
+}
+
+struct APIInsightFeedbackRequest: Codable {
     let feedback: String
 }
 

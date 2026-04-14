@@ -49,12 +49,29 @@ struct DashboardView: View {
 
                         headerSection
 
-                        CoachInsightCard(
-                            insight: viewModel.dashboardData.coachInsight,
-                            onContinueInChat: {
-                                switchToTab?(.coach)
-                            }
-                        )
+                        // Signal Engine Phase 4 card (shadow-gated server-side).
+                        // Falls back to the legacy CoachInsightCard when the
+                        // backend reports has_card=false. See SignalInsight.swift.
+                        if let signalInsight = viewModel.signalInsight {
+                            SignalInsightCard(
+                                insight: signalInsight,
+                                onContinueInChat: {
+                                    switchToTab?(.coach)
+                                },
+                                onFeedback: { feedback in
+                                    Task {
+                                        await viewModel.submitInsightFeedback(feedback)
+                                    }
+                                }
+                            )
+                        } else {
+                            CoachInsightCard(
+                                insight: viewModel.dashboardData.coachInsight,
+                                onContinueInChat: {
+                                    switchToTab?(.coach)
+                                }
+                            )
+                        }
 
                         todaySection
                     }

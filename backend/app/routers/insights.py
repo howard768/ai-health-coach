@@ -145,14 +145,21 @@ async def get_daily_insight(
     return DailyInsightResponse(has_card=True, card=card)
 
 
-@router.post("/{ranking_id}/feedback", status_code=204)
+class FeedbackAck(BaseModel):
+    ok: bool = True
+
+
+@router.post("/{ranking_id}/feedback", response_model=FeedbackAck)
 async def post_insight_feedback(
     ranking_id: int,
     req: FeedbackRequest,
     user: CurrentUser,
     db: AsyncSession = Depends(get_db),
-) -> None:
-    """Record user feedback on a surfaced insight. 204 No Content on success.
+) -> FeedbackAck:
+    """Record user feedback on a surfaced insight.
+
+    Returns 200 ``{"ok": true}`` so the iOS client's generic ``send()``
+    helper (which expects 200) can call it without a special variant.
 
     Rejects feedback on rankings that don't belong to the caller to prevent
     one user writing to another's ranking row. Idempotent re-submissions
@@ -172,3 +179,4 @@ async def post_insight_feedback(
     ranking.feedback = req.feedback
     ranking.feedback_at = utcnow_naive()
     await db.commit()
+    return FeedbackAck()

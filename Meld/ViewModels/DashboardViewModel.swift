@@ -21,6 +21,14 @@ final class DashboardViewModel {
     var isLoading: Bool = false
     var error: DashboardError? = nil
 
+    /// Signal Engine Phase 4 card. Nil when the backend returned
+    /// ``has_card=false`` (shadow mode, cap hit, or no candidates for
+    /// today). DashboardView renders ``SignalInsightCard`` when non-nil
+    /// and falls back to the legacy ``CoachInsightCard`` otherwise.
+    var signalInsight: SignalInsight? = nil
+    /// Surface reason when ``signalInsight`` is nil, for logging only.
+    var signalInsightReason: String? = nil
+
     enum DashboardError: Error, LocalizedError {
         case offline
         case networkFailure
@@ -90,7 +98,51 @@ final class DashboardViewModel {
             // If we already have data, keep showing it (stale is better than empty)
         }
 
+        // Phase 4 Signal Engine card. Fetch in parallel semantics (sequential
+        // is fine here — both are small). Failures of THIS fetch should NOT
+        // break the dashboard; the legacy CoachInsightCard still renders
+        // when signalInsight stays nil.
+        await refreshSignalInsight()
+
         isLoading = false
+    }
+
+    /// Fetch today's ranked Signal Engine card, if any. Swallows errors
+    /// so a broken signal endpoint does not degrade the rest of the
+    /// dashboard. The fallback when ``signalInsight`` is nil is the
+    /// legacy ``CoachInsightCard``.
+    func refreshSignalInsight() async {
+        do {
+            let result = try await SignalRanker.shared.fetchTodayInsight()
+            switch result {
+            case .card(let insight):
+                signalInsight = insight
+                signalInsightReason = nil
+            case .none(let reason):
+                signalInsight = nil
+                signalInsightReason = reason
+            }
+        } catch {
+            // Defensive: never break the dashboard over the Signal surface.
+            signalInsight = nil
+            signalInsightReason = "fetch_failed"
+        }
+    }
+
+    /// Submit feedback on the currently-shown signal insight card. No-op
+    /// if ``signalInsight`` is nil (defensive). Does not mutate local
+    /// state — the card view owns its own `submittedFeedback` marker.
+    func submitInsightFeedback(_ feedback: SignalInsightFeedback) async {
+        guard let insight = signalInsight else { return }
+        do {
+            try await SignalRanker.shared.submitFeedback(
+                rankingID: insight.id,
+                feedback: feedback
+            )
+        } catch {
+            // Feedback failing is not a user-visible error; the backend will
+            // accept a re-submission next session.
+        }
     }
 
     // MARK: - Computed Properties

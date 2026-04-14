@@ -217,7 +217,8 @@ async def test_post_feedback_updates_ranking(db, api_client):
         f"/api/insights/{ranking_id}/feedback",
         json={"feedback": "thumbs_up"},
     )
-    assert post_resp.status_code == 204
+    assert post_resp.status_code == 200
+    assert post_resp.json() == {"ok": True}
 
     row = (await db.execute(select(MLRanking).where(MLRanking.id == ranking_id))).scalar_one()
     assert row.feedback == "thumbs_up"
