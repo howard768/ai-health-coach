@@ -503,59 +503,33 @@ async def baselines_job():
 
 
 async def correlation_engine_job():
-    """Weekly: discover cross-domain health correlations from user data."""
-    logger.info("Running correlation_engine_job")
+    """Weekly: discover cross-domain health correlations from user data.
+
+    Routes through ``ml.api.run_associations`` (Phase 3). The legacy
+    ``compute_correlations`` in ``app/services/correlation_engine.py`` is
+    preserved for the parity test but no longer exercised in production.
+    """
+    from ml import api as ml_api
+
+    logger.info("Running correlation_engine_job (via ml.api.run_associations)")
     async with async_session() as db:
         user_id = await _get_primary_user_id(db)
         if user_id is None:
+            logger.info("correlation_engine_job: no primary user yet, skipping")
             return
-        results = await compute_correlations(db, user_id, window_days=30)
-
-        # Validate against literature and store
-        from app.models.correlation import UserCorrelation
-        for r in results:
-            lit = literature_service.validate_correlation(r.source_metric, r.target_metric, r.direction)
-            if lit:
-                r.literature_match = True
-                r.confidence_tier = "literature_supported"
-
-            # Upsert
-            existing = await db.execute(
-                select(UserCorrelation).where(
-                    UserCorrelation.user_id == user_id,
-                    UserCorrelation.source_metric == r.source_metric,
-                    UserCorrelation.target_metric == r.target_metric,
-                    UserCorrelation.lag_days == r.lag_days,
-                )
+        try:
+            report = await ml_api.run_associations(db, user_id, window_days=30)
+            await db.commit()
+            logger.info(
+                "correlation_engine_job done: tested=%d sig=%d dynamic=%d rows=%d",
+                report.pairs_tested,
+                report.significant_results,
+                report.dynamic_pairs_generated,
+                report.rows_written,
             )
-            record = existing.scalar_one_or_none()
-            if record:
-                record.pearson_r = r.pearson_r
-                record.spearman_r = r.spearman_r
-                record.p_value = r.p_value
-                record.fdr_adjusted_p = r.fdr_adjusted_p
-                record.sample_size = r.sample_size
-                record.strength = r.strength
-                record.confidence_tier = r.confidence_tier
-                record.literature_match = r.literature_match
-                record.effect_size_description = r.effect_size_description
-                record.last_validated_at = utcnow_naive()
-            else:
-                db.add(UserCorrelation(
-                    user_id=user_id,
-                    source_metric=r.source_metric, target_metric=r.target_metric,
-                    lag_days=r.lag_days, direction=r.direction,
-                    pearson_r=r.pearson_r, spearman_r=r.spearman_r,
-                    p_value=r.p_value, fdr_adjusted_p=r.fdr_adjusted_p,
-                    sample_size=r.sample_size, strength=r.strength,
-                    confidence_tier=r.confidence_tier,
-                    literature_match=r.literature_match,
-                    literature_ref=lit.doi if lit else None,
-                    effect_size_description=r.effect_size_description,
-                ))
-
-        await db.commit()
-        logger.info("Correlation engine: %d correlations stored", len(results))
+        except SQLAlchemyError as e:
+            await db.rollback()
+            logger.exception("correlation_engine_job DB error: %s", e)
 
 
 async def offline_eval_job():

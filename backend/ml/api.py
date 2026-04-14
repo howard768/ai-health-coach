@@ -376,3 +376,53 @@ def ranker_model_metadata() -> RankerMetadata:
     polls it on every app launch.
     """
     raise NotImplementedError("Phase 7: CoreML ranker metadata")
+
+
+@dataclass
+class AssociationsReport:
+    """Phase 3 L2 output summary. Shape mirrors the internal report from
+    ``ml.discovery.associations`` so callers (scheduler, tests) see a stable
+    shape across the public boundary.
+    """
+
+    user_id: str
+    window_days: int
+    pairs_tested: int
+    pairs_with_enough_data: int
+    significant_results: int
+    dynamic_pairs_generated: int
+    rows_written: int
+
+
+async def run_associations(
+    db: "AsyncSession",
+    user_id: str,
+    window_days: int = 30,
+) -> AssociationsReport:
+    """Run L2 associations: dual-method correlations + BH-FDR + persistence.
+
+    Replaces the direct call to
+    ``backend/app/services/correlation_engine.compute_correlations`` in the
+    scheduler. Reads the Phase 1 feature store (features must be fresh;
+    scheduler orders ``feature_refresh_job`` at 03:30 UTC before
+    ``correlation_engine_job``).
+
+    Writes to ``UserCorrelation`` with legacy-compatible ``source_metric``
+    and ``target_metric`` strings so downstream code that reads those fields
+    keeps working without a rename migration.
+
+    Does NOT commit — caller owns the transaction.
+    """
+    # Lazy import per boundary rules + cold-boot budget.
+    from ml.discovery.associations import run_associations_for_user
+
+    report = await run_associations_for_user(db, user_id, window_days=window_days)
+    return AssociationsReport(
+        user_id=report.user_id,
+        window_days=report.window_days,
+        pairs_tested=report.pairs_tested,
+        pairs_with_enough_data=report.pairs_with_enough_data,
+        significant_results=report.significant_results,
+        dynamic_pairs_generated=report.dynamic_pairs_generated,
+        rows_written=report.rows_written,
+    )
