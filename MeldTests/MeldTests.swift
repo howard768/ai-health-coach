@@ -166,3 +166,60 @@ import Testing
     #expect(pair.user.id == "001234.test.5678")
     #expect(pair.expiresIn == 900)
 }
+
+// MARK: - Crisis Keywords (client-side safety fallback)
+//
+// Defense in depth: the backend's safety net only fires on anthropic.APIError.
+// If the HTTP call fails at a lower level (network, TLS, 500), the client
+// must still surface 988/741741 when the user's message contained crisis
+// language. These tests pin the detector behavior and the fallback content.
+
+@Test func crisisKeywordsMatchCommonPhrases() async throws {
+    // A representative slice of the phrases that should trigger the fallback.
+    // The full list lives in CrisisKeywords.phrases and mirrors coach_engine.py.
+    let crisis = [
+        "I want to end it all",
+        "I want to die",
+        "I'm going to kill myself",
+        "I've been feeling like a burden to everyone",
+        "i dont want to be alive anymore",
+        "There's no point in living",
+        "I can't take it anymore",
+        "I want to hurt myself",
+    ]
+    for text in crisis {
+        #expect(CrisisKeywords.detect(in: text), "Should detect crisis in: \(text)")
+    }
+}
+
+@Test func crisisKeywordsIgnoreNormalChat() async throws {
+    // These look crisis-adjacent but don't contain the phrases. They must
+    // pass through to the regular error fallback.
+    let normal = [
+        "How did I sleep last night?",
+        "I want to end my workout early today",
+        "Can you help me plan dinner?",
+        "My HRV is low and I feel tired",
+        "",
+    ]
+    for text in normal {
+        #expect(!CrisisKeywords.detect(in: text), "Should NOT flag: \(text)")
+    }
+}
+
+@Test func crisisKeywordsAreCaseInsensitive() async throws {
+    #expect(CrisisKeywords.detect(in: "I WANT TO DIE"))
+    #expect(CrisisKeywords.detect(in: "Suicide"))
+    #expect(CrisisKeywords.detect(in: "Self-Harm"))
+}
+
+@Test func crisisFallbackIncludesBothHotlines() async throws {
+    // The fallback text is what the user sees when the coach call fails.
+    // If we ship without 988 or 741741 in this string, the safety net is
+    // broken and this test catches it before release.
+    let fallback = CrisisKeywords.fallbackMessage
+    #expect(fallback.contains("988"), "Fallback missing 988 hotline")
+    #expect(fallback.contains("741741"), "Fallback missing Crisis Text Line")
+    #expect(fallback.contains("tel:988"), "Fallback missing tappable tel: link")
+    #expect(fallback.contains("sms:741741"), "Fallback missing tappable sms: link")
+}
