@@ -2,6 +2,19 @@ name: Backend CI
 
 # P2-14: Tests + lint for the FastAPI backend.
 # Runs on PRs and main pushes whenever backend/ or this workflow changes.
+#
+# Core testing-rigor requirement (see
+# ~/.claude/projects/-Users-brockhoward-ai-health-coach/memory/feedback_testing_rigor.md)
+# enforced here:
+#   1. Full pytest suite (unit + integration + regression + ML-specific).
+#   2. ML boundary gate  — rest of backend/app/ may only import backend.ml.api.
+#   3. Cold-boot gate    — no heavy ML dep may load on `from app.main import app`.
+#   4. Alembic round-trip smoke — upgrade, downgrade, upgrade on a fresh DB.
+#   5. App import smoke  — catches syntax / forward-ref bugs without booting FastAPI.
+#
+# Python version is pinned to 3.12 to match local dev (Stack.md). Do NOT bump
+# without testing every ML dep on the new Python. Some ML wheels (xgboost,
+# prophet, coremltools) lag new releases.
 
 on:
   pull_request:
@@ -19,9 +32,9 @@ on:
 
 jobs:
   pytest:
-    name: pytest (70 tests)
+    name: pytest + ML gates + alembic round-trip
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v4
@@ -29,21 +42,81 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v6
         with:
-          # Pin to repo's Python version so the venv matches local dev
-          python-version: "3.13"
+          # Pin to 3.12 to match local dev. Bumping this requires manual
+          # verification against every ML dep. See feedback_testing_rigor.md.
+          python-version: "3.12"
 
       - name: Install dependencies
         working-directory: backend
         run: uv sync
 
-      - name: Run pytest
+      # Fast-failing gates run first so a broken import boundary / cold boot
+      # surfaces in ~1 second instead of waiting through the full 157-test suite.
+
+      - name: ML boundary gate (mandatory)
+        working-directory: backend
+        env:
+          ANTHROPIC_API_KEY: "stub-for-tests"
+          # Pydantic-settings reads ``jwt_secret_key`` field from ``JWT_SECRET_KEY`` env.
+          # The shorter ``JWT_SECRET`` that used to live here was silently ignored;
+          # auth tests passed only because pydantic defaulted the field to "".
+          JWT_SECRET_KEY: "test-jwt-secret-must-be-long-enough-for-hs256-aaaaaaaa"
+          ENCRYPTION_KEY: "T0TXLkHFSeZRYGIIejSFVkhQrvRE-bWLkwXSkkdWiKQ="
+        # AST walk of every backend/app/ file; fails if anything imports deeper
+        # than backend.ml.api. See tests/ml/test_boundary.py for the rule.
+        run: uv run python -m pytest tests/ml/test_boundary.py -v --tb=short
+
+      - name: Cold-boot gate (mandatory)
+        working-directory: backend
+        env:
+          ANTHROPIC_API_KEY: "stub-for-tests"
+          # Pydantic-settings reads ``jwt_secret_key`` field from ``JWT_SECRET_KEY`` env.
+          # The shorter ``JWT_SECRET`` that used to live here was silently ignored;
+          # auth tests passed only because pydantic defaulted the field to "".
+          JWT_SECRET_KEY: "test-jwt-secret-must-be-long-enough-for-hs256-aaaaaaaa"
+          ENCRYPTION_KEY: "T0TXLkHFSeZRYGIIejSFVkhQrvRE-bWLkwXSkkdWiKQ="
+          DATABASE_URL: "sqlite+aiosqlite:///:memory:"
+        # Subprocess measures `from app.main import app` with -X importtime;
+        # fails if pandas / scipy / statsmodels / xgboost / prophet / dowhy /
+        # econml / shap / mlflow / evidently / nannyml / coremltools / hdbscan /
+        # ruptures / pycatch22 / sklearn sneaks into the main-app import tree.
+        run: uv run python -m pytest tests/ml/test_cold_boot.py -v --tb=short
+
+      - name: Alembic migration round-trip smoke
+        working-directory: backend
+        env:
+          ANTHROPIC_API_KEY: "stub-for-tests"
+          # Pydantic-settings reads ``jwt_secret_key`` field from ``JWT_SECRET_KEY`` env.
+          # The shorter ``JWT_SECRET`` that used to live here was silently ignored;
+          # auth tests passed only because pydantic defaulted the field to "".
+          JWT_SECRET_KEY: "test-jwt-secret-must-be-long-enough-for-hs256-aaaaaaaa"
+          ENCRYPTION_KEY: "T0TXLkHFSeZRYGIIejSFVkhQrvRE-bWLkwXSkkdWiKQ="
+        # Upgrade to head, downgrade one, upgrade back. Catches broken
+        # downgrades and autogenerate noise that crept into hand-edited files.
+        run: |
+          TMPDB="${RUNNER_TEMP:-/tmp}/meld-ci-roundtrip.db"
+          export DATABASE_URL="sqlite+aiosqlite:///${TMPDB}"
+          echo "::group::alembic upgrade head"
+          uv run python -m alembic upgrade head
+          echo "::endgroup::"
+          echo "::group::alembic downgrade -1"
+          uv run python -m alembic downgrade -1
+          echo "::endgroup::"
+          echo "::group::alembic upgrade head (re-apply)"
+          uv run python -m alembic upgrade head
+          echo "::endgroup::"
+
+      - name: Full pytest suite
         working-directory: backend
         env:
           # Test fixtures generate a fresh in-memory SQLite per test, so
           # production secrets aren't needed. Provide stub values so config
           # validation passes during import.
           ANTHROPIC_API_KEY: "stub-for-tests"
-          JWT_SECRET: "test-jwt-secret-must-be-long-enough-for-hs256-aaaaaaaa"
+          # Pydantic-settings reads ``jwt_secret_key`` field from ``JWT_SECRET_KEY`` env.
+          # The shorter ``JWT_SECRET`` that used to live here was silently ignored;
+          # auth tests passed only because pydantic defaulted the field to "".
+          JWT_SECRET_KEY: "test-jwt-secret-must-be-long-enough-for-hs256-aaaaaaaa"
           # Fernet test key — pinned in CI so test_encryption.py round-trips.
           # app.config.Settings() reads os.environ at import time, so this
           # MUST be set before pytest starts the process. (The legacy
@@ -71,7 +144,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v6
         with:
-          python-version: "3.13"
+          python-version: "3.12"
 
       - name: Install ruff
         working-directory: backend
@@ -79,17 +152,17 @@ jobs:
         # the prod lockfile with linter machinery.
         run: uv tool install ruff
 
-      - name: Lint with ruff
+      - name: Lint with ruff (including ml/ and tests/ml/)
         working-directory: backend
         # Allow warnings but fail on errors. We're not trying to enforce a
         # zero-warning bar yet — just catch syntax and obvious bugs.
         run: |
-          uv tool run ruff check app/ --output-format=github || echo "::warning::ruff found issues"
+          uv tool run ruff check app/ ml/ tests/ --output-format=github || echo "::warning::ruff found issues"
 
       - name: Format check
         working-directory: backend
         run: |
-          uv tool run ruff format --check app/ || echo "::warning::ruff format would reformat files"
+          uv tool run ruff format --check app/ ml/ tests/ || echo "::warning::ruff format would reformat files"
 
   type-check:
     name: type imports
@@ -102,7 +175,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v6
         with:
-          python-version: "3.13"
+          python-version: "3.12"
 
       - name: Install dependencies
         working-directory: backend
@@ -112,8 +185,24 @@ jobs:
         working-directory: backend
         env:
           ANTHROPIC_API_KEY: "stub-for-imports"
-          JWT_SECRET: "test-jwt-secret-must-be-long-enough-for-hs256-aaaaaaaa"
+          # Pydantic-settings reads ``jwt_secret_key`` field from ``JWT_SECRET_KEY`` env.
+          # The shorter ``JWT_SECRET`` that used to live here was silently ignored;
+          # auth tests passed only because pydantic defaulted the field to "".
+          JWT_SECRET_KEY: "test-jwt-secret-must-be-long-enough-for-hs256-aaaaaaaa"
           ENCRYPTION_KEY: "T0TXLkHFSeZRYGIIejSFVkhQrvRE-bWLkwXSkkdWiKQ="
         # Catches missing imports, syntax errors, and forward-reference bugs
-        # without spinning up a real server.
+        # without spinning up a real server. Complements the cold-boot gate.
         run: uv run python -c "from app.main import app; print('app imports ok')"
+
+      - name: Verify ml.api imports cleanly
+        working-directory: backend
+        env:
+          ANTHROPIC_API_KEY: "stub-for-imports"
+          # Pydantic-settings reads ``jwt_secret_key`` field from ``JWT_SECRET_KEY`` env.
+          # The shorter ``JWT_SECRET`` that used to live here was silently ignored;
+          # auth tests passed only because pydantic defaulted the field to "".
+          JWT_SECRET_KEY: "test-jwt-secret-must-be-long-enough-for-hs256-aaaaaaaa"
+          ENCRYPTION_KEY: "T0TXLkHFSeZRYGIIejSFVkhQrvRE-bWLkwXSkkdWiKQ="
+        # ml.api is the ONLY public entrypoint for ML code. Must always import
+        # cleanly without ML deps loading (see cold-boot gate).
+        run: uv run python -c "import ml.api as api; print('ml.api imports ok')"
