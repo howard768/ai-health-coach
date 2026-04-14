@@ -22,6 +22,31 @@ dependencies = [
     "pyjwt[crypto]>=2.10.1",
     "slowapi>=0.1.9",
     "email-validator>=2.2.0",
+    # ── Signal Engine ML stack (see ~/.claude/plans/golden-floating-creek.md)
+    # These are imported LAZILY inside backend/ml/api.py function bodies, never
+    # at module import time. The boundary test (tests/ml/test_boundary.py) and
+    # cold-boot test (tests/ml/test_cold_boot.py) enforce this invariant. If you
+    # add a top-level import of any of these anywhere under backend/app/, the
+    # FastAPI cold boot budget (< 4s on Railway) will be blown.
+    "pandas>=2.2.0",
+    "numpy>=1.26.0",
+    "scipy>=1.13.0",
+    "statsmodels>=0.14.0",
+    "scikit-learn>=1.5.0",
+    "xgboost>=2.1.0",
+    "ruptures>=1.1.9",
+    "pycatch22>=0.4.5",
+    "shap>=0.46.0",
+    "hdbscan>=0.8.38",
+    "mlflow>=2.15.0",
+    "evidently>=0.4.0",
+    "nannyml>=0.12.0",
+    # Heavier deps, Modal-only in practice but installable on Railway for parity.
+    # Prophet pulls cmdstanpy; dowhy pulls networkx + graphviz; coremltools is
+    # macOS/linux-only and ~150MB. Keep them here so `uv sync` works everywhere.
+    "prophet>=1.1.5",
+    "dowhy>=0.11.0",
+    "econml>=0.15.0",
 ]
 
 [tool.uv]
@@ -29,4 +54,12 @@ dev-dependencies = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.24.0",
     "httpx>=0.28.0",
+]
+# Resolve only for the two envs we actually ship to: Brock's macOS arm64 dev
+# laptop and the Linux x86_64 Railway container. Without this, uv tries to
+# satisfy every possible platform and falls over on transitive deps like
+# kaleido 0.2.x whose old wheels predate macOS arm64.
+required-environments = [
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
 ]

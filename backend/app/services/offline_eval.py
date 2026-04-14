@@ -14,7 +14,13 @@ from datetime import datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-import textstat
+# NOTE: `textstat` is imported LAZILY inside ``run_offline_eval`` below.
+# When scipy and scikit-learn are present in the environment (they now are, as
+# part of the Signal Engine ML stack), nltk eagerly imports them at load time
+# via textstat's dependency chain. That cascade was adding ~2.5s to FastAPI
+# cold boot and blowing the 4s Railway budget. The cold-boot test in
+# backend/tests/ml/test_cold_boot.py guards this invariant — if you move the
+# import back to module level, that test will fail.
 
 from app.models.chat import ChatMessageRecord
 from app.core.time import utcnow_naive
@@ -33,6 +39,8 @@ async def run_offline_eval(db: AsyncSession, days: int = 7) -> dict:
     2. Data grounding — responses with health_context should cite numbers from it
     3. Feedback correlation — thumbs-down responses flagged for review
     """
+    import textstat  # lazy — see module header for why
+
     cutoff = utcnow_naive() - timedelta(days=days)
 
     result = await db.execute(
