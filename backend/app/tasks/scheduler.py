@@ -470,6 +470,38 @@ async def feature_refresh_job():
             logger.exception("feature_refresh_job DB error: %s", e)
 
 
+async def baselines_job():
+    """Nightly: run L1 baselines, forecasts, and residual anomaly detection.
+
+    Shadow mode: populates ``ml_baselines``, ``ml_change_points``,
+    ``ml_forecasts``, ``ml_anomalies`` but nothing user-facing reads them
+    yet. Phase 3 wires L2 associations to use baselines; Phase 4 wires
+    insight candidates to use anomalies.
+    """
+    from datetime import date as _date
+
+    from ml import api as ml_api
+
+    logger.info("Running baselines_job")
+    async with async_session() as db:
+        user_id = await _get_primary_user_id(db)
+        if user_id is None:
+            logger.info("baselines_job: no primary user yet, skipping")
+            return
+        try:
+            report = await ml_api.run_discovery_pipeline(db, user_id)
+            await db.commit()
+            logger.info(
+                "baselines_job done (shadow=%s): layers=%s counts=%s",
+                report.shadow_mode,
+                report.layers_run,
+                report.tier_counts,
+            )
+        except SQLAlchemyError as e:
+            await db.rollback()
+            logger.exception("baselines_job DB error: %s", e)
+
+
 async def correlation_engine_job():
     """Weekly: discover cross-domain health correlations from user data."""
     logger.info("Running correlation_engine_job")
@@ -767,6 +799,18 @@ def start_scheduler():
         trigger=CronTrigger(hour=3, minute=30),
         id="feature_refresh",
         name="Signal Engine Feature Refresh",
+        replace_existing=True,
+    )
+
+    # Baselines + forecasts + anomalies: nightly at 03:45 UTC, after features
+    # land at 03:30. Shadow mode in Phase 2; nothing user-facing reads these
+    # rows yet. Plan says Sunday-weekly but daily is cheap and gives fresher
+    # forecasts; revisit when prod load demands it.
+    scheduler.add_job(
+        baselines_job,
+        trigger=CronTrigger(hour=3, minute=45),
+        id="baselines",
+        name="Signal Engine L1 Baselines + Forecasts + Anomalies",
         replace_existing=True,
     )
 

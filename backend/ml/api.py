@@ -201,12 +201,50 @@ async def run_discovery_pipeline(
 ) -> DiscoveryReport:
     """Run the full L1 -> L5 discovery pipeline for one user.
 
-    Replaces ``compute_correlations`` from the legacy correlation engine as the
-    caller target for ``correlation_engine_job`` in
-    ``backend/app/tasks/scheduler.py:433``. Implemented incrementally across
-    Phases 2, 3, 6.
+    Phase 2 implements L1 only (baselines + change points + forecasts + anomaly
+    detection). Phase 3 adds L2 associations, Phase 6 adds L3 Granger + L4
+    DoWhy, Phase 9 adds L5 APTE.
+
+    Does NOT commit — caller owns the transaction.
     """
-    raise NotImplementedError("Phases 2, 3, 6: signal discovery layers")
+    from datetime import date, datetime, timezone
+
+    # Lazy imports per boundary rules + cold-boot budget.
+    from ml.discovery.baselines import compute_baselines_for_user
+    from ml.forecasting.anomaly import detect_anomalies_for_user
+    from ml.forecasting.residuals import compute_forecasts_for_user
+
+    started = datetime.now(timezone.utc).isoformat()
+    through_date = date.today()
+    layers_run: list[str] = []
+    tier_counts: dict[str, int] = {}
+
+    # L1 baselines + change points.
+    baseline_run = await compute_baselines_for_user(db, user_id, through_date)
+    layers_run.append("baselines")
+    tier_counts["baselines_written"] = baseline_run.baselines_written
+    tier_counts["change_points_written"] = baseline_run.change_points_written
+
+    # Forecasts for the next 7 days.
+    forecasts = await compute_forecasts_for_user(db, user_id, made_on=through_date)
+    layers_run.append("forecasts")
+    tier_counts["forecast_metrics"] = len(forecasts)
+
+    # Residual anomaly detection over the last week.
+    anomaly_run = await detect_anomalies_for_user(db, user_id, through_date)
+    layers_run.append("anomalies")
+    tier_counts["anomalies_written"] = anomaly_run.anomalies_written
+
+    return DiscoveryReport(
+        user_id=user_id,
+        run_started_at=started,
+        run_finished_at=datetime.now(timezone.utc).isoformat(),
+        layers_run=layers_run,
+        patterns_tested=baseline_run.baselines_written,
+        patterns_surfaced=0,  # Phase 2 is shadow-only; nothing is surfaced.
+        tier_counts=tier_counts,
+        shadow_mode=True,
+    )
 
 
 async def generate_insight_candidates(
@@ -255,12 +293,66 @@ async def forecast_metric(
     metric: str,
     horizon_days: int = 7,
 ) -> Forecast:
-    """Return the ensembled (seasonal-naive + Prophet) short-horizon forecast.
+    """Return the most recent ensembled forecast for ``metric``.
 
-    Implemented in Phase 2. Stored results are read-through cached in
-    ``ml_forecasts``; a cache miss triggers an on-demand compute.
+    Reads from ``ml_forecasts`` populated by the nightly ``baselines_job``.
+    Returns a Forecast with empty ``points`` if no forecast has been
+    computed yet. On-demand computation is intentionally not supported:
+    Prophet is too expensive to run synchronously in the request path.
     """
-    raise NotImplementedError("Phase 2: forecasting ensemble")
+    from datetime import date as _date
+    from datetime import timedelta
+
+    from sqlalchemy import select
+
+    # Lazy import to keep api.py light.
+    from app.models.ml_baselines import MLForecast
+
+    today = _date.today()
+    start = today + timedelta(days=1)
+    end = today + timedelta(days=horizon_days)
+
+    result = await db.execute(
+        select(MLForecast)
+        .where(
+            MLForecast.user_id == user_id,
+            MLForecast.metric_key == metric,
+            MLForecast.target_date >= start.isoformat(),
+            MLForecast.target_date <= end.isoformat(),
+        )
+        .order_by(MLForecast.target_date.asc(), MLForecast.made_on.desc())
+    )
+    rows = list(result.scalars().all())
+
+    # Keep the most recent made_on per target_date.
+    seen_targets: set[str] = set()
+    points: list[dict[str, object]] = []
+    made_on_latest: str | None = None
+    model_version: str | None = None
+    for row in rows:
+        if row.target_date in seen_targets:
+            continue
+        seen_targets.add(row.target_date)
+        points.append(
+            {
+                "date": row.target_date,
+                "y_hat": row.y_hat,
+                "y_hat_low": row.y_hat_low,
+                "y_hat_high": row.y_hat_high,
+            }
+        )
+        if made_on_latest is None or row.made_on > made_on_latest:
+            made_on_latest = row.made_on
+        model_version = row.model_version
+
+    return Forecast(
+        user_id=user_id,
+        metric=metric,
+        horizon_days=horizon_days,
+        points=points,
+        model_version=model_version or "",
+        made_on=made_on_latest or "",
+    )
 
 
 async def load_active_patterns(
