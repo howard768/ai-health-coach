@@ -18,9 +18,10 @@ settings:
     DEVELOPMENT_TEAM: "8HA7S8AFF7"
   configs:
     Debug:
-      # Debug builds on a physical device talk to the Mac's LAN IP.
+      # Debug builds on a physical device talk to the Mac over Tailscale.
+      # Works anywhere (home, coffee shop, airport) as long as Tailscale is on.
       # Override per developer by setting API_BASE_URL in the scheme env.
-      API_BASE_URL: "http:/$()/192.168.86.33:8000/api"
+      API_BASE_URL: "http:/$()/100.104.76.64:8000/api"
     Release:
       # TestFlight + App Store builds hit Railway.
       API_BASE_URL: "https:/$()/zippy-forgiveness-production-0704.up.railway.app/api"
@@ -81,7 +82,10 @@ targets:
         NSHealthShareUsageDescription: Meld reads your sleep, activity, and heart rate to provide personalized coaching.
         NSHealthUpdateUsageDescription: Meld logs meals and workouts to keep your health records in sync.
         NSAppTransportSecurity:
-          NSAllowsLocalNetworking: true
+          # NSAllowsArbitraryLoads alone covers all HTTP including Tailscale's
+          # CGNAT range (100.64.0.0/10). Don't add NSAllowsLocalNetworking —
+          # when both are set, iOS ignores NSAllowsArbitraryLoads and only
+          # allows RFC1918 ranges (10/172.16/192.168), which blocks Tailscale.
           NSAllowsArbitraryLoads: true
 
   MeldNotificationServiceExtension:
