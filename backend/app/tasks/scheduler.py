@@ -470,6 +470,41 @@ async def feature_refresh_job():
             logger.exception("feature_refresh_job DB error: %s", e)
 
 
+async def insight_candidate_job():
+    """Daily: generate candidates, rank them, persist the top-N slate.
+
+    Shadow mode: writes to ``ml_rankings`` with ``was_shown=False``. The
+    ``/api/insights/daily`` endpoint flips ``was_shown=True`` on read when
+    ``ml_shadow_insight_card`` is off. Until then the slate is a shadow
+    log for A/B comparison and for future ranker training.
+
+    Caps (1/day, 3/week) are enforced at read time via
+    ``ml.ranking.heuristic.can_surface_today``. The job itself writes
+    rankings regardless, so the shadow log captures full exposure history.
+    """
+    from ml import api as ml_api
+
+    logger.info("Running insight_candidate_job")
+    async with async_session() as db:
+        user_id = await _get_primary_user_id(db)
+        if user_id is None:
+            logger.info("insight_candidate_job: no primary user yet, skipping")
+            return
+        try:
+            report = await ml_api.run_daily_insights(db, user_id)
+            await db.commit()
+            logger.info(
+                "insight_candidate_job done (shadow=%s): %d candidates, %d rankings, top=%s",
+                report.shadow_mode,
+                report.candidates_generated,
+                report.rankings_written,
+                report.top_candidate_id,
+            )
+        except SQLAlchemyError as e:
+            await db.rollback()
+            logger.exception("insight_candidate_job DB error: %s", e)
+
+
 async def baselines_job():
     """Nightly: run L1 baselines, forecasts, and residual anomaly detection.
 
@@ -785,6 +820,19 @@ def start_scheduler():
         trigger=CronTrigger(hour=3, minute=45),
         id="baselines",
         name="Signal Engine L1 Baselines + Forecasts + Anomalies",
+        replace_existing=True,
+    )
+
+    # Insight candidates + heuristic ranker: daily at 07:00 user-local, per
+    # the Phase 4 plan. Runs after L2 associations (Sunday 04:00 UTC) and L1
+    # forecasts (03:45 UTC daily) so candidate generation sees fresh data.
+    # Shadow mode: ml_rankings gets populated with was_shown=False until
+    # ml_shadow_insight_card is flipped off.
+    scheduler.add_job(
+        insight_candidate_job,
+        trigger=CronTrigger(hour=7, minute=0, timezone=user_tz),
+        id="insight_candidate",
+        name="Signal Engine Phase 4 Insight Candidates + Ranker",
         replace_existing=True,
     )
 

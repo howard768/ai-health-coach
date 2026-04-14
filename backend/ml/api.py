@@ -68,7 +68,13 @@ class DiscoveryReport:
 
 @dataclass
 class InsightCandidate:
-    """Everything the ranker sees. Populated by Phase 4."""
+    """Everything the ranker sees.
+
+    Populated by ``ml.ranking.candidates.generate_candidates``. This is the
+    **public** shape — the internal builder uses a tuple for
+    ``subject_metrics`` for immutability, but at the boundary we normalize
+    to a plain list so JSON serialization is clean.
+    """
 
     id: str
     user_id: str
@@ -82,7 +88,7 @@ class InsightCandidate:
     literature_support: bool = False
     directional_support: bool = False
     causal_support: bool = False
-    payload_json: dict[str, Any] = field(default_factory=dict)
+    payload: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -93,6 +99,18 @@ class RankedInsight:
     score: float
     rank: int
     ranker_model_version: str
+
+
+@dataclass
+class DailyInsightReport:
+    """Phase 4 summary returned by ``run_daily_insights``."""
+
+    user_id: str
+    surface_date: str  # YYYY-MM-DD
+    candidates_generated: int
+    rankings_written: int
+    top_candidate_id: str | None  # None when no candidates exist today
+    shadow_mode: bool
 
 
 @dataclass
@@ -253,24 +271,180 @@ async def generate_insight_candidates(
 ) -> list[InsightCandidate]:
     """Normalize all surfaceable findings into ``InsightCandidate`` objects.
 
-    Reads from ``UserCorrelation`` (developing+ tier), ``ml_anomalies``,
-    ``ml_forecasts`` (warnings), ``ml_n_of_1_results``. Implemented in Phase 4.
+    Reads from ``UserCorrelation`` (developing+ tier), ``ml_anomalies``
+    within the last 7 days, and (future) ``ml_n_of_1_results``. Persists
+    to ``ml_insight_candidates`` (idempotent upsert).
+
+    Does NOT commit — caller owns the transaction.
     """
-    raise NotImplementedError("Phase 4: candidate normalization")
+    from datetime import date as _date
+
+    # Lazy import keeps cold boot clean. See backend/ml/__init__.py.
+    from ml.ranking.candidates import generate_candidates
+
+    internal = await generate_candidates(db, user_id, _date.today())
+    # Map internal dataclass (tuple subject_metrics, ``payload`` field) to
+    # public shape (list subject_metrics, same-named ``payload``).
+    return [
+        InsightCandidate(
+            id=c.id,
+            user_id=c.user_id,
+            kind=c.kind,
+            subject_metrics=list(c.subject_metrics),
+            effect_size=c.effect_size,
+            confidence=c.confidence,
+            novelty=c.novelty,
+            recency_days=c.recency_days,
+            actionability_score=c.actionability_score,
+            literature_support=c.literature_support,
+            directional_support=c.directional_support,
+            causal_support=c.causal_support,
+            payload=dict(c.payload),
+        )
+        for c in internal
+    ]
 
 
 async def rank_candidates(
     candidates: list[InsightCandidate],
-    user_context: UserContext,
+    user_context: "UserContext | None" = None,
 ) -> list[RankedInsight]:
     """Score + order candidates. Heuristic ranker in Phase 4, learned in Phase 7.
 
-    This is the **server-side** rank path (used e.g. for notification content
-    selection). The iOS client runs its own CoreML copy on device for the
-    dashboard card ordering. Both paths must stay within the per-day and
-    per-week exposure caps defined in ``MLSettings``.
+    In Phase 4 this is a pure weighted-sum scorer: the ``user_context``
+    parameter is reserved for Phase 7 when the learned ranker consumes
+    user engagement features. Present here to keep the signature stable.
+
+    This is the **server-side** rank path (used by ``run_daily_insights``
+    and the notification picker). Phase 7 adds an on-device CoreML copy
+    for dashboard-side ranking.
     """
-    raise NotImplementedError("Phase 4 (heuristic), Phase 7 (learned)")
+    # Lazy import keeps cold boot clean.
+    from ml.ranking.candidates import InsightCandidate as InternalCandidate
+    from ml.ranking.heuristic import RANKER_VERSION, rank_candidates as _rank
+
+    internal = [
+        InternalCandidate(
+            id=c.id,
+            user_id=c.user_id,
+            kind=c.kind,
+            subject_metrics=tuple(c.subject_metrics),
+            effect_size=c.effect_size,
+            confidence=c.confidence,
+            novelty=c.novelty,
+            recency_days=c.recency_days,
+            actionability_score=c.actionability_score,
+            literature_support=c.literature_support,
+            directional_support=c.directional_support,
+            causal_support=c.causal_support,
+            payload=dict(c.payload),
+        )
+        for c in candidates
+    ]
+    ranked = _rank(internal)
+    return [
+        RankedInsight(
+            candidate=candidates[
+                next(i for i, c in enumerate(candidates) if c.id == r.candidate.id)
+            ],
+            score=r.score,
+            rank=r.rank,
+            ranker_model_version=RANKER_VERSION,
+        )
+        for r in ranked
+    ]
+
+
+def is_insight_card_shadow_mode() -> bool:
+    """Whether the Phase 4 ``SignalInsightCard`` surface is in shadow mode.
+
+    Exposed through the public boundary so the router does not need to
+    import ``ml.config`` directly (that would trip the boundary AST check
+    in ``tests/ml/test_boundary.py``).
+    """
+    from ml.config import get_ml_settings
+
+    return get_ml_settings().ml_shadow_insight_card
+
+
+async def can_surface_insight_today(
+    db: "AsyncSession",
+    user_id: str,
+    surface_date: "date | None" = None,
+) -> tuple[bool, str]:
+    """Cap check for today's insight card.
+
+    Returns ``(allowed, reason)``. Thin wrapper around
+    ``ml.ranking.heuristic.can_surface_today`` so the router stays behind
+    the public boundary.
+    """
+    from datetime import date as _date
+
+    from ml.ranking.heuristic import can_surface_today
+
+    resolved = surface_date or _date.today()
+    return await can_surface_today(db, user_id, resolved)
+
+
+async def run_daily_insights(
+    db: "AsyncSession",
+    user_id: str,
+) -> DailyInsightReport:
+    """Orchestrate Phase 4: generate candidates, rank, persist rankings.
+
+    Called by the ``insight_candidate_job`` scheduler at ~07:00 local. The
+    API endpoint at ``GET /api/insights/daily`` reads from the persisted
+    ``ml_rankings`` rows; this job is what populates them.
+
+    Idempotent: if a slate already exists for today,
+    ``materialize_daily_ranking`` returns empty and we read the existing
+    rank=1 row so ``top_candidate_id`` still reflects today's top card.
+    Does NOT commit — caller owns the transaction.
+    """
+    from datetime import date as _date
+
+    from sqlalchemy import select as _select
+
+    from app.models.ml_insights import MLRanking
+    from ml.ranking.candidates import generate_candidates
+    from ml.ranking.heuristic import materialize_daily_ranking, RANKER_VERSION
+
+    # Late import of the settings so env changes pick up without restart.
+    from ml.config import get_ml_settings
+
+    surface_date = _date.today()
+    candidates = await generate_candidates(db, user_id, surface_date)
+    rankings = await materialize_daily_ranking(
+        db, user_id, candidates, surface_date
+    )
+
+    # Read-through: when materialize no-ops (rerun same day), look up
+    # today's persisted top-1 so the report still answers "what IS the
+    # top candidate for today?".
+    top_candidate_id: str | None = None
+    if rankings:
+        top_candidate_id = rankings[0].candidate.id
+    else:
+        existing = await db.execute(
+            _select(MLRanking).where(
+                MLRanking.user_id == user_id,
+                MLRanking.surface_date == surface_date.isoformat(),
+                MLRanking.rank == 1,
+                MLRanking.ranker_version == RANKER_VERSION,
+            )
+        )
+        row = existing.scalar_one_or_none()
+        if row is not None:
+            top_candidate_id = row.candidate_id
+
+    return DailyInsightReport(
+        user_id=user_id,
+        surface_date=surface_date.isoformat(),
+        candidates_generated=len(candidates),
+        rankings_written=len(rankings),
+        top_candidate_id=top_candidate_id,
+        shadow_mode=get_ml_settings().ml_shadow_insight_card,
+    )
 
 
 async def explain_insight(

@@ -11,7 +11,7 @@ from slowapi.util import get_remote_address
 
 from app.config import settings
 from app.database import init_db
-from app.routers import auth, auth_apple, health, coach, notifications, meals, user, peloton_auth, garmin_auth, webhooks, waitlist, mascot
+from app.routers import auth, auth_apple, health, coach, notifications, meals, user, peloton_auth, garmin_auth, webhooks, waitlist, mascot, insights
 from app.tasks.scheduler import start_scheduler, stop_scheduler
 
 
@@ -86,6 +86,7 @@ app.include_router(garmin_auth.router)
 app.include_router(webhooks.router)
 app.include_router(waitlist.router)    # Public waitlist signup (heymeld.com)
 app.include_router(mascot.router)      # Mascot accessory wardrobe
+app.include_router(insights.router)    # Signal Engine Phase 4: daily ranked insight + feedback
 
 
 @app.get("/")
