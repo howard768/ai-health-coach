@@ -120,6 +120,13 @@ targets:
     platform: iOS
     sources:
       - path: MeldSnapshotTests
+        # __Snapshots__ directories hold reference PNGs that
+        # swift-snapshot-testing reads from disk at test time. They must
+        # not be bundled as test resources — xcodegen's default flattens
+        # them into the .xctest root, which collides when two subdirs
+        # both contain e.g. fullWidth.1.png and breaks the build.
+        excludes:
+          - "**/__Snapshots__/**"
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES

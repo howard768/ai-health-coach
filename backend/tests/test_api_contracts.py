@@ -89,8 +89,10 @@ def test_health_latest_fallback_shape():
 
 # ── Coach Response Shape ────────────────────────────────────
 
-# iOS CoachViewModel expects these keys from POST /coach/chat
-COACH_RESPONSE_REQUIRED_KEYS = {"role", "content", "message_id"}
+# iOS CoachViewModel expects these keys from POST /coach/chat.
+# `blocks` powers rich rendering (markdown text + data cards); removing it
+# from the backend would silently degrade the iOS chat UI to plain text.
+COACH_RESPONSE_REQUIRED_KEYS = {"role", "content", "blocks", "message_id"}
 
 
 def test_coach_response_shape():
@@ -101,10 +103,35 @@ def test_coach_response_shape():
     assert not missing, f"ChatResponse missing keys: {missing}"
 
 
+def test_coach_response_blocks_discriminator():
+    """Each block in the response carries a `type` so iOS can decode the
+    discriminated union (text vs data_card). Without this, the polymorphic
+    decoder has nothing to dispatch on."""
+    from app.services.content_blocks import (
+        DataCardBlock,
+        TextBlock,
+        parse_content_blocks,
+    )
+    blocks = parse_content_blocks(
+        "Good recovery. [[data:hrv:50:ms:baseline 45]] Push today."
+    )
+    serialized = [b.model_dump() for b in blocks]
+    # Every block must have a type field with a recognized value
+    for s in serialized:
+        assert "type" in s, f"Block missing type field: {s}"
+        assert s["type"] in {"text", "data_card"}, f"Unknown block type: {s['type']}"
+    # Data cards must also carry the four payload fields the iOS decoder reads
+    data_cards = [s for s in serialized if s["type"] == "data_card"]
+    assert len(data_cards) == 1
+    for key in ("metric", "value", "unit", "subtitle"):
+        assert key in data_cards[0], f"data_card missing {key}: {data_cards[0]}"
+
+
 # ── Chat History Shape ──────────────────────────────────────
 
-# iOS CoachViewModel.loadHistory expects these keys per message
-HISTORY_MESSAGE_REQUIRED_KEYS = {"id", "role", "content", "created_at"}
+# iOS CoachViewModel.loadHistory reads `blocks` so historical coach messages
+# render with the same rich formatting as fresh responses.
+HISTORY_MESSAGE_REQUIRED_KEYS = {"id", "role", "content", "blocks", "created_at"}
 
 
 def test_chat_history_message_shape():

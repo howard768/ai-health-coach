@@ -53,12 +53,43 @@ enum ChatContent: Identifiable {
 
 struct ChatDataCard: Identifiable {
     let id = UUID()
-    let metricType: MetricCategory
     let title: String
     let value: String
     let unit: String
     let subtitle: String
-    let trendValues: [Double]?
+
+    /// Construct from a backend metric key. Backend emits keys like
+    /// "sleep_efficiency", "deep_sleep_minutes", "hrv", "steps" — broader
+    /// than our 4-case MetricCategory enum. We derive a display title from
+    /// the key rather than requiring the enum to know about every metric.
+    init(metricKey: String, value: String, unit: String, subtitle: String) {
+        self.title = Self.displayTitle(for: metricKey)
+        self.value = value
+        self.unit = unit
+        self.subtitle = subtitle
+    }
+
+    /// Map backend metric keys to human-readable card titles.
+    /// Unknown keys get a sensible default (snake_case → Title Case).
+    private static func displayTitle(for key: String) -> String {
+        switch key {
+        case "sleep_efficiency": return "Sleep Efficiency"
+        case "sleep_duration_hours": return "Sleep Duration"
+        case "deep_sleep_minutes": return "Deep Sleep"
+        case "rem_sleep_minutes": return "REM Sleep"
+        case "hrv", "hrv_average": return "HRV"
+        case "resting_hr": return "Resting HR"
+        case "readiness_score": return "Readiness"
+        case "steps": return "Steps"
+        case "active_calories": return "Active Calories"
+        default:
+            // snake_case → Title Case fallback
+            return key
+                .split(separator: "_")
+                .map { $0.prefix(1).uppercased() + $0.dropFirst() }
+                .joined(separator: " ")
+        }
+    }
 }
 
 // MARK: - Quick Actions

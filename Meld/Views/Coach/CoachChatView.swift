@@ -229,10 +229,7 @@ private struct MessageView: View {
     private func contentView(for block: ChatContent) -> some View {
         switch block {
         case .text(let text):
-            Text(text)
-                .font(DSTypography.body)
-                .foregroundStyle(DSColor.Text.primary)
-                .lineSpacing(4)
+            MarkdownText(raw: text)
 
         case .dataCard(let card):
             DSSummaryDataCard(
@@ -257,6 +254,106 @@ private struct MessageView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "h:mm a"
         return formatter.string(from: message.timestamp)
+    }
+}
+
+// MARK: - Markdown Text
+//
+// Renders the coach's markdown-ish text with inline **bold** / *italic* and
+// bulleted lists (lines starting with "- "). SwiftUI's AttributedString
+// markdown parser handles inline formatting but not lists, so we split on
+// newlines and render bullets as separate rows with a DS purple glyph.
+//
+// Supported:
+//   **bold**, *italic*, `code`, and [links](url)
+//   - bullet lines
+//   blank lines between paragraphs
+//
+// Unsupported (coach prompt forbids them): headers, tables, numbered lists.
+
+private struct MarkdownText: View {
+    let raw: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: DSSpacing.sm) {
+            ForEach(Array(paragraphs.enumerated()), id: \.offset) { _, paragraph in
+                paragraphView(paragraph)
+            }
+        }
+    }
+
+    /// Split the raw text into "paragraphs", where consecutive non-bullet
+    /// lines merge into one paragraph and each bullet line is its own unit.
+    /// Blank lines act as paragraph breaks.
+    private var paragraphs: [Paragraph] {
+        var result: [Paragraph] = []
+        var textBuffer: [String] = []
+
+        func flushText() {
+            if !textBuffer.isEmpty {
+                let joined = textBuffer.joined(separator: " ")
+                if !joined.isEmpty {
+                    result.append(.text(joined))
+                }
+                textBuffer.removeAll()
+            }
+        }
+
+        for line in raw.components(separatedBy: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty {
+                flushText()
+            } else if trimmed.hasPrefix("- ") {
+                flushText()
+                result.append(.bullet(String(trimmed.dropFirst(2))))
+            } else if trimmed.hasPrefix("* ") {
+                flushText()
+                result.append(.bullet(String(trimmed.dropFirst(2))))
+            } else {
+                textBuffer.append(trimmed)
+            }
+        }
+        flushText()
+        return result
+    }
+
+    @ViewBuilder
+    private func paragraphView(_ paragraph: Paragraph) -> some View {
+        switch paragraph {
+        case .text(let value):
+            Text(attributed(value))
+                .font(DSTypography.body)
+                .foregroundStyle(DSColor.Text.primary)
+                .lineSpacing(4)
+                .fixedSize(horizontal: false, vertical: true)
+        case .bullet(let value):
+            HStack(alignment: .firstTextBaseline, spacing: DSSpacing.sm) {
+                Text("•")
+                    .font(DSTypography.body)
+                    .foregroundStyle(DSColor.Purple.purple500)
+                Text(attributed(value))
+                    .font(DSTypography.body)
+                    .foregroundStyle(DSColor.Text.primary)
+                    .lineSpacing(4)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    /// Parse inline markdown (**bold**, *italic*, `code`, [link](url)) into
+    /// an AttributedString. Falls back to plain text if parsing fails.
+    private func attributed(_ string: String) -> AttributedString {
+        var options = AttributedString.MarkdownParsingOptions()
+        options.interpretedSyntax = .inlineOnlyPreservingWhitespace
+        if let parsed = try? AttributedString(markdown: string, options: options) {
+            return parsed
+        }
+        return AttributedString(string)
+    }
+
+    private enum Paragraph {
+        case text(String)
+        case bullet(String)
     }
 }
 

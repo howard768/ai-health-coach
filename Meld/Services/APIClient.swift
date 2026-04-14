@@ -656,6 +656,9 @@ struct APINotificationOpenedRequest: Codable {
 struct APIChatResponse: Codable {
     let role: String
     let content: String
+    /// Structured content blocks for rich rendering (text + data cards).
+    /// Optional for backward compatibility with pre-v2 server builds.
+    let blocks: [APIContentBlock]?
     let message_id: Int?
     // P2-18: decode routing/safety/model_used so future debug UI can read them.
     // Backend already returns these — ignoring would silently swallow info.
@@ -665,6 +668,56 @@ struct APIChatResponse: Codable {
 
     var messageId: Int? { message_id }
     var modelUsed: String? { model_used }
+}
+
+// MARK: - Content Blocks (polymorphic chat content)
+//
+// The coach returns raw markdown in `content` plus a parallel `blocks` array
+// that splits the response into text + data cards. Mirrors the backend's
+// Pydantic discriminated union in app/services/content_blocks.py.
+
+enum APIContentBlock: Codable {
+    case text(String)
+    case dataCard(metric: String, value: String, unit: String, subtitle: String)
+
+    private enum CodingKeys: String, CodingKey {
+        case type, value, metric, unit, subtitle
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try c.decode(String.self, forKey: .type)
+        switch type {
+        case "text":
+            self = .text(try c.decode(String.self, forKey: .value))
+        case "data_card":
+            self = .dataCard(
+                metric: try c.decode(String.self, forKey: .metric),
+                value: try c.decode(String.self, forKey: .value),
+                unit: try c.decode(String.self, forKey: .unit),
+                subtitle: try c.decode(String.self, forKey: .subtitle)
+            )
+        default:
+            // Forward-compat: unknown block types fall back to empty text so
+            // future block kinds (e.g. workout cards) don't crash old clients.
+            self = .text("")
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .text(let value):
+            try c.encode("text", forKey: .type)
+            try c.encode(value, forKey: .value)
+        case .dataCard(let metric, let value, let unit, let subtitle):
+            try c.encode("data_card", forKey: .type)
+            try c.encode(metric, forKey: .metric)
+            try c.encode(value, forKey: .value)
+            try c.encode(unit, forKey: .unit)
+            try c.encode(subtitle, forKey: .subtitle)
+        }
+    }
 }
 
 struct APIChatRouting: Codable {
@@ -684,6 +737,7 @@ struct APIHistoryMessage: Codable {
     let id: Int
     let role: String
     let content: String
+    let blocks: [APIContentBlock]?
     let model_used: String?
     let routing_tier: String?
     let created_at: String

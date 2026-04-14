@@ -30,7 +30,7 @@ final class CoachViewModel {
                 messages = history.map { msg in
                     ChatMessage(
                         role: msg.role == "coach" ? .coach : .user,
-                        text: msg.content,
+                        content: Self.content(from: msg.blocks, fallback: msg.content),
                         timestamp: ISO8601DateFormatter().date(from: msg.createdAt) ?? Date(),
                         messageId: msg.id
                     )
@@ -125,7 +125,11 @@ final class CoachViewModel {
 
             do {
                 let response = try await APIClient.shared.sendMessage(prompt)
-                let coachMsg = ChatMessage(role: .coach, text: response.content, messageId: response.messageId)
+                let coachMsg = ChatMessage(
+                    role: .coach,
+                    content: Self.content(from: response.blocks, fallback: response.content),
+                    messageId: response.messageId
+                )
                 messages.append(coachMsg)
             } catch APIError.networkError {
                 messages.append(ChatMessage(
@@ -141,6 +145,31 @@ final class CoachViewModel {
                 messages.append(errorMsg)
             }
             isTyping = false
+        }
+    }
+
+    // MARK: - Block Mapping
+    //
+    // Convert the backend's structured `blocks` array into the UI's ChatContent
+    // model. Falls back to a single text block when `blocks` is nil (older
+    // server builds or an empty response), using the plain `content` string.
+
+    private static func content(from blocks: [APIContentBlock]?, fallback: String) -> [ChatContent] {
+        guard let blocks, !blocks.isEmpty else {
+            return [.text(fallback)]
+        }
+        return blocks.map { block in
+            switch block {
+            case .text(let value):
+                return .text(value)
+            case .dataCard(let metric, let value, let unit, let subtitle):
+                return .dataCard(ChatDataCard(
+                    metricKey: metric,
+                    value: value,
+                    unit: unit,
+                    subtitle: subtitle
+                ))
+            }
         }
     }
 }

@@ -14,6 +14,14 @@ from app.database import get_db
 from app.models.chat import Conversation, ChatMessageRecord
 from app.models.user import User
 from app.services.coach_engine import CoachEngine
+from app.services.content_blocks import (
+    ContentBlock,
+    DataCardBlock,
+    TextBlock,
+    flatten_to_markdown,
+    parse_content_blocks,
+    sanitize_output,
+)
 from app.services.health_data import get_latest_health_data
 from app.core.time import utcnow_naive
 
@@ -33,7 +41,8 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     role: str
-    content: str
+    content: str  # Plain markdown with [[data:...]] tags flattened to bold inline.
+    blocks: list[ContentBlock] = []  # Structured rendering for rich clients.
     message_id: int | None = None
     routing: dict | None = None
     safety: dict | None = None
@@ -44,6 +53,7 @@ class HistoryMessage(BaseModel):
     id: int
     role: str
     content: str
+    blocks: list[ContentBlock] = []
     model_used: str | None = None
     routing_tier: str | None = None
     created_at: str
@@ -112,25 +122,24 @@ async def chat(
     )
     latency_ms = int((time.monotonic() - start_time) * 1000)
 
-    # Strip markdown formatting — our chat UI renders plain text
-    import re
-    clean_response = result["response"]
-    clean_response = re.sub(r'\*\*(.+?)\*\*', r'\1', clean_response)  # **bold** → bold
-    clean_response = re.sub(r'\*(.+?)\*', r'\1', clean_response)  # *italic* → italic
-    clean_response = re.sub(r'^#{1,3}\s+', '', clean_response, flags=re.MULTILINE)  # ## headers → plain
-    clean_response = re.sub(r'^- ', '• ', clean_response, flags=re.MULTILINE)  # - bullets → •
-    result["response"] = clean_response
+    # Scrub em dashes (prompt forbids but model sometimes slips); preserve
+    # everything else (markdown, data tags) so the client can render richly.
+    raw_response = sanitize_output(result["response"])
+    blocks = parse_content_blocks(raw_response)
+    flat_content = flatten_to_markdown(raw_response)
+    result["response"] = flat_content
 
     # Serialize health context for replay (offline eval)
     import json
     health_context_str = json.dumps(health_data) if health_data else None
 
-    # Save coach response with production monitoring fields
+    # Save coach response with production monitoring fields. Store the RAW
+    # (sanitized) output so history can re-parse blocks with updated logic.
     coach_msg = ChatMessageRecord(
         conversation_id=conv.id,
         user_id=user_id,
         role="coach",
-        content=clean_response,
+        content=raw_response,
         routing_tier=result.get("routing", {}).get("tier"),
         routing_reason=result.get("routing", {}).get("reason"),
         model_used=result.get("model_used"),
@@ -139,7 +148,7 @@ async def chat(
         input_tokens=result.get("tokens", {}).get("input"),
         output_tokens=result.get("tokens", {}).get("output"),
         health_context=health_context_str,
-        prompt_version="v1",  # Increment for A/B tests
+        prompt_version="v2",  # v2: markdown allowed, data tags, BLUF, no em dashes
     )
     db.add(coach_msg)
 
@@ -152,16 +161,14 @@ async def chat(
         await db.commit()
         await db.refresh(coach_msg)
     except SQLAlchemyError as e:
-        # The Claude call already succeeded — the user's message is in flight.
-        # Roll back the failed write but still return the AI response so the
-        # user sees something. Log so we can spot persistent DB issues.
+        # The Claude call already succeeded. Roll back the failed write but
+        # still return the AI response so the user sees something.
         await db.rollback()
         logger.error("Failed to persist coach response: %s", e)
-        # Return a synthetic message_id of -1 so the iOS client can render but
-        # feedback buttons will gracefully no-op.
         return ChatResponse(
             role="coach",
-            content=result["response"],
+            content=flat_content,
+            blocks=blocks,
             message_id=None,
             routing=result.get("routing"),
             safety=result.get("safety"),
@@ -170,7 +177,8 @@ async def chat(
 
     return ChatResponse(
         role="coach",
-        content=result["response"],
+        content=flat_content,
+        blocks=blocks,
         message_id=coach_msg.id,
         routing=result.get("routing"),
         safety=result.get("safety"),
@@ -231,17 +239,29 @@ async def get_history(
     conv = await _get_or_create_conversation(db, user_id)
     records = await _get_recent_messages(db, conv.id, limit=100)
 
-    messages = [
-        HistoryMessage(
-            id=m.id,
-            role=m.role,
-            content=m.content,
-            model_used=m.model_used,
-            routing_tier=m.routing_tier,
-            created_at=m.created_at.isoformat(),
+    # Parse blocks and flatten content on read so history renders richly
+    # whether the message was stored pre-v2 (plain text) or post-v2 (with
+    # [[data:...]] tags). User messages have no tags and just become a
+    # single text block.
+    messages = []
+    for m in records:
+        if m.role == "coach":
+            blocks = parse_content_blocks(m.content)
+            flat = flatten_to_markdown(m.content)
+        else:
+            blocks = [TextBlock(value=m.content)]
+            flat = m.content
+        messages.append(
+            HistoryMessage(
+                id=m.id,
+                role=m.role,
+                content=flat,
+                blocks=blocks,
+                model_used=m.model_used,
+                routing_tier=m.routing_tier,
+                created_at=m.created_at.isoformat(),
+            )
         )
-        for m in records
-    ]
 
     return HistoryResponse(messages=messages, conversation_id=conv.id)
 
