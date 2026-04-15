@@ -77,15 +77,18 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             build 2>&1 | xcpretty
 
-      - name: Test
-        # UI tests spawn Meld.app as a separate process via XCUIApplication,
-        # which the simulator's xctrunner refuses to launch when the bundle
-        # is entirely unsigned (CODE_SIGNING_ALLOWED=NO). Unit / snapshot
-        # tests run inside the test host's own process and are unaffected.
-        #
-        # Use ad-hoc signing ("-" identity) for the test step so the UI test
-        # target can launch Meld.app on the simulator. CODE_SIGNING_REQUIRED
-        # stays NO so missing provisioning profiles don't fail the build.
+      # Split test invocations by target type because they need different
+      # signing settings and have different failure modes. Running them in
+      # one `xcodebuild test` masked which target was breaking — the
+      # per-suite summaries from xcpretty were getting swallowed when any
+      # target hit exit 65.
+      #
+      # Unit + snapshot tests run INSIDE the Meld.app test host and work
+      # fine with CODE_SIGNING_ALLOWED=NO, which matches the Build step's
+      # known-good config. Any snapshot-tests failure uploads diff PNGs
+      # via the Upload snapshot failures step at the end of this job.
+
+      - name: Test (unit + snapshot)
         run: |
           set -o pipefail
           xcodebuild \
@@ -93,6 +96,25 @@ jobs:
             -scheme "$SCHEME" \
             -destination "$DESTINATION" \
             -configuration Debug \
+            -only-testing:MeldTests \
+            -only-testing:MeldSnapshotTests \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            test 2>&1 | xcpretty --test --color
+
+      # UI tests spawn Meld.app as a separate process via XCUIApplication,
+      # which the simulator's xctrunner refuses to launch when the bundle
+      # is entirely unsigned. Ad-hoc identity ("-") works without a real
+      # developer certificate.
+      - name: Test (UI)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project Meld.xcodeproj \
+            -scheme "$SCHEME" \
+            -destination "$DESTINATION" \
+            -configuration Debug \
+            -only-testing:MeldUITests \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
             test 2>&1 | xcpretty --test --color
