@@ -581,6 +581,52 @@ async def offline_eval_job():
         )
 
 
+async def synth_drift_job():
+    """Daily: compare synth vs real biometrics, log drift, write HTML.
+
+    Phase 4.5 Commit 5 wiring. The report reads from HealthMetricRecord
+    partitioned on ``is_synthetic`` (Commit 3 column). When either
+    partition is below the min-samples floor (e.g., synth hasn't been
+    generated in this environment yet) the job short-circuits with
+    ``dataset_too_small=True`` and logs. Cheap noise, no drama.
+
+    The HTML path is best-effort: Evidently 0.7.21 fails to import on
+    Python 3.14 (pydantic v1 incompat); Railway runs 3.12 so it works
+    there. On failure ``html_path`` is None and only the KS summary
+    is logged. No DB writes here; no commit needed.
+    """
+    from ml import api as ml_api
+
+    logger.info("Running synth_drift_job")
+    async with async_session() as db:
+        try:
+            report = await ml_api.build_synth_drift_report(db)
+        except SQLAlchemyError as e:
+            logger.exception("synth_drift_job DB error: %s", e)
+            return
+        except Exception as e:  # noqa: BLE001 -- scheduler must not crash on job errors
+            logger.exception("synth_drift_job unexpected error: %s", e)
+            return
+
+    if report.dataset_too_small:
+        logger.info(
+            "synth_drift_job: dataset too small (ref=%d, cur=%d); nothing to compare yet",
+            report.n_reference_rows,
+            report.n_current_rows,
+        )
+        return
+
+    logger.info(
+        "synth_drift_job done: ref=%d cur=%d tested=%s drifted=%s html=%s backend=%s",
+        report.n_reference_rows,
+        report.n_current_rows,
+        report.metrics_tested,
+        report.drifted_metrics,
+        report.html_path or "<none>",
+        report.html_backend,
+    )
+
+
 async def get_personalized_timing(db, user_id: str) -> dict:
     """Calculate rolling 7-day average wake/sleep times from Oura data.
 
@@ -869,6 +915,18 @@ def start_scheduler():
         trigger=CronTrigger(day_of_week="sun", hour=5, minute=0),
         id="offline_eval",
         name="Weekly Offline Eval",
+        replace_existing=True,
+    )
+
+    # Synth drift monitor: daily at 04:15 UTC. Sits after feature refresh
+    # (03:30), baselines (03:45), and the Sunday correlation_engine slot
+    # at 04:00; well before offline eval at 05:00. Short-circuits cleanly
+    # when no synth has been generated. Phase 4.5 Commit 5.
+    scheduler.add_job(
+        synth_drift_job,
+        trigger=CronTrigger(hour=4, minute=15),
+        id="synth_drift",
+        name="Phase 4.5 Synth vs Real Biometric Drift",
         replace_existing=True,
     )
 
