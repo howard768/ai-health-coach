@@ -110,15 +110,26 @@ final class CoachViewModel {
     private func simulateCoachResponse(to prompt: String) {
         isTyping = true
 
+        // Defense in depth: the backend already surfaces crisis resources when
+        // its Claude call fails, but that safety net only catches
+        // anthropic.APIError. If the request fails further up the stack (no
+        // network, connection dropped, 500/502 from the host, unexpected
+        // exception) iOS never hears from the backend at all, which would
+        // silently route crisis language through the generic
+        // "trouble connecting" reply. Detect the phrase on the client and
+        // override every error branch below so the user always sees 988/741741
+        // when they need to.
+        let isCrisis = CrisisKeywords.detect(in: prompt)
+
         Task {
             // P2-10: Distinguish offline from server error so we give the
             // user a useful nudge instead of a generic "trouble connecting"
             // message. The OfflineBanner at the root is also visible.
             if !NetworkMonitor.shared.isOnline {
-                messages.append(ChatMessage(
-                    role: .coach,
-                    text: "You're offline right now. I'll be here as soon as you're back."
-                ))
+                let text = isCrisis
+                    ? CrisisKeywords.fallbackMessage
+                    : "You're offline right now. I'll be here as soon as you're back."
+                messages.append(ChatMessage(role: .coach, text: text))
                 isTyping = false
                 return
             }
@@ -132,17 +143,16 @@ final class CoachViewModel {
                 )
                 messages.append(coachMsg)
             } catch APIError.networkError {
-                messages.append(ChatMessage(
-                    role: .coach,
-                    text: "Looks like the connection dropped. Try again once you're back online."
-                ))
+                let text = isCrisis
+                    ? CrisisKeywords.fallbackMessage
+                    : "Looks like the connection dropped. Try again once you're back online."
+                messages.append(ChatMessage(role: .coach, text: text))
             } catch {
-                // Honest error — no fabricated data.
-                let errorMsg = ChatMessage(
-                    role: .coach,
-                    text: "I'm having trouble connecting right now. Check your internet connection and try again in a moment."
-                )
-                messages.append(errorMsg)
+                // Honest error, no fabricated data.
+                let text = isCrisis
+                    ? CrisisKeywords.fallbackMessage
+                    : "I'm having trouble connecting right now. Check your internet connection and try again in a moment."
+                messages.append(ChatMessage(role: .coach, text: text))
             }
             isTyping = false
         }

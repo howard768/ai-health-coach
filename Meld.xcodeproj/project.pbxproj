@@ -105,6 +105,7 @@
 		C6AB4CC26A435D852720177C /* HealthKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E576B9A8994B06E42003B76B /* HealthKitService.swift */; };
 		C8DCBC359A0322EF17CDA92E /* Meal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 677A773BE63AF573A8F858B7 /* Meal.swift */; };
 		CBB3F01C23877B0B9AF5BDFA /* DSDataCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F8AD21DF3C1AC2CE65BF90D /* DSDataCard.swift */; };
+		CC32E5195EF2F3D791D35EE6 /* CrisisKeywords.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30670E5BE1AA4B2F03CBFC00 /* CrisisKeywords.swift */; };
 		CE7AD5652EF337BC1ABF15B9 /* OnboardingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37386448CA570AD31436258F /* OnboardingViewModel.swift */; };
 		CF62FCD1FC3EFB76EEDDC74A /* SwiftUIX in Frameworks */ = {isa = PBXBuildFile; productRef = D4EDA40580E8786157E9E97B /* SwiftUIX */; };
 		D21FAAD72E19C8B7D6CCE870 /* AppleSignInCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF6E7C366E705DC2B5DB4394 /* AppleSignInCoordinator.swift */; };
@@ -196,6 +197,7 @@
 		2CE089989AFCA5CED2A7DFB1 /* FoodConfirmationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodConfirmationView.swift; sourceTree = "<group>"; };
 		2DF8A8B34FBC6DF11879744E /* LoadingStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingStateView.swift; sourceTree = "<group>"; };
 		2FDDE276F06D4154BC999F63 /* DSButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSButton.swift; sourceTree = "<group>"; };
+		30670E5BE1AA4B2F03CBFC00 /* CrisisKeywords.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrisisKeywords.swift; sourceTree = "<group>"; };
 		3079764C004EED8064364085 /* Logger+Meld.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Logger+Meld.swift"; sourceTree = "<group>"; };
 		352AED50997F2CAF26A08DFC /* UserAssessment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserAssessment.swift; sourceTree = "<group>"; };
 		37386448CA570AD31436258F /* OnboardingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingViewModel.swift; sourceTree = "<group>"; };
@@ -447,6 +449,7 @@
 				C489492FE8BCEB0F999CDC53 /* APIClient.swift */,
 				CF6E7C366E705DC2B5DB4394 /* AppleSignInCoordinator.swift */,
 				A82011184BA3DDAA787B289B /* AuthManager.swift */,
+				30670E5BE1AA4B2F03CBFC00 /* CrisisKeywords.swift */,
 				E576B9A8994B06E42003B76B /* HealthKitService.swift */,
 				B37A09C01EF70DF50C185293 /* KeychainStore.swift */,
 				3079764C004EED8064364085 /* Logger+Meld.swift */,
@@ -950,6 +953,7 @@
 				2993EA0F3AC1D1C51CB2DF32 /* CoachViewModel.swift in Sources */,
 				B705B42063E8B8FADBF3DFAF /* ComponentShowcase.swift in Sources */,
 				34980ECBCB371C693817295C /* ConnectDataView.swift in Sources */,
+				CC32E5195EF2F3D791D35EE6 /* CrisisKeywords.swift in Sources */,
 				D6F30F873713247C43C32F74 /* DSAvatar.swift in Sources */,
 				B430ECE2FAF53AD130FA5622 /* DSButton.swift in Sources */,
 				763D11C0C419CD5B1A5A8F2B /* DSCard.swift in Sources */,
