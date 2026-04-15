@@ -1,3 +1,4 @@
+import BackgroundTasks
 import UIKit
 import UserNotifications
 
@@ -12,6 +13,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUser
     ) -> Bool {
         UNUserNotificationCenter.current().delegate = self
         registerNotificationCategories()
+        registerBackgroundTasks()
 
         // Skip the side-effectful auto-runs (push registration + HealthKit
         // sync) when launched under a test bundle. CI runs the Meld.app
@@ -195,5 +197,57 @@ final class AppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUser
             morningBrief, coachingNudge, bedtimeCoaching,
             streakSaver, weeklyReview, healthAlert,
         ])
+    }
+
+    // MARK: - Background Tasks (Phase 7B)
+
+    private static let modelUpdateTaskID = "com.heymeld.ranker.modelUpdate"
+
+    private func registerBackgroundTasks() {
+        let isRunningTests = ProcessInfo.processInfo
+            .environment["XCTestConfigurationFilePath"] != nil
+        guard !isRunningTests else { return }
+
+        BGTaskScheduler.shared.register(
+            forTaskWithIdentifier: Self.modelUpdateTaskID,
+            using: nil
+        ) { task in
+            self.handleModelUpdateTask(task as! BGProcessingTask)
+        }
+
+        scheduleModelUpdateTask()
+    }
+
+    private func scheduleModelUpdateTask() {
+        let request = BGProcessingTaskRequest(
+            identifier: Self.modelUpdateTaskID
+        )
+        request.requiresNetworkConnectivity = true
+        request.requiresExternalPower = false
+        request.earliestBeginDate = Date(timeIntervalSinceNow: 24 * 3600)
+
+        do {
+            try BGTaskScheduler.shared.submit(request)
+        } catch {
+            // Non-fatal: background model updates are best-effort.
+        }
+    }
+
+    private func handleModelUpdateTask(_ task: BGProcessingTask) {
+        // Re-schedule for next check before starting work.
+        scheduleModelUpdateTask()
+
+        let updateTask = Task {
+            let updated = await RankerModelManager.shared.updateIfNeeded()
+            if updated {
+                await SignalRanker.shared.loadCachedModel()
+            }
+            task.setTaskCompleted(success: true)
+        }
+
+        task.expirationHandler = {
+            updateTask.cancel()
+            task.setTaskCompleted(success: false)
+        }
     }
 }
