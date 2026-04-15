@@ -150,7 +150,13 @@ jobs:
     name: Maestro E2E
     needs: build-and-test
     runs-on: macos-15
-    timeout-minutes: 20
+    # Bumped from 20 to 40. This job was previously skipping because
+    # build-and-test was red; now that the build passes, the full
+    # Maestro flow set (12 flows) runs end-to-end and takes ~24 minutes
+    # on the macos-15 runner — just over the previous 20-minute job
+    # timeout. `|| true` on the `maestro test` step already swallows
+    # per-flow exit codes; the timeout here is about wall-clock ceiling.
+    timeout-minutes: 40
 
     env:
       DESTINATION: 'platform=iOS Simulator,name=iPhone 16 Pro'
