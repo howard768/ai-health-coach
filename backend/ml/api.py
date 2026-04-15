@@ -977,4 +977,9 @@ async def generate_synth_cohort(
             ``"gan"`` (DoppelGANger, gated behind the ``meld-backend[synth-gan]``
             extras install). Defaults to ``synth_default_generator``.
     """
-    raise NotImplementedError("Phase 4.5 Commit 3: synth factory core lands in ml/synth/factory.py")
+    # Lazy import per boundary rules + cold-boot budget. ml.synth.factory
+    # pulls numpy and ml.synth.demographics/wearables at module load,
+    # none of which should touch the FastAPI request path.
+    from ml.synth.factory import generate_cohort as _generate_cohort
+
+    return await _generate_cohort(db, n_users, days, seed, generator)

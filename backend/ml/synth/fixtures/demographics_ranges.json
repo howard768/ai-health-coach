@@ -1,0 +1,33 @@
+{
+  "version": "1.0.0",
+  "description": "Reference ranges for ml.synth.demographics. Informational only; the live values live as module-level constants in demographics.py. A drift between this file and the module is a signal that a range shift needs review.",
+  "source_notes": "NHANES 2017-2020 adult survey ranges, narrowed to the population the coaching app is targeted at.",
+  "age_years": {
+    "min": 25,
+    "max": 75,
+    "notes": "Adult coaching-target population. No pediatric, no geriatric."
+  },
+  "sex": {
+    "values": ["female", "male"],
+    "distribution": "50/50 Bernoulli"
+  },
+  "bmi": {
+    "mean": 26.5,
+    "sd": 5.2,
+    "min": 18.5,
+    "max": 42.0,
+    "distribution": "clipped Gaussian, rejection sampled",
+    "notes": "Floor tracks WHO underweight cutoff. Ceiling caps at severe obesity; beyond that synth serves no new discovery purpose."
+  },
+  "comorbidities": {
+    "vocabulary": ["hypertension", "insomnia", "anxiety", "t2_diabetes"],
+    "prevalence": {
+      "hypertension": 0.30,
+      "insomnia": 0.15,
+      "anxiety": 0.18,
+      "t2_diabetes": 0.10
+    },
+    "distribution": "independent Bernoulli per condition",
+    "notes": "Kept short so the wearables generator does not need to reason over a combinatorial product of comorbidity states."
+  }
+}
