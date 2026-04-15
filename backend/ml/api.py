@@ -983,3 +983,73 @@ async def generate_synth_cohort(
     from ml.synth.factory import generate_cohort as _generate_cohort
 
     return await _generate_cohort(db, n_users, days, seed, generator)
+
+
+@dataclass
+class DriftReportSummary:
+    """Phase 4.5 Commit 5 output. Summary of one drift-monitoring run.
+
+    ``html_path`` is ``None`` when either (a) the dataset was too small
+    to run a meaningful KS test on either partition, or (b) Evidently
+    failed to render the HTML (import failure on Python 3.14, or a
+    runtime exception during rendering). The KS-based ``p_values`` and
+    ``drifted_metrics`` populate in every other case.
+    """
+
+    run_id: str
+    created_at: str  # ISO-8601 UTC
+    html_path: str | None
+    html_backend: str  # "evidently" | "none"
+    n_reference_rows: int
+    n_current_rows: int
+    metrics_tested: list[str] = field(default_factory=list)
+    drifted_metrics: list[str] = field(default_factory=list)
+    p_values: dict[str, float] = field(default_factory=dict)
+    dataset_too_small: bool = False
+    threshold: float = 0.05
+
+
+async def build_synth_drift_report(
+    db: "AsyncSession",
+    output_dir: "str | None" = None,
+    run_id: str | None = None,
+    threshold: float = 0.05,
+) -> DriftReportSummary:
+    """Compare synth biometrics against real biometrics and return a summary.
+
+    Reads canonical rows from ``HealthMetricRecord`` partitioned by the
+    ``is_synthetic`` column added in Phase 4.5 Commit 3. Per-metric
+    drift is decided by a two-sample Kolmogorov-Smirnov test; when
+    Evidently is importable (Railway runs Python 3.12; Brock's local
+    dev is 3.14 where Evidently's pydantic-v1 shim crashes), the call
+    also writes a polished HTML report to ``output_dir`` or
+    ``/tmp/evidently/``. When Evidently is unavailable, the KS summary
+    still returns cleanly and ``html_path`` is ``None``.
+
+    Does NOT commit. The caller (typically a scheduler job, or a
+    dashboard endpoint) owns the transaction.
+    """
+    from pathlib import Path as _Path
+
+    from ml.mlops.evidently_reports import build_drift_report as _build_drift_report
+
+    resolved_output_dir = _Path(output_dir) if output_dir else None
+    report = await _build_drift_report(
+        db,
+        output_dir=resolved_output_dir,
+        run_id=run_id,
+        threshold=threshold,
+    )
+    return DriftReportSummary(
+        run_id=report.run_id,
+        created_at=report.created_at,
+        html_path=report.html_path,
+        html_backend=report.html_backend,
+        n_reference_rows=report.n_reference_rows,
+        n_current_rows=report.n_current_rows,
+        metrics_tested=list(report.metrics_tested),
+        drifted_metrics=list(report.drifted_metrics),
+        p_values=dict(report.p_values),
+        dataset_too_small=report.dataset_too_small,
+        threshold=report.threshold,
+    )
