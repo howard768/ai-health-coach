@@ -124,7 +124,15 @@ jobs:
       - name: Install xcodegen
         run: brew install xcodegen
 
-      - name: Build for testing
+      - name: Build app
+        # Use plain `build`, not `build-for-testing`. The Maestro job drives
+        # the live app through the simulator; it does not run XCTest. Both
+        # jobs need a fully packaged .app with a valid Info.plist so
+        # `xcrun simctl install` can read CFBundleIdentifier, which
+        # `build-for-testing` does not reliably produce on CI runners
+        # (see: "Failed to get bundle ID from .../Meld.app" in prior
+        # maestro run). Matches the xcodebuild invocation used in the
+        # build-and-test job, which succeeds.
         run: |
           xcodegen generate
           xcodebuild \
@@ -134,7 +142,7 @@ jobs:
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            build-for-testing 2>&1 | tail -5
+            build 2>&1 | tail -5
 
       - name: Boot Simulator
         run: |
@@ -143,7 +151,18 @@ jobs:
 
       - name: Install app
         run: |
-          APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData -name "Meld.app" -path "*/Debug-iphonesimulator/*" | head -1)
+          # Find the app-under-test bundle, excluding any nested .xctest or
+          # -Runner.app path just in case a future build introduces them.
+          APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData \
+            -name "Meld.app" \
+            -path "*/Debug-iphonesimulator/*" \
+            -not -path "*.xctest/*" \
+            -not -path "*-Runner.app/*" \
+            | head -1)
+          echo "Installing: $APP_PATH"
+          # Sanity-check Info.plist so the CI log points at the root cause
+          # if the build ever regresses, rather than a cryptic simctl error.
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP_PATH/Info.plist"
           xcrun simctl install booted "$APP_PATH"
 
       - name: Run Maestro flows
