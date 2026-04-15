@@ -89,6 +89,10 @@ jobs:
       # via the Upload snapshot failures step at the end of this job.
 
       - name: Test (unit + snapshot)
+        # Temporarily running without xcpretty so the next failure shows the
+        # actual crash / error lines in the log. xcpretty was masking the
+        # real cause of the previous "exit 65 with no visible failure" runs
+        # because it filters non-failure output aggressively.
         run: |
           set -o pipefail
           xcodebuild \
@@ -100,7 +104,7 @@ jobs:
             -only-testing:MeldSnapshotTests \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            test 2>&1 | xcpretty --test --color
+            test
 
       # UI tests spawn Meld.app as a separate process via XCUIApplication,
       # which the simulator's xctrunner refuses to launch when the bundle
