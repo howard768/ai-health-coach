@@ -614,6 +614,39 @@ async def granger_causal_job():
             logger.exception("granger_causal_job error: %s", e)
 
 
+async def ranker_training_job():
+    """Weekly: retrain XGBoost LambdaMART ranker on feedback data.
+
+    Runs after ``offline_eval_job`` (05:00) at 06:00 UTC Sunday. Trains the
+    model, exports to CoreML (if coremltools installed), uploads to R2 (if
+    configured), and registers in the model DB. Shadow-gated behind
+    ``ml_shadow_coreml_ranker``. Phase 7A of the Signal Engine.
+    """
+    from ml import api as ml_api
+
+    if not ml_api.is_shadow_enabled("coreml_ranker"):
+        logger.info("ranker_training_job: shadow flag off, skipping")
+        return
+
+    logger.info("Running ranker_training_job")
+    async with async_session() as db:
+        try:
+            summary = await ml_api.train_and_export_ranker(db)
+            await db.commit()
+            logger.info(
+                "ranker_training_job done: trained=%s version=%s ndcg=%.4f "
+                "coreml=%s r2=%s",
+                summary.get("trained"),
+                summary.get("model_version", "none"),
+                summary.get("val_ndcg", 0.0),
+                summary.get("coreml_exported", False),
+                summary.get("r2_uploaded", False),
+            )
+        except Exception as e:
+            await db.rollback()
+            logger.exception("ranker_training_job error: %s", e)
+
+
 async def offline_eval_job():
     """Weekly: evaluate recent coach responses for quality regressions."""
     logger.info("Running offline_eval_job")
@@ -971,6 +1004,15 @@ def start_scheduler():
         trigger=CronTrigger(day_of_week="sun", hour=5, minute=0),
         id="offline_eval",
         name="Weekly Offline Eval",
+        replace_existing=True,
+    )
+
+    # Ranker training: Sundays at 06:00 UTC (after offline eval at 05:00)
+    scheduler.add_job(
+        ranker_training_job,
+        trigger=CronTrigger(day_of_week="sun", hour=6, minute=0),
+        id="ranker_training",
+        name="Phase 7 XGBoost Ranker Training + CoreML Export",
         replace_existing=True,
     )
 

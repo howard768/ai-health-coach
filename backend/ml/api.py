@@ -882,14 +882,104 @@ async def load_coach_signal_context(
     )
 
 
-def ranker_model_metadata() -> RankerMetadata:
+async def ranker_model_metadata(db: "AsyncSession") -> RankerMetadata | None:
     """Current CoreML ranker metadata for the iOS sync endpoint.
 
-    Implemented in Phase 7. iOS uses the returned hash to decide whether to
-    re-download the ``.mlpackage`` on wifi. Synchronous because the iOS client
-    polls it on every app launch.
+    iOS uses the returned hash to decide whether to re-download the
+    ``.mlmodel`` on wifi. Returns None if no active model exists.
     """
-    raise NotImplementedError("Phase 7: CoreML ranker metadata")
+    from sqlalchemy import select
+    from app.models.ml_models import MLModel
+
+    result = await db.execute(
+        select(MLModel).where(
+            MLModel.model_type == "ranker",
+            MLModel.is_active.is_(True),
+        )
+    )
+    model = result.scalar_one_or_none()
+    if model is None:
+        return None
+
+    return RankerMetadata(
+        model_version=model.model_version,
+        file_hash=model.file_hash or "",
+        file_size_bytes=model.file_size_bytes or 0,
+        download_url=model.download_url or "",
+        expires_at="",
+        min_ios_version="17.0",
+    )
+
+
+async def train_and_export_ranker(
+    db: "AsyncSession",
+    coldstart_threshold: int = 20,
+) -> dict:
+    """Full Phase 7 pipeline: train XGBoost, export CoreML, upload R2, register.
+
+    Returns a summary dict for logging/telemetry. Does NOT commit.
+    """
+    from ml.ranking.trainer import train_ranker_pipeline
+    from ml.ranking.coreml_export import (
+        export_to_coreml,
+        upload_to_r2,
+        register_model,
+    )
+
+    summary: dict = {"trained": False}
+
+    trained = await train_ranker_pipeline(db, coldstart_threshold=coldstart_threshold)
+    if trained is None:
+        summary["error"] = "Not enough data for training"
+        return summary
+
+    summary["trained"] = True
+    summary["model_version"] = trained.model_version
+    summary["train_samples"] = trained.train_samples
+    summary["val_ndcg"] = trained.val_ndcg
+    summary["feature_importances"] = trained.feature_importances
+
+    # CoreML export (graceful if coremltools not installed).
+    export = export_to_coreml(
+        trained.model,
+        trained.feature_names,
+        model_version=trained.model_version,
+    )
+    summary["coreml_exported"] = export.success
+    if export.error:
+        summary["coreml_error"] = export.error
+
+    # R2 upload (graceful if credentials not configured).
+    r2_key = None
+    download_url = None
+    if export.success and export.mlmodel_path:
+        r2_result = upload_to_r2(
+            export.mlmodel_path,
+            r2_key=f"coreml/{trained.model_version}.mlmodel",
+        )
+        summary["r2_uploaded"] = r2_result.success
+        if r2_result.success:
+            r2_key = r2_result.r2_key
+            download_url = r2_result.download_url
+        if r2_result.error:
+            summary["r2_error"] = r2_result.error
+
+    # Register in DB.
+    model_id = await register_model(
+        db,
+        model_version=trained.model_version,
+        feature_names=trained.feature_names,
+        hyperparams=trained.hyperparams,
+        train_samples=trained.train_samples,
+        val_ndcg=trained.val_ndcg,
+        file_hash=export.file_hash,
+        file_size_bytes=export.file_size_bytes,
+        r2_key=r2_key,
+        download_url=download_url,
+    )
+    summary["model_id"] = model_id
+
+    return summary
 
 
 @dataclass
