@@ -10,6 +10,9 @@ struct MeldApp: App {
     private static var isUITesting: Bool {
         ProcessInfo.processInfo.arguments.contains("-uitesting-skip-auth")
             || UserDefaults.standard.bool(forKey: "uitesting-skip-auth")
+            // Env-var fallback for XCUITest targets where launchArguments
+            // are sometimes dropped or prefixed unexpectedly on CI runners.
+            || ProcessInfo.processInfo.environment["MELD_UI_TESTING"] == "1"
     }
     private let skipAuth = MeldApp.isUITesting
     @State private var devLoginReady = false
