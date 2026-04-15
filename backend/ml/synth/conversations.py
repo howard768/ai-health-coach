@@ -49,6 +49,22 @@ LLMCallable = Callable[[str, list[dict]], str]
 
 _PERSONAS_PATH = Path(__file__).resolve().parent / "fixtures" / "personas.json"
 
+# Per-persona feedback distribution. Tuples sum to 1.0 and map to
+# (p_up, p_down, p_none). Adversarial personas bias toward "down";
+# regular personas bias toward "up". The non-uniformity is the whole
+# point: Phase 5.9 fixtures need a realistic feedback shape, not a
+# uniform draw.
+_FEEDBACK_DIST: dict[str, tuple[float, float, float]] = {
+    "regular":       (0.70, 0.15, 0.15),
+    "curious":       (0.60, 0.15, 0.25),
+    "crisis":        (0.25, 0.55, 0.20),
+    "non_adherent":  (0.20, 0.60, 0.20),
+    "contrarian":    (0.20, 0.55, 0.25),
+}
+# Fallback for any persona name not in the table. Neutral so downstream
+# tests do not mistake an unknown persona for a strong signal.
+_FEEDBACK_FALLBACK: tuple[float, float, float] = (0.33, 0.33, 0.34)
+
 # Lightweight module-level cache. Personas.json is a few KB; caching
 # keeps repeated cohort generations free of file-system hits in tight
 # loops (e.g. the fidelity test suite in Commit 7 will call
@@ -77,6 +93,13 @@ class ConversationFragment:
     constructs a fragment by hand, flipping this flag is the explicit
     act of saying "this is not synth data", which is exactly the audit
     boundary we want to preserve.
+
+    ``feedback`` carries a synthetic thumb-up / thumb-down signal drawn
+    from a per-persona distribution. The distribution is intentionally
+    non-uniform (adversarial personas thumb-down more often, regular
+    personas thumb-up more often) so Phase 5.9 fixtures see the shape
+    of real feedback data without duplicating any real transcripts.
+    Fidelity gate 5 pins the non-uniformity via a chi-square test.
     """
 
     user_id: str
@@ -84,6 +107,7 @@ class ConversationFragment:
     is_adversarial: bool
     turns: list[ConversationTurn] = field(default_factory=list)
     is_synthetic: bool = True
+    feedback: str | None = None  # "up" | "down" | None
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -107,6 +131,18 @@ def _load_personas() -> list[dict]:
 # ─────────────────────────────────────────────────────────────────────────
 # Voice enforcement
 # ─────────────────────────────────────────────────────────────────────────
+
+
+def _draw_feedback(persona_name: str, rng: random.Random) -> str | None:
+    """Draw a per-persona feedback label. ``None`` is a valid outcome
+    (silent user, no thumb)."""
+    p_up, p_down, _ = _FEEDBACK_DIST.get(persona_name, _FEEDBACK_FALLBACK)
+    r = rng.random()
+    if r < p_up:
+        return "up"
+    if r < p_up + p_down:
+        return "down"
+    return None
 
 
 def _voice_enforce(text: str, fallback: str) -> str:
@@ -244,11 +280,13 @@ def generate_conversations(
         fallback_user = persona["archetype_openers"][0]
         opener_text = _voice_enforce(opener, fallback_user)
 
+        feedback = _draw_feedback(persona["name"], rng)
         fragment = ConversationFragment(
             user_id=demo.user_id,
             persona=persona["name"],
             is_adversarial=is_adversarial,
             turns=[ConversationTurn(role="user", content=opener_text)],
+            feedback=feedback,
         )
 
         # Alternate coach, user, coach, user ... for the requested
