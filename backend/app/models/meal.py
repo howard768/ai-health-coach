@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import String, Integer, Float, DateTime, Text, ForeignKey
+from sqlalchemy import String, Integer, Float, DateTime, Text, ForeignKey, Boolean
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -17,6 +17,9 @@ class MealRecord(Base):
     photo_hash: Mapped[str] = mapped_column(String(64), nullable=True)  # SHA256 for dedup
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive, onupdate=utcnow_naive)
+    # Phase 4.5 synth-factory tag. Default False for all real ingestion paths.
+    # Crisis evals and production aggregates MUST filter on is_synthetic = False.
+    is_synthetic: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
 
 
 class FoodItemRecord(Base):
@@ -35,3 +38,6 @@ class FoodItemRecord(Base):
     data_source: Mapped[str] = mapped_column(String(20))  # usda, usda_branded, off, ai_estimate
     confidence: Mapped[float] = mapped_column(Float, default=1.0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+    # Phase 4.5 synth-factory tag. Default False for all real ingestion paths.
+    # Crisis evals and production aggregates MUST filter on is_synthetic = False.
+    is_synthetic: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)

@@ -44,6 +44,9 @@ class SleepRecord(Base):
     bedtime_end: Mapped[str] = mapped_column(String(5), nullable=True)    # HH:MM when user woke up
     raw_json: Mapped[str] = mapped_column(Text, nullable=True)
     synced_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+    # Phase 4.5 synth-factory tag. Default False for all real ingestion paths.
+    # Crisis evals and production aggregates MUST filter on is_synthetic = False.
+    is_synthetic: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
 
 
 class HealthMetricRecord(Base):
@@ -64,6 +67,9 @@ class HealthMetricRecord(Base):
     is_canonical: Mapped[bool] = mapped_column(Boolean, default=False)
     confidence: Mapped[str] = mapped_column(String(20), default="primary")  # primary, fallback
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+    # Phase 4.5 synth-factory tag. Default False for all real ingestion paths.
+    # Crisis evals and production aggregates MUST filter on is_synthetic = False.
+    is_synthetic: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
 
 
 class ActivityRecord(Base):
@@ -79,6 +85,9 @@ class ActivityRecord(Base):
     workout_duration_seconds: Mapped[int] = mapped_column(Integer, nullable=True)
     source: Mapped[str] = mapped_column(String(30))
     synced_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
+    # Phase 4.5 synth-factory tag. Default False for all real ingestion paths.
+    # Crisis evals and production aggregates MUST filter on is_synthetic = False.
+    is_synthetic: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
 
 
 class SourcePriority(Base):
