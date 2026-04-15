@@ -924,3 +924,57 @@ async def run_associations(
         dynamic_pairs_generated=report.dynamic_pairs_generated,
         rows_written=report.rows_written,
     )
+
+
+@dataclass
+class CohortManifest:
+    """Phase 4.5 output summary. Returned by ``generate_synth_cohort``.
+
+    Describes one synthesis run: which users were created, over what date
+    range, with what generator. Persisted to ``ml_synth_runs`` for audit
+    and re-run reproducibility.
+    """
+
+    run_id: str  # uuid4
+    seed: int | None
+    generator: str  # "parametric" | "gan"
+    n_users: int
+    user_ids: list[str]
+    days: int
+    start_date: str  # YYYY-MM-DD
+    end_date: str  # YYYY-MM-DD
+    created_at: str  # ISO-8601 UTC
+    adversarial_fraction: float  # share of conversation personas that are adversarial
+
+
+async def generate_synth_cohort(
+    db: "AsyncSession",
+    n_users: int,
+    days: int | None = None,
+    seed: int | None = None,
+    generator: str | None = None,
+) -> CohortManifest:
+    """Generate N synthetic users with ``days`` of history each.
+
+    Phase 4.5 infrastructure for ML test coverage. Writes to raw tables only
+    (HealthMetricRecord, SleepRecord, ActivityRecord, MealRecord,
+    FoodItemRecord). The existing nightly ``feature_refresh_job`` materializes
+    features from those rows; synth does NOT write ``ml_feature_values``
+    directly. Every row is tagged ``is_synthetic=True`` so production
+    aggregates and crisis eval buckets filter unconditionally.
+
+    Persists a ``CohortManifest`` to ``ml_synth_runs`` for audit trail.
+    Does NOT commit. Caller owns the transaction.
+
+    Args:
+        n_users: number of synthetic users to generate.
+        days: cohort length in days. Defaults to ``synth_default_days`` from
+            ``MLSettings`` (120 days, covers L1 >=28, Prophet >=90, L3
+            Granger >=120).
+        seed: optional integer for reproducibility. ``None`` means a random
+            manifest each run.
+        generator: ``"parametric"`` (scipy + numpy, always available) or
+            ``"gan"`` (DoppelGANger, gated behind the ``meld-backend[synth-gan]``
+            extras install). Defaults to ``synth_default_generator``.
+    """
+    raise NotImplementedError("Phase 4.5 Commit 3: synth factory core lands in ml/synth/factory.py")
