@@ -63,6 +63,9 @@ jobs:
             -resolvePackageDependencies
 
       - name: Build
+        # `|| true` was hiding real Swift compile errors behind a green
+        # checkmark. Removed so build failures actually fail the step.
+        # `set -o pipefail` propagates xcodebuild's exit code past xcpretty.
         run: |
           set -o pipefail
           xcodebuild \
@@ -72,7 +75,7 @@ jobs:
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            build 2>&1 | xcpretty || true
+            build 2>&1 | xcpretty
 
       - name: Test
         run: |
@@ -84,7 +87,7 @@ jobs:
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            test 2>&1 | xcpretty --test --color || true
+            test 2>&1 | xcpretty --test --color
 
       - name: Upload build logs on failure
         if: failure()
@@ -126,14 +129,15 @@ jobs:
 
       - name: Build app
         # Use plain `build`, not `build-for-testing`. The Maestro job drives
-        # the live app through the simulator; it does not run XCTest. Both
-        # jobs need a fully packaged .app with a valid Info.plist so
-        # `xcrun simctl install` can read CFBundleIdentifier, which
-        # `build-for-testing` does not reliably produce on CI runners
-        # (see: "Failed to get bundle ID from .../Meld.app" in prior
-        # maestro run). Matches the xcodebuild invocation used in the
-        # build-and-test job, which succeeds.
+        # the live app through the simulator; it does not run XCTest.
+        #
+        # `| tail -5` was hiding build failures (the last 5 lines of a
+        # failing build are usually summary counts, not error messages)
+        # which was the real root cause of the earlier "Missing bundle ID"
+        # simctl error: the build had 4 Swift errors and produced an
+        # incomplete .app. Removed so failures surface clearly.
         run: |
+          set -o pipefail
           xcodegen generate
           xcodebuild \
             -project Meld.xcodeproj \
@@ -142,7 +146,7 @@ jobs:
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            build 2>&1 | tail -5
+            build
 
       - name: Boot Simulator
         run: |
