@@ -26,8 +26,10 @@ class UserCorrelation(Base):
     fdr_adjusted_p: Mapped[float] = mapped_column(Float)
     sample_size: Mapped[int] = mapped_column(Integer)
     strength: Mapped[float] = mapped_column(Float)  # abs(r), 0-1
-    confidence_tier: Mapped[str] = mapped_column(String(30))  # emerging, developing, established, literature_supported
+    confidence_tier: Mapped[str] = mapped_column(String(30))  # emerging, developing, established, literature_supported, causal_candidate
     literature_match: Mapped[bool] = mapped_column(Boolean, default=False)
+    directional_support: Mapped[bool] = mapped_column(Boolean, default=False)
+    causal_support: Mapped[bool] = mapped_column(Boolean, default=False)
     literature_ref: Mapped[str] = mapped_column(Text, nullable=True)
     effect_size_description: Mapped[str] = mapped_column(Text)
     discovered_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)

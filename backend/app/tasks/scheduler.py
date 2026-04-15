@@ -567,6 +567,86 @@ async def correlation_engine_job():
             logger.exception("correlation_engine_job DB error: %s", e)
 
 
+async def granger_causal_job():
+    """Weekly: L3 Granger causality + L4 DoWhy quasi-causal on developing+ pairs.
+
+    Runs after ``correlation_engine_job`` (04:00) so fresh L2 associations
+    are available. Shadow-gated behind ``ml_shadow_granger_causal``.
+    Phase 6 of the Signal Engine.
+    """
+    from ml import api as ml_api
+
+    if not ml_api.is_shadow_enabled("granger_causal"):
+        logger.info("granger_causal_job: shadow flag off, skipping")
+        return
+
+    logger.info("Running granger_causal_job (L3 + L4)")
+    async with async_session() as db:
+        user_id = await _get_primary_user_id(db)
+        if user_id is None:
+            logger.info("granger_causal_job: no primary user yet, skipping")
+            return
+        try:
+            granger_report = await ml_api.run_granger(db, user_id, window_days=90)
+            logger.info(
+                "granger_causal_job L3: tested=%d significant=%d updated=%d",
+                granger_report.pairs_tested,
+                granger_report.pairs_significant,
+                granger_report.correlations_updated,
+            )
+
+            causal_report = await ml_api.run_causal(
+                db, user_id, window_days=90, max_pairs=10
+            )
+            logger.info(
+                "granger_causal_job L4: tested=%d passed=%d updated=%d",
+                causal_report.pairs_tested,
+                causal_report.pairs_passed,
+                causal_report.correlations_updated,
+            )
+
+            await db.commit()
+        except SQLAlchemyError as e:
+            await db.rollback()
+            logger.exception("granger_causal_job DB error: %s", e)
+        except Exception as e:
+            await db.rollback()
+            logger.exception("granger_causal_job error: %s", e)
+
+
+async def ranker_training_job():
+    """Weekly: retrain XGBoost LambdaMART ranker on feedback data.
+
+    Runs after ``offline_eval_job`` (05:00) at 06:00 UTC Sunday. Trains the
+    model, exports to CoreML (if coremltools installed), uploads to R2 (if
+    configured), and registers in the model DB. Shadow-gated behind
+    ``ml_shadow_coreml_ranker``. Phase 7A of the Signal Engine.
+    """
+    from ml import api as ml_api
+
+    if not ml_api.is_shadow_enabled("coreml_ranker"):
+        logger.info("ranker_training_job: shadow flag off, skipping")
+        return
+
+    logger.info("Running ranker_training_job")
+    async with async_session() as db:
+        try:
+            summary = await ml_api.train_and_export_ranker(db)
+            await db.commit()
+            logger.info(
+                "ranker_training_job done: trained=%s version=%s ndcg=%.4f "
+                "coreml=%s r2=%s",
+                summary.get("trained"),
+                summary.get("model_version", "none"),
+                summary.get("val_ndcg", 0.0),
+                summary.get("coreml_exported", False),
+                summary.get("r2_uploaded", False),
+            )
+        except Exception as e:
+            await db.rollback()
+            logger.exception("ranker_training_job error: %s", e)
+
+
 async def offline_eval_job():
     """Weekly: evaluate recent coach responses for quality regressions."""
     logger.info("Running offline_eval_job")
@@ -891,6 +971,15 @@ def start_scheduler():
         replace_existing=True,
     )
 
+    # Granger + DoWhy causal: weekly Sunday 04:30 (after correlations finish)
+    scheduler.add_job(
+        granger_causal_job,
+        trigger=CronTrigger(day_of_week="sun", hour=4, minute=30),
+        id="granger_causal",
+        name="Phase 6 L3 Granger + L4 DoWhy Causal",
+        replace_existing=True,
+    )
+
     # Webhook renewal: 1st of each month at 02:00 UTC (90-day TTL, renew monthly)
     scheduler.add_job(
         webhook_renewal_job,
@@ -915,6 +1004,15 @@ def start_scheduler():
         trigger=CronTrigger(day_of_week="sun", hour=5, minute=0),
         id="offline_eval",
         name="Weekly Offline Eval",
+        replace_existing=True,
+    )
+
+    # Ranker training: Sundays at 06:00 UTC (after offline eval at 05:00)
+    scheduler.add_job(
+        ranker_training_job,
+        trigger=CronTrigger(day_of_week="sun", hour=6, minute=0),
+        id="ranker_training",
+        name="Phase 7 XGBoost Ranker Training + CoreML Export",
         replace_existing=True,
     )
 

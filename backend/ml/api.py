@@ -28,6 +28,22 @@ if TYPE_CHECKING:
 
 
 # ─────────────────────────────────────────────────────────────────────────
+# Shadow-mode gate (exposed so scheduler doesn't import ml.config directly)
+# ─────────────────────────────────────────────────────────────────────────
+
+
+def is_shadow_enabled(feature: str) -> bool:
+    """Check whether a shadow-mode flag is enabled.
+
+    ``feature`` is the suffix after ``ml_shadow_``: e.g. ``"granger_causal"``
+    maps to ``MLSettings.ml_shadow_granger_causal``.
+    """
+    from ml.config import get_ml_settings
+
+    return getattr(get_ml_settings(), f"ml_shadow_{feature}", False)
+
+
+# ─────────────────────────────────────────────────────────────────────────
 # Public dataclasses (the shapes the rest of the app is allowed to see).
 # These intentionally avoid importing pandas / numpy. Any field that would
 # need those types is returned as a plain Python primitive or dict.
@@ -866,14 +882,104 @@ async def load_coach_signal_context(
     )
 
 
-def ranker_model_metadata() -> RankerMetadata:
+async def ranker_model_metadata(db: "AsyncSession") -> RankerMetadata | None:
     """Current CoreML ranker metadata for the iOS sync endpoint.
 
-    Implemented in Phase 7. iOS uses the returned hash to decide whether to
-    re-download the ``.mlpackage`` on wifi. Synchronous because the iOS client
-    polls it on every app launch.
+    iOS uses the returned hash to decide whether to re-download the
+    ``.mlmodel`` on wifi. Returns None if no active model exists.
     """
-    raise NotImplementedError("Phase 7: CoreML ranker metadata")
+    from sqlalchemy import select
+    from app.models.ml_models import MLModel
+
+    result = await db.execute(
+        select(MLModel).where(
+            MLModel.model_type == "ranker",
+            MLModel.is_active.is_(True),
+        )
+    )
+    model = result.scalar_one_or_none()
+    if model is None:
+        return None
+
+    return RankerMetadata(
+        model_version=model.model_version,
+        file_hash=model.file_hash or "",
+        file_size_bytes=model.file_size_bytes or 0,
+        download_url=model.download_url or "",
+        expires_at="",
+        min_ios_version="17.0",
+    )
+
+
+async def train_and_export_ranker(
+    db: "AsyncSession",
+    coldstart_threshold: int = 20,
+) -> dict:
+    """Full Phase 7 pipeline: train XGBoost, export CoreML, upload R2, register.
+
+    Returns a summary dict for logging/telemetry. Does NOT commit.
+    """
+    from ml.ranking.trainer import train_ranker_pipeline
+    from ml.ranking.coreml_export import (
+        export_to_coreml,
+        upload_to_r2,
+        register_model,
+    )
+
+    summary: dict = {"trained": False}
+
+    trained = await train_ranker_pipeline(db, coldstart_threshold=coldstart_threshold)
+    if trained is None:
+        summary["error"] = "Not enough data for training"
+        return summary
+
+    summary["trained"] = True
+    summary["model_version"] = trained.model_version
+    summary["train_samples"] = trained.train_samples
+    summary["val_ndcg"] = trained.val_ndcg
+    summary["feature_importances"] = trained.feature_importances
+
+    # CoreML export (graceful if coremltools not installed).
+    export = export_to_coreml(
+        trained.model,
+        trained.feature_names,
+        model_version=trained.model_version,
+    )
+    summary["coreml_exported"] = export.success
+    if export.error:
+        summary["coreml_error"] = export.error
+
+    # R2 upload (graceful if credentials not configured).
+    r2_key = None
+    download_url = None
+    if export.success and export.mlmodel_path:
+        r2_result = upload_to_r2(
+            export.mlmodel_path,
+            r2_key=f"coreml/{trained.model_version}.mlmodel",
+        )
+        summary["r2_uploaded"] = r2_result.success
+        if r2_result.success:
+            r2_key = r2_result.r2_key
+            download_url = r2_result.download_url
+        if r2_result.error:
+            summary["r2_error"] = r2_result.error
+
+    # Register in DB.
+    model_id = await register_model(
+        db,
+        model_version=trained.model_version,
+        feature_names=trained.feature_names,
+        hyperparams=trained.hyperparams,
+        train_samples=trained.train_samples,
+        val_ndcg=trained.val_ndcg,
+        file_hash=export.file_hash,
+        file_size_bytes=export.file_size_bytes,
+        r2_key=r2_key,
+        download_url=download_url,
+    )
+    summary["model_id"] = model_id
+
+    return summary
 
 
 @dataclass
@@ -923,6 +1029,94 @@ async def run_associations(
         significant_results=report.significant_results,
         dynamic_pairs_generated=report.dynamic_pairs_generated,
         rows_written=report.rows_written,
+    )
+
+
+@dataclass
+class GrangerReport:
+    """Phase 6 L3 output summary. Shape mirrors the internal report from
+    ``ml.discovery.granger`` so callers (scheduler, tests) see a stable
+    shape across the public boundary.
+    """
+
+    user_id: str
+    pairs_tested: int
+    pairs_stationary: int
+    pairs_significant: int
+    pairs_skipped_non_stationary: int
+    pairs_skipped_insufficient_data: int
+    rows_written: int
+    correlations_updated: int
+
+
+@dataclass
+class CausalReport:
+    """Phase 6 L4 output summary. Shape mirrors the internal report from
+    ``ml.discovery.causal``.
+    """
+
+    user_id: str
+    pairs_tested: int
+    pairs_passed: int
+    pairs_skipped_insufficient_data: int
+    pairs_estimation_failed: int
+    rows_written: int
+    correlations_updated: int
+
+
+async def run_granger(
+    db: "AsyncSession",
+    user_id: str,
+    window_days: int = 90,
+) -> GrangerReport:
+    """Run L3 Granger causality on developing+ pairs.
+
+    Sets ``directional_support=True`` on UserCorrelation rows that pass
+    the Granger F-test at p < 0.05 with a stationarity gate.
+
+    Does NOT commit. Caller owns the transaction.
+    """
+    from ml.discovery.granger import run_granger_for_user
+
+    report = await run_granger_for_user(db, user_id, window_days=window_days)
+    return GrangerReport(
+        user_id=report.user_id,
+        pairs_tested=report.pairs_tested,
+        pairs_stationary=report.pairs_stationary,
+        pairs_significant=report.pairs_significant,
+        pairs_skipped_non_stationary=report.pairs_skipped_non_stationary,
+        pairs_skipped_insufficient_data=report.pairs_skipped_insufficient_data,
+        rows_written=report.rows_written,
+        correlations_updated=report.correlations_updated,
+    )
+
+
+async def run_causal(
+    db: "AsyncSession",
+    user_id: str,
+    window_days: int = 90,
+    max_pairs: int = 10,
+) -> CausalReport:
+    """Run L4 quasi-causal estimation on directional-supported or literature-matched pairs.
+
+    Uses DoWhy CausalModel with econml DML estimator and three refutation
+    tests. Promotes passing pairs to ``causal_candidate`` confidence tier.
+
+    Does NOT commit. Caller owns the transaction.
+    """
+    from ml.discovery.causal import run_causal_for_user
+
+    report = await run_causal_for_user(
+        db, user_id, window_days=window_days, max_pairs=max_pairs
+    )
+    return CausalReport(
+        user_id=report.user_id,
+        pairs_tested=report.pairs_tested,
+        pairs_passed=report.pairs_passed,
+        pairs_skipped_insufficient_data=report.pairs_skipped_insufficient_data,
+        pairs_estimation_failed=report.pairs_estimation_failed,
+        rows_written=report.rows_written,
+        correlations_updated=report.correlations_updated,
     )
 
 

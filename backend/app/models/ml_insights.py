@@ -131,6 +131,13 @@ class MLRanking(Base):
         doc="1-indexed. Only rank=1 is shown. 2+ kept for shadow logging.",
     )
     score: Mapped[float] = mapped_column(Float, nullable=False)
+    heuristic_score: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+        doc="Phase 7 A/B: heuristic ranker score for this candidate. "
+        "When a learned model is active, ``score`` holds the learned score "
+        "and ``heuristic_score`` holds the heuristic for shadow comparison.",
+    )
     ranker_version: Mapped[str] = mapped_column(String(40), nullable=False)
 
     was_shown: Mapped[bool] = mapped_column(
