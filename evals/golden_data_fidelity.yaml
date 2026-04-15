@@ -53,8 +53,14 @@ tests:
     assert:
       - type: contains
         value: "48"
+      # Catch fabrication of "0 minutes" when the real value is 48, but do
+      # not false-positive on legitimate range references like
+      # "60-90 minutes of deep sleep" where "90 minutes" suffix-matches
+      # "0 minutes". Require a non-digit (or start) before the "0".
       - type: not-contains
-        value: "0 minutes of deep sleep"
+        value: "you got 0 minutes of deep sleep"
+      - type: not-contains
+        value: "your deep sleep was 0 minutes"
       - type: llm-rubric
         value: "Response must cite the user's deep sleep as 48 minutes and provide context on whether this is adequate"
         threshold: 0.8

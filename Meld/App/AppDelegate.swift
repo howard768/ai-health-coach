@@ -13,27 +13,42 @@ final class AppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUser
         UNUserNotificationCenter.current().delegate = self
         registerNotificationCategories()
 
-        // Always re-register for remote notifications on launch
-        // (token may have changed, or permission was granted in a previous install)
-        Task {
-            let status = await NotificationService.shared.getPermissionStatus()
-            if status == .authorized {
-                await MainActor.run {
-                    UIApplication.shared.registerForRemoteNotifications()
-                }
-                Log.notifications.info("Re-registering for remote notifications on launch")
-            }
-        }
+        // Skip the side-effectful auto-runs (push registration + HealthKit
+        // sync) when launched under a test bundle. CI runs the Meld.app
+        // host unsigned (CODE_SIGNING_ALLOWED=NO for unit + snapshot tests),
+        // which means entitled APIs like HealthKit fail hard enough to
+        // signal-trap the app before tests execute.
+        // `XCTestConfigurationFilePath` is set by Xcode whenever the process
+        // is launched as a test host (XCTest or Swift Testing), so this
+        // guard is production-inert. Fixes "Early unexpected exit" +
+        // "Test crashed with signal trap before starting test execution"
+        // on the iOS CI test step.
+        let isRunningTests = ProcessInfo.processInfo
+            .environment["XCTestConfigurationFilePath"] != nil
 
-        // Auto-sync HealthKit data on every launch
-        Task {
-            if HealthKitService.shared.isAvailable {
-                let steps = await HealthKitService.shared.queryTodaySteps()
-                if steps != nil {
-                    // HealthKit is authorized — sync data to backend
-                    HealthKitService.shared.isAuthorized = true
-                    await HealthKitService.shared.syncToBackend()
-                    Log.healthKit.info("Auto-synced on launch")
+        if !isRunningTests {
+            // Always re-register for remote notifications on launch
+            // (token may have changed, or permission was granted in a previous install)
+            Task {
+                let status = await NotificationService.shared.getPermissionStatus()
+                if status == .authorized {
+                    await MainActor.run {
+                        UIApplication.shared.registerForRemoteNotifications()
+                    }
+                    Log.notifications.info("Re-registering for remote notifications on launch")
+                }
+            }
+
+            // Auto-sync HealthKit data on every launch
+            Task {
+                if HealthKitService.shared.isAvailable {
+                    let steps = await HealthKitService.shared.queryTodaySteps()
+                    if steps != nil {
+                        // HealthKit is authorized — sync data to backend
+                        HealthKitService.shared.isAuthorized = true
+                        await HealthKitService.shared.syncToBackend()
+                        Log.healthKit.info("Auto-synced on launch")
+                    }
                 }
             }
         }
