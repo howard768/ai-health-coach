@@ -22,7 +22,7 @@
 | `8426316` | Commit 5 follow-up: `synth_drift_job` wired into scheduler at daily 04:15 UTC |
 | `a607fb4` | Commit 6: `ml_synth_runs` migration + manifest persistence |
 | `44f3e47` | Commit 7: fidelity test suite (6 gates) + feedback diversity |
-| (this SHA) | Commit 8: HANDOFF.md |
+| `9a9fa1f` | Commit 8: HANDOFF.md (this file) |
 
 5-gate local CI green on every commit. **413 backend tests passing** (up from 316 at Commit 3 and 306 at the start of Phase 4.5).
 
