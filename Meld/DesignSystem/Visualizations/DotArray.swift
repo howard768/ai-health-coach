@@ -144,10 +144,13 @@ struct TrainingCalendarHeatmap: View {
     }
 
     private func cellColor(_ value: Bool?) -> Color {
+        // Use .some/.none patterns explicitly so Swift 6 sees the switch over
+        // Bool? as exhaustive. The shorthand (case true/false/nil) is legal
+        // Swift but trips "switch must be exhaustive" under strict checking.
         switch value {
-        case true: DSColor.Green.green500
-        case false: DSColor.Surface.secondary
-        case nil: DSColor.Surface.secondary.opacity(0.4)
+        case .some(true): DSColor.Green.green500
+        case .some(false): DSColor.Surface.secondary
+        case .none: DSColor.Surface.secondary.opacity(0.4)
         }
     }
 }

@@ -30,9 +30,19 @@ final class NotificationService {
     }
 
     /// Check current notification authorization status.
+    ///
+    /// Uses the completion-handler form of `getNotificationSettings` and
+    /// extracts the Sendable `authorizationStatus` inside the completion so
+    /// the non-Sendable `UNNotificationSettings` never crosses an actor
+    /// boundary. The async variant `notificationSettings()` returns
+    /// `UNNotificationSettings` across a nonisolated context, which Swift 6
+    /// rejects. See feedback_swift6_delegates.md for the general pattern.
     func getPermissionStatus() async -> UNAuthorizationStatus {
-        let settings = await UNUserNotificationCenter.current().notificationSettings()
-        return settings.authorizationStatus
+        await withCheckedContinuation { continuation in
+            UNUserNotificationCenter.current().getNotificationSettings { settings in
+                continuation.resume(returning: settings.authorizationStatus)
+            }
+        }
     }
 
     /// Send device token to the backend for APNs delivery.
