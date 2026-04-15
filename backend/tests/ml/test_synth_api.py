@@ -22,6 +22,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.database import Base
+from app.models import ml_synth as _ml_synth_models  # noqa: F401  (registers MLSynthRun on Base.metadata)
 from app.models.health import HealthMetricRecord
 from ml.api import CohortManifest, generate_synth_cohort
 

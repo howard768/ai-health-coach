@@ -15,9 +15,6 @@ What this orchestrator does NOT do, on purpose:
 
 - **Does not commit.** The caller owns the transaction, matching every
   other async entry point in ``ml.api``.
-- **Does not persist the manifest.** ``ml_synth_runs`` is added in
-  Commit 6; this commit returns the in-memory manifest only. Remove
-  this comment once Commit 6 lands.
 - **Does not generate coach conversations.** The conversations module
   exists as a sibling (tested on its own); the fixture-consumer in
   Phase 5.9 invokes it directly. Keeping the factory focused on raw
@@ -505,8 +502,10 @@ async def generate_cohort(
     await _write_wearables(db, wearables)
     await _write_meals(db, meals)
 
-    run_id = str(uuid.uuid4())
-    return CohortManifest(
+    # Compose the manifest first so the run_id stamped on the DB row is
+    # exactly what the caller sees returned (same uuid, no copies).
+    run_id = uuid.uuid4().hex
+    manifest = CohortManifest(
         run_id=run_id,
         seed=seed,
         generator=resolved_generator,
@@ -518,6 +517,36 @@ async def generate_cohort(
         created_at=datetime.now(timezone.utc).isoformat(),
         adversarial_fraction=adversarial_fraction,
     )
+    await _write_manifest(db, manifest)
+    return manifest
+
+
+async def _write_manifest(db: "AsyncSession", manifest: "CohortManifest") -> None:
+    """Persist the manifest to ``ml_synth_runs`` in the caller's txn.
+
+    Same session as the raw-table writes so the audit row and the
+    ``is_synthetic=True`` rows land together; a rollback takes both.
+    Caller owns ``commit``.
+    """
+    import json as _json
+
+    from app.models.ml_synth import MLSynthRun
+
+    db.add(
+        MLSynthRun(
+            run_id=manifest.run_id,
+            seed=manifest.seed,
+            generator=manifest.generator,
+            n_users=manifest.n_users,
+            days=manifest.days,
+            start_date=manifest.start_date,
+            end_date=manifest.end_date,
+            created_at=manifest.created_at,
+            adversarial_fraction=manifest.adversarial_fraction,
+            user_ids_json=_json.dumps(manifest.user_ids),
+        )
+    )
+    await db.flush()
 
 
 __all__ = ["generate_cohort"]

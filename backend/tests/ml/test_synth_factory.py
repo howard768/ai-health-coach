@@ -28,8 +28,10 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.database import Base
+from app.models import ml_synth as _ml_synth_models  # noqa: F401  (registers MLSynthRun on Base.metadata)
 from app.models.health import ActivityRecord, HealthMetricRecord, SleepRecord
 from app.models.meal import FoodItemRecord, MealRecord
+from app.models.ml_synth import MLSynthRun
 from ml.synth.factory import generate_cohort
 
 
@@ -72,6 +74,82 @@ async def test_run_id_is_uuid(db: AsyncSession) -> None:
 
     manifest = await generate_cohort(db, n_users=1, days=5, seed=1)
     _uuid.UUID(manifest.run_id)  # raises if not a valid uuid
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Commit 6: ml_synth_runs manifest persistence
+# ─────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_manifest_persists_to_ml_synth_runs(db: AsyncSession) -> None:
+    """Commit 6: factory writes the manifest to ml_synth_runs with
+    run_id matching the returned CohortManifest so a scheduler log
+    line referencing the run id can be cross-referenced to both the
+    DB row and the raw rows it produced."""
+    import json as _json
+
+    manifest = await generate_cohort(db, n_users=3, days=7, seed=42)
+    await db.flush()
+
+    row = (
+        await db.execute(select(MLSynthRun).where(MLSynthRun.run_id == manifest.run_id))
+    ).scalar_one()
+    assert row.run_id == manifest.run_id
+    assert row.seed == 42
+    assert row.generator == "parametric"
+    assert row.n_users == 3
+    assert row.days == 7
+    assert row.start_date == manifest.start_date
+    assert row.end_date == manifest.end_date
+    assert row.created_at == manifest.created_at
+    assert row.adversarial_fraction == manifest.adversarial_fraction
+    assert _json.loads(row.user_ids_json) == manifest.user_ids
+
+
+@pytest.mark.asyncio
+async def test_manifest_row_and_raw_rows_share_a_transaction(db: AsyncSession) -> None:
+    """Audit invariant: if the caller rolls back, BOTH the ml_synth_runs
+    row AND every is_synthetic row disappear together. Rollback must
+    not leave a dangling manifest pointing at no data."""
+    manifest = await generate_cohort(db, n_users=2, days=5, seed=7)
+    await db.rollback()
+
+    # Manifest row gone.
+    manifest_rows = (
+        await db.execute(select(MLSynthRun).where(MLSynthRun.run_id == manifest.run_id))
+    ).scalars().all()
+    assert manifest_rows == []
+    # Raw rows gone too (already covered by test_factory_does_not_commit
+    # but pin the same session here for clarity).
+    for model in (SleepRecord, ActivityRecord, MealRecord, FoodItemRecord, HealthMetricRecord):
+        count = (
+            await db.execute(select(func.count()).select_from(model))
+        ).scalar_one()
+        assert count == 0, f"{model.__name__} not cleared on rollback"
+
+
+@pytest.mark.asyncio
+async def test_every_manifest_run_id_is_unique(db: AsyncSession) -> None:
+    """Two back-to-back calls on the same session land distinct run_ids."""
+    a = await generate_cohort(db, n_users=1, days=5, seed=1)
+    b = await generate_cohort(db, n_users=1, days=5, seed=1)
+    # Same seed (identical cohort) but distinct run ids so the audit log
+    # never collapses two runs into one.
+    assert a.run_id != b.run_id
+    rows = (await db.execute(select(MLSynthRun))).scalars().all()
+    run_ids = [r.run_id for r in rows]
+    assert len(set(run_ids)) == len(run_ids) == 2
+
+
+@pytest.mark.asyncio
+async def test_unseeded_run_stores_null_seed(db: AsyncSession) -> None:
+    manifest = await generate_cohort(db, n_users=1, days=5, seed=None)
+    await db.flush()
+    row = (
+        await db.execute(select(MLSynthRun).where(MLSynthRun.run_id == manifest.run_id))
+    ).scalar_one()
+    assert row.seed is None
 
 
 # ─────────────────────────────────────────────────────────────────────────
