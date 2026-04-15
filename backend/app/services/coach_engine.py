@@ -16,10 +16,17 @@ import logging
 from datetime import datetime, timedelta
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import TYPE_CHECKING
 
 import anthropic
 from app.config import settings
 from app.core.time import utcnow_naive
+
+# Signal Engine Phase 5 context. Imported via TYPE_CHECKING so the boundary
+# rule in ml.api stays honored and ``process_query`` can keep its sync
+# signature while the router pre-loads SignalContext asynchronously.
+if TYPE_CHECKING:
+    from ml.api import SignalContext
 
 logger = logging.getLogger("meld.coach")
 
@@ -163,72 +170,23 @@ class SafetyCheck:
 
 
 # ============================================================
-# 4. KNOWLEDGE GRAPH (GAAMA)
-# Structured relationships: food→sleep, protein→recovery
+# 4. KNOWLEDGE GRAPH — DELETED in Phase 5 (Signal Engine).
+#
+# The hardcoded KnowledgeGraph seeded with three literature connections was a
+# Phase 0 placeholder for "personalized cross-domain relationships". It has
+# been replaced by:
+#
+#   - active_patterns  : load_active_patterns() reads UserCorrelation at
+#                        developing+ tier (populated by Phase 3 L2 engine)
+#   - recent_anomalies : ml_anomalies rows from the last 7 days (Phase 2)
+#   - personal_forecast: ml_forecasts rows for today/tomorrow (Phase 2)
+#
+# All three are assembled into a ``SignalContext`` by ``ml.api`` and passed
+# into ``CoachEngine.process_query`` as an optional parameter. The prompt
+# template renders them dynamically.
+#
+# See ~/.claude/plans/golden-floating-creek.md Phase 5 for the full spec.
 # ============================================================
-
-@dataclass
-class HealthConnection:
-    """A discovered cross-domain relationship."""
-    source_metric: str    # e.g., "protein_intake"
-    target_metric: str    # e.g., "deep_sleep_duration"
-    direction: str        # "positive" or "negative"
-    strength: float       # 0-1 correlation strength
-    evidence_days: int    # How many days of data support this
-    literature_ref: str | None = None  # Published research citation
-
-    def to_natural_language(self) -> str:
-        """4th grade reading level description."""
-        direction_word = "goes up" if self.direction == "positive" else "goes down"
-        return f"When your {self.source_metric.replace('_', ' ')} is higher, your {self.target_metric.replace('_', ' ')} tends to {direction_word}."
-
-
-class KnowledgeGraph:
-    """Cross-domain health connections for this user."""
-
-    def __init__(self):
-        self.connections: list[HealthConnection] = []
-
-        # Seed with literature-backed connections
-        self._seed_literature_connections()
-
-    def _seed_literature_connections(self):
-        """Pre-populate with research-backed connections."""
-        self.connections = [
-            HealthConnection(
-                source_metric="protein_intake",
-                target_metric="deep_sleep_duration",
-                direction="positive",
-                strength=0.6,
-                evidence_days=0,
-                literature_ref="Halson, S.L. (2014). Sleep in Elite Athletes. Sports Medicine.",
-            ),
-            HealthConnection(
-                source_metric="dinner_time",
-                target_metric="sleep_efficiency",
-                direction="negative",  # Later dinner → worse sleep
-                strength=0.5,
-                evidence_days=0,
-                literature_ref="St-Onge et al. (2016). Effects of Diet on Sleep Quality. Advances in Nutrition.",
-            ),
-            HealthConnection(
-                source_metric="exercise_intensity",
-                target_metric="hrv_next_day",
-                direction="positive",  # Hard training → higher HRV next day (if recovered)
-                strength=0.4,
-                evidence_days=0,
-                literature_ref="Buchheit, M. (2014). Monitoring training status with HR measures.",
-            ),
-        ]
-
-    def find_relevant_connections(self, metrics: list[str], min_strength: float = 0.3) -> list[HealthConnection]:
-        """Find connections relevant to the given metrics."""
-        relevant = []
-        for conn in self.connections:
-            if conn.strength >= min_strength:
-                if conn.source_metric in metrics or conn.target_metric in metrics:
-                    relevant.append(conn)
-        return relevant
 
 
 # ============================================================
@@ -411,8 +369,78 @@ USER'S GOALS: {goals}
 
 {memory_context}
 
-{knowledge_graph_context}
+{active_patterns}
+
+{recent_anomalies}
+
+{personal_forecast}
 """
+
+def _prettify(metric: str) -> str:
+    """Turn a snake_case feature key into human-readable prose."""
+    return metric.replace("_", " ")
+
+
+def _render_active_patterns(ctx: "SignalContext | None") -> str:
+    """Render the Phase 5 ACTIVE PATTERNS prompt section.
+
+    Renders nothing when the context is missing or empty, so the prompt
+    template does not emit a header with no content underneath.
+    """
+    if ctx is None or not ctx.active_patterns:
+        return ""
+    lines: list[str] = ["ACTIVE PATTERNS (cite when relevant):"]
+    for p in ctx.active_patterns:
+        if p.effect_description:
+            sentence = p.effect_description
+        else:
+            direction_word = "higher too" if p.direction == "positive" else "lower"
+            sentence = (
+                f"When {_prettify(p.source_metric)} is higher, "
+                f"{_prettify(p.target_metric)} tends to be {direction_word}."
+            )
+        tier_label = p.confidence_tier.replace("_", " ")
+        lines.append(f"- {sentence} (tier: {tier_label}, n={p.sample_size})")
+        if p.literature_ref:
+            lines.append(f"  Source: {p.literature_ref}")
+    return "\n".join(lines)
+
+
+def _render_recent_anomalies(ctx: "SignalContext | None") -> str:
+    """Render the Phase 5 RECENT ANOMALIES prompt section."""
+    if ctx is None or not ctx.recent_anomalies:
+        return ""
+    lines: list[str] = ["RECENT ANOMALIES (last 7 days, BOCPD-confirmed):"]
+    for a in ctx.recent_anomalies:
+        observed = f"{a.observed_value:.1f}" if a.observed_value is not None else "n/a"
+        forecasted = f"{a.forecasted_value:.1f}" if a.forecasted_value is not None else "n/a"
+        lines.append(
+            f"- {_prettify(a.metric_key)} on {a.observation_date}: "
+            f"observed {observed} vs forecast {forecasted} "
+            f"(z={a.z_score:.1f}, {a.direction})"
+        )
+    return "\n".join(lines)
+
+
+def _render_personal_forecast(ctx: "SignalContext | None") -> str:
+    """Render the Phase 5 PERSONAL FORECAST prompt section."""
+    if ctx is None or not ctx.personal_forecasts:
+        return ""
+    lines: list[str] = ["PERSONAL FORECAST (today and tomorrow):"]
+    for f in ctx.personal_forecasts:
+        if f.y_hat is None:
+            continue
+        if f.y_hat_low is not None and f.y_hat_high is not None:
+            interval = f" (95% interval {f.y_hat_low:.1f} to {f.y_hat_high:.1f})"
+        else:
+            interval = ""
+        lines.append(
+            f"- {_prettify(f.metric_key)} on {f.target_date}: {f.y_hat:.1f}{interval}"
+        )
+    # If every forecast had y_hat=None, the loop adds nothing beyond the header.
+    # Drop the header in that case so we do not render a stub section.
+    return "\n".join(lines) if len(lines) > 1 else ""
+
 
 SAFETY_DISCLAIMER = """
 IMPORTANT: Some of this user's health metrics are outside normal ranges.
@@ -432,8 +460,6 @@ class CoachEngine:
 
     def __init__(self):
         self.client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-        # P2-7: UserMemory deleted — use UserCorrelation for future per-user memory
-        self.knowledge_graph = KnowledgeGraph()
 
     def process_query(
         self,
@@ -442,6 +468,7 @@ class CoachEngine:
         user_name: str = "Brock",
         user_goals: list[str] | None = None,
         history: list[dict] | None = None,
+        signal_context: "SignalContext | None" = None,
     ) -> dict:
         """Full multi-agent pipeline for processing a coaching query.
 
@@ -476,20 +503,18 @@ class CoachEngine:
                 "model_used": "rules",
             }
 
-        # Step 4: Build evidence-bound prompt with knowledge graph.
+        # Step 4: Build evidence-bound prompt with Signal Engine context.
         # (Memory context removed in P2-7 cleanup — was always empty.)
         memory_context = ""
-        kg_connections = self.knowledge_graph.find_relevant_connections(
-            list(health_data.keys())
-        )
-        kg_context = ""
-        if kg_connections:
-            kg_context = "KNOWN HEALTH CONNECTIONS (cite if relevant):\n"
-            for conn in kg_connections:
-                kg_context += f"- {conn.to_natural_language()}"
-                if conn.literature_ref:
-                    kg_context += f" (Source: {conn.literature_ref})"
-                kg_context += "\n"
+
+        # Phase 5: signal_context (active patterns, recent anomalies, personal
+        # forecast) is loaded async by the caller and passed in. When None or
+        # empty, the prompt simply omits those sections rather than render a
+        # placeholder, so non-router callers (notifications, tests) stay
+        # uncluttered.
+        active_patterns_section = _render_active_patterns(signal_context)
+        recent_anomalies_section = _render_recent_anomalies(signal_context)
+        personal_forecast_section = _render_personal_forecast(signal_context)
 
         safety_disclaimer = ""
         if safety.requires_disclaimer:
@@ -502,7 +527,9 @@ class CoachEngine:
             health_data=json.dumps(health_data, indent=2),
             goals=", ".join(user_goals or ["general wellness"]),
             memory_context=f"USER PREFERENCES (learned over time):\n{memory_context}" if memory_context else "",
-            knowledge_graph_context=kg_context,
+            active_patterns=active_patterns_section,
+            recent_anomalies=recent_anomalies_section,
+            personal_forecast=personal_forecast_section,
             safety_disclaimer=safety_disclaimer,
         )
 

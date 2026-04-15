@@ -53,6 +53,66 @@ class ActivePattern:
 
 
 @dataclass
+class RecentAnomaly:
+    """An anomaly row recent enough to be worth surfacing to the coach prompt.
+
+    Phase 5 pulls from ``ml_anomalies`` where ``observation_date`` is within
+    the last 7 days AND ``confirmed_by_bocpd`` is true (two-signal gate —
+    see plan "Forecasting and Anomaly Detection" section).
+    """
+
+    metric_key: str
+    observation_date: str  # YYYY-MM-DD
+    direction: str  # "high" | "low"
+    z_score: float
+    observed_value: float | None
+    forecasted_value: float | None
+
+
+@dataclass
+class PersonalForecast:
+    """Short-horizon forecast for today + tomorrow, rendered into the coach prompt.
+
+    Not a full Forecast (that is returned by ``forecast_metric``); this is a
+    compact per-metric summary built for prompt inclusion. Populated only for
+    the five headline metrics the coach is likely to be asked about.
+    """
+
+    metric_key: str
+    target_date: str  # YYYY-MM-DD
+    y_hat: float | None
+    y_hat_low: float | None
+    y_hat_high: float | None
+
+
+@dataclass
+class SignalContext:
+    """Everything the coach prompt needs from the Signal Engine for one query.
+
+    Built by ``load_coach_signal_context``. The coach router pre-loads this in
+    the async request path, then passes it into the synchronous
+    ``CoachEngine.process_query``. Keeping ``process_query`` sync matters
+    because the Anthropic SDK is sync and the existing call site uses
+    ``asyncio.to_thread``.
+
+    Notification callers (``notification_engine``, ``notification_content``)
+    pass ``None`` — notifications do not need active patterns.
+    """
+
+    active_patterns: list[ActivePattern] = field(default_factory=list)
+    recent_anomalies: list[RecentAnomaly] = field(default_factory=list)
+    personal_forecasts: list[PersonalForecast] = field(default_factory=list)
+
+    @property
+    def is_empty(self) -> bool:
+        return (
+            not self.active_patterns
+            and not self.recent_anomalies
+            and not self.personal_forecasts
+        )
+
+
+@dataclass
 class DiscoveryReport:
     """Summary of a single ``run_discovery_pipeline`` invocation."""
 
@@ -455,10 +515,83 @@ async def explain_insight(
     """Build a SHAP-backed explanation for a given insight.
 
     Called by ``/api/coach/explain-finding`` in Phase 5. Dispatches by
-    candidate kind: correlation explanations return the correlation itself;
-    anomaly + forecast_warning kinds run SHAP on a surrogate residual model.
+    candidate kind via ``ml.narrate.shap_explainer.explain``. Correlation
+    candidates return a synthesized attribution (the r value IS the
+    explanation); anomaly + forecast_warning candidates run SHAP on a
+    lightweight XGBoost surrogate over the user's last 90 days.
+
+    Returns an ``InsightExplanation`` with the top-3 contributions.
+    Raises ``LookupError`` when the insight id is unknown or does not
+    belong to the caller.
     """
-    raise NotImplementedError("Phase 5: SHAP-backed explanation")
+    # Lazy import keeps cold boot clean.
+    from ml.narrate.shap_explainer import explain as _explain
+
+    internal = await _explain(db, user_id, insight_id)
+    if internal is None:
+        raise LookupError(f"insight {insight_id} not found for user {user_id}")
+
+    return InsightExplanation(
+        insight_id=internal.insight_id,
+        user_id=internal.user_id,
+        explanation_kind=internal.kind,
+        top_contributing_features=[
+            (c.feature, float(c.contribution)) for c in internal.contributions
+        ],
+        historical_examples=list(internal.historical_examples),
+        shap_values=[
+            (c.feature, float(c.contribution)) for c in internal.contributions
+        ],
+    )
+
+
+@dataclass
+class InsightNarration:
+    """Narration result + flag for whether the fallback template was used."""
+
+    insight_id: str
+    kind: str
+    text: str
+    used_fallback: bool
+    fallback_reason: str | None = None
+
+
+async def narrate_insight(
+    db: "AsyncSession",
+    user_id: str,
+    insight_id: str,
+) -> InsightNarration:
+    """Run Opus narration on a single insight candidate.
+
+    Thin wrapper so the coach router does not need to import
+    ``ml.narrate.translator`` directly (boundary rule). Emits the
+    post-voice-compliance text; on failure returns the templated fallback.
+    """
+    from app.models.ml_insights import MLInsightCandidate
+    from ml.narrate.translator import NarrationRequest, generate_narration
+    import json as _json
+
+    candidate = await db.get(MLInsightCandidate, insight_id)
+    if candidate is None or candidate.user_id != user_id:
+        raise LookupError(f"insight {insight_id} not found for user {user_id}")
+
+    payload = _json.loads(candidate.payload_json) if candidate.payload_json else {}
+    subjects = _json.loads(candidate.subject_metrics_json)
+
+    result = await generate_narration(
+        NarrationRequest(
+            kind=candidate.kind,
+            subject_metrics=list(subjects),
+            payload=payload,
+        )
+    )
+    return InsightNarration(
+        insight_id=insight_id,
+        kind=candidate.kind,
+        text=result.text,
+        used_fallback=result.used_fallback,
+        fallback_reason=result.fallback_reason,
+    )
 
 
 async def forecast_metric(
@@ -532,14 +665,205 @@ async def forecast_metric(
 async def load_active_patterns(
     db: "AsyncSession",
     user_id: str,
+    limit: int = 5,
 ) -> list[ActivePattern]:
-    """Top-5 developing+ patterns for this user, natural-language rendered.
+    """Top-N developing+ patterns for this user, sorted by strength x confidence.
 
-    **Replaces** the hardcoded ``KnowledgeGraph`` seeded at
-    ``backend/app/services/coach_engine.py:195-222``. Implemented in Phase 5.
-    Until then, ``coach_engine`` continues to use its internal seed.
+    Replaces the hardcoded ``KnowledgeGraph`` deleted from ``coach_engine.py``
+    in Phase 5. Reads ``UserCorrelation`` rows at tiers developing, established,
+    causal_candidate, or literature_supported. Returns a plain list of
+    ``ActivePattern`` the coach prompt template can consume.
     """
-    raise NotImplementedError("Phase 5: UserCorrelation-backed active patterns")
+    from sqlalchemy import select as _select
+
+    from app.models.correlation import UserCorrelation
+
+    result = await db.execute(
+        _select(UserCorrelation).where(
+            UserCorrelation.user_id == user_id,
+            UserCorrelation.confidence_tier.in_(
+                (
+                    "developing",
+                    "established",
+                    "causal_candidate",
+                    "literature_supported",
+                )
+            ),
+        )
+    )
+    rows = list(result.scalars().all())
+    if not rows:
+        return []
+
+    # Rank by strength * confidence-tier-weight. Same weights as Phase 4
+    # candidate confidence so the coach and the insight card see consistent
+    # prioritization.
+    tier_weight = {
+        "developing": 0.60,
+        "established": 0.80,
+        "causal_candidate": 0.90,
+        "literature_supported": 0.95,
+    }
+    rows.sort(
+        key=lambda r: (r.strength or 0) * tier_weight.get(r.confidence_tier, 0.3),
+        reverse=True,
+    )
+
+    return [
+        ActivePattern(
+            source_metric=r.source_metric,
+            target_metric=r.target_metric,
+            direction=r.direction,
+            strength=float(r.strength or 0.0),
+            confidence_tier=r.confidence_tier or "emerging",
+            sample_size=int(r.sample_size or 0),
+            effect_description=r.effect_size_description or "",
+            literature_ref=r.literature_ref,
+        )
+        for r in rows[:limit]
+    ]
+
+
+async def load_recent_anomalies(
+    db: "AsyncSession",
+    user_id: str,
+    lookback_days: int = 7,
+    confirmed_only: bool = True,
+) -> list[RecentAnomaly]:
+    """Recent ml_anomalies rows for coach prompt inclusion.
+
+    ``confirmed_only=True`` (default) applies the plan's two-signal gate:
+    only surface anomalies that BOCPD confirmed within the 48h window. An
+    unconfirmed z-score spike stays in the shadow log but does not steer
+    the coach's conversation.
+    """
+    from datetime import date as _date, timedelta
+
+    from sqlalchemy import select as _select
+
+    from app.models.ml_baselines import MLAnomaly
+
+    start = (_date.today() - timedelta(days=lookback_days - 1)).isoformat()
+    query = _select(MLAnomaly).where(
+        MLAnomaly.user_id == user_id,
+        MLAnomaly.observation_date >= start,
+    )
+    if confirmed_only:
+        query = query.where(MLAnomaly.confirmed_by_bocpd.is_(True))
+
+    result = await db.execute(query)
+    rows = list(result.scalars().all())
+    return [
+        RecentAnomaly(
+            metric_key=r.metric_key,
+            observation_date=r.observation_date,
+            direction=r.direction,
+            z_score=float(r.z_score),
+            observed_value=r.observed_value,
+            forecasted_value=r.forecasted_value,
+        )
+        for r in rows
+    ]
+
+
+async def load_personal_forecasts(
+    db: "AsyncSession",
+    user_id: str,
+    metrics: list[str] | None = None,
+    horizon_days: int = 2,
+) -> list[PersonalForecast]:
+    """Today + tomorrow forecasts for the coach prompt.
+
+    Reads the most recent forecast per (user, metric, target_date). Short
+    horizon keeps the prompt tight. Default metrics are the five headline
+    biometrics the coach is most often asked about.
+    """
+    from datetime import date as _date, timedelta
+
+    from sqlalchemy import select as _select
+
+    from app.models.ml_baselines import MLForecast
+
+    default_metrics = ("hrv", "resting_hr", "sleep_efficiency", "readiness_score", "steps")
+    target_metrics = metrics if metrics is not None else list(default_metrics)
+
+    today = _date.today()
+    end = today + timedelta(days=horizon_days - 1)
+    result = await db.execute(
+        _select(MLForecast)
+        .where(
+            MLForecast.user_id == user_id,
+            MLForecast.metric_key.in_(target_metrics),
+            MLForecast.target_date >= today.isoformat(),
+            MLForecast.target_date <= end.isoformat(),
+        )
+        .order_by(MLForecast.target_date.asc(), MLForecast.made_on.desc())
+    )
+    rows = list(result.scalars().all())
+
+    # Keep the most recent made_on per (metric, target_date).
+    seen: set[tuple[str, str]] = set()
+    out: list[PersonalForecast] = []
+    for row in rows:
+        key = (row.metric_key, row.target_date)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(
+            PersonalForecast(
+                metric_key=row.metric_key,
+                target_date=row.target_date,
+                y_hat=row.y_hat,
+                y_hat_low=row.y_hat_low,
+                y_hat_high=row.y_hat_high,
+            )
+        )
+    return out
+
+
+async def load_coach_signal_context(
+    db: "AsyncSession",
+    user_id: str,
+) -> SignalContext:
+    """One call that assembles the full Signal Engine context for the coach.
+
+    Used by ``backend/app/routers/coach.py`` in the async request path.
+    All three loaders are cheap (small indexed queries against indexed ml_
+    tables); sequential is fine. If any single loader fails, returns an
+    empty SignalContext so the coach still responds with health_data only.
+    """
+    import asyncio
+    import logging as _logging
+
+    _log = _logging.getLogger("meld.ml.api")
+
+    try:
+        patterns = await load_active_patterns(db, user_id)
+    except Exception as e:  # noqa: BLE001 — defensive at the public boundary
+        _log.warning("load_active_patterns failed for %s: %s", user_id, e)
+        patterns = []
+
+    try:
+        anomalies = await load_recent_anomalies(db, user_id)
+    except Exception as e:  # noqa: BLE001
+        _log.warning("load_recent_anomalies failed for %s: %s", user_id, e)
+        anomalies = []
+
+    try:
+        forecasts = await load_personal_forecasts(db, user_id)
+    except Exception as e:  # noqa: BLE001
+        _log.warning("load_personal_forecasts failed for %s: %s", user_id, e)
+        forecasts = []
+
+    # Suppress unused-import warning for asyncio — retained for potential
+    # future parallelization via asyncio.gather if latency ever matters.
+    _ = asyncio
+
+    return SignalContext(
+        active_patterns=patterns,
+        recent_anomalies=anomalies,
+        personal_forecasts=forecasts,
+    )
 
 
 def ranker_model_metadata() -> RankerMetadata:

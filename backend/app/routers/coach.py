@@ -39,6 +39,30 @@ class ChatRequest(BaseModel):
     message: str
 
 
+# Phase 5: /api/coach/explain-finding shapes. Used by the iOS "Why?"
+# button on a SignalInsightCard. Runs SHAP-like explanation through
+# ml.api.explain_insight and narrates the result with Opus.
+
+class ExplainFindingRequest(BaseModel):
+    insight_id: str
+
+
+class ExplainFindingContribution(BaseModel):
+    feature: str
+    contribution: float
+    observed_value: float | None = None
+    baseline_value: float | None = None
+
+
+class ExplainFindingResponse(BaseModel):
+    insight_id: str
+    kind: str
+    narration: str
+    narration_used_fallback: bool
+    contributions: list[ExplainFindingContribution]
+    historical_examples: list[dict]
+
+
 class ChatResponse(BaseModel):
     role: str
     content: str  # Plain markdown with [[data:...]] tags flattened to bold inline.
@@ -108,6 +132,15 @@ async def chat(
     # Load user profile for personalized name + goals
     user_name, user_goals = await _load_user_context(db, user_id)
 
+    # Phase 5: load Signal Engine context (active patterns, recent anomalies,
+    # personal forecasts). Pre-loaded here in the async request path so the
+    # sync CoachEngine.process_query can stay sync. Defensive: load_coach_
+    # signal_context swallows per-loader exceptions and returns an empty
+    # SignalContext, so a broken ML table never degrades the coach.
+    from ml import api as ml_api
+
+    signal_context = await ml_api.load_coach_signal_context(db, user_id)
+
     # Process through coach engine (with conversation history)
     # Wrap in to_thread because process_query() calls synchronous Anthropic SDK
     import asyncio
@@ -119,6 +152,7 @@ async def chat(
         user_name,
         user_goals,
         history,
+        signal_context,
     )
     latency_ms = int((time.monotonic() - start_time) * 1000)
 
@@ -221,6 +255,63 @@ async def submit_feedback(
     await db.commit()
 
     return {"status": "ok", "message_id": request.message_id, "feedback": request.feedback}
+
+
+# ============================================================
+# EXPLAIN-FINDING (Phase 5) — why did this insight surface?
+# ============================================================
+#
+# POST /api/coach/explain-finding
+#
+# The iOS "Why?" button on a SignalInsightCard hits this. We look up the
+# candidate by id, dispatch to ml.api.explain_insight (SHAP-style
+# attribution), and narrate the result with Opus via ml.api.narrate_insight.
+# Owner check enforces that the insight belongs to the authenticated user.
+#
+# Shadow mode: this endpoint is always live. Shadow_insight_card gates
+# whether iOS SHOWS the Why button, not whether we respond to the call.
+
+
+@router.post("/explain-finding", response_model=ExplainFindingResponse)
+@limiter.limit("30/minute")
+async def explain_finding(
+    request: Request,
+    body: ExplainFindingRequest,
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+) -> ExplainFindingResponse:
+    """Return a SHAP-backed attribution + Opus narration for one insight."""
+    from ml import api as ml_api
+
+    try:
+        explanation = await ml_api.explain_insight(
+            db, current_user.apple_user_id, body.insight_id
+        )
+    except LookupError:
+        raise HTTPException(status_code=404, detail="insight not found")
+
+    narration = await ml_api.narrate_insight(
+        db, current_user.apple_user_id, body.insight_id
+    )
+
+    contributions = [
+        ExplainFindingContribution(
+            feature=feature,
+            contribution=value,
+            observed_value=None,
+            baseline_value=None,
+        )
+        for feature, value in explanation.top_contributing_features
+    ]
+
+    return ExplainFindingResponse(
+        insight_id=explanation.insight_id,
+        kind=explanation.explanation_kind,
+        narration=narration.text,
+        narration_used_fallback=narration.used_fallback,
+        contributions=contributions,
+        historical_examples=explanation.historical_examples,
+    )
 
 
 # ============================================================

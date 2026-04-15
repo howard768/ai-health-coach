@@ -19,13 +19,22 @@ from app.services.coach_engine import EVIDENCE_BOUND_SYSTEM_PROMPT
 
 
 def _build_prompt(health_data: dict) -> str:
-    """Build the system prompt the same way CoachEngine.process_query does."""
+    """Build the system prompt the same way CoachEngine.process_query does.
+
+    Phase 5 replaced the single ``knowledge_graph_context`` slot with three
+    dynamic sections (``active_patterns``, ``recent_anomalies``,
+    ``personal_forecast``). These data-parity tests exercise the health_data
+    block only, so the Signal Engine sections are passed as empty strings.
+    Dedicated Phase 5 tests cover prompt assembly with non-empty SignalContext.
+    """
     return EVIDENCE_BOUND_SYSTEM_PROMPT.format(
         user_name="TestUser",
         health_data=json.dumps(health_data, indent=2),
         goals="general wellness",
         memory_context="",
-        knowledge_graph_context="",
+        active_patterns="",
+        recent_anomalies="",
+        personal_forecast="",
         safety_disclaimer="",
     )
 

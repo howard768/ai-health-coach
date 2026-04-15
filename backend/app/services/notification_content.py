@@ -99,15 +99,19 @@ class NotificationContentGenerator:
             return {"title": fallback_title, "body": fallback_body}
 
     def generate_coaching_nudge(self, health_data: dict, user_name: str = "there") -> dict:
-        """Cross-domain insight notification. 2-3x per week."""
-        # Get relevant knowledge graph connections
-        kg = self.coach.knowledge_graph
-        connections_text = ""
-        relevant = kg.find_relevant_connections(list(health_data.keys()))
-        if relevant:
-            connections_text = "; ".join(c.to_natural_language() for c in relevant[:3])
-        else:
-            connections_text = "protein→deep sleep; dinner timing→sleep quality; exercise→next-day recovery"
+        """Cross-domain insight notification. 2-3x per week.
+
+        Phase 5 removed the hardcoded KnowledgeGraph from ``coach_engine``.
+        For notifications we keep a static literature-backed fallback string
+        because the nudge is a generic pattern reminder (not a per-user
+        insight). The personalized cross-domain surface is the Phase 4
+        SignalInsightCard on the dashboard; the coach chat gets the full
+        ``ACTIVE PATTERNS`` section via ``load_coach_signal_context``.
+        """
+        connections_text = (
+            "protein and deep sleep; dinner timing and sleep quality; "
+            "exercise and next-day recovery"
+        )
 
         data_summary = self._build_data_summary(health_data)
 
