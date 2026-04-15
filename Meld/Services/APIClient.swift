@@ -7,7 +7,12 @@ import Foundation
 actor APIClient {
     static let shared = APIClient()
 
-    private let baseURL: URL
+    // baseURL is set once at init and never mutated. Marking it nonisolated
+    // lets serverRoot (also nonisolated) be read from any actor without
+    // awaiting — required by call sites like DataSourceDetailView that run
+    // on @MainActor and can't hop to the APIClient actor synchronously.
+    // URL is Sendable, so the nonisolated let is safe under Swift 6.
+    nonisolated private let baseURL: URL
     private let decoder: JSONDecoder
     private let session: URLSession
 
@@ -57,7 +62,9 @@ actor APIClient {
 
     /// Build a URL from a path relative to the server root (e.g., "/api/meals").
     /// Handles the baseURL already containing "/api" — strips it to get server root.
-    var serverRoot: URL {
+    /// Nonisolated because it only reads the immutable nonisolated baseURL; lets
+    /// main-actor call sites (OAuth redirects, share URLs) read without await.
+    nonisolated var serverRoot: URL {
         // baseURL is like "http://host:8000/api" — go up one to get "http://host:8000"
         baseURL.deletingLastPathComponent()
     }
