@@ -96,3 +96,27 @@ evals/eval-output.txt
 
 # Medium drafts
 medium/
+
+# macOS cruft
+.DS_Store
+
+# Xcode build output (lowercase, distinct from SPM .build/)
+build/
+
+# Backup databases (manual snapshots before migrations)
+*.db.before-*
+
+# Test/eval runner outputs (generalizes fastlane/report.xml, evals/results.json)
+*-results.xml
+*-results.json
+
+# Local email signatures and personal files
+meld-*.html
+
+# Stray root-level tests dir (real backend tests live in backend/tests/)
+/tests/
+
+# Dev screenshots at repo root
+/coach_chat_loaded.png
+/dashboard_data_loaded.png
+/trends_data_loaded.png
