@@ -60,22 +60,27 @@ struct MeldApp: App {
             .task {
                 #if DEBUG
                 if MeldApp.isUITesting {
-                    // Auth bypass: get a real API token via dev-login so live data works.
-                    // MainTabView is gated on devLoginReady to prevent a race with dashboard fetch.
-                    print("[MELD-DEBUG] .task: calling dev-login")
-                    do {
-                        let pair = try await APIClient.shared.devLogin()
-                        print("[MELD-DEBUG] .task: dev-login success, token=\(pair.accessToken.prefix(20))...")
-                        // Store in-memory for unsigned builds (Keychain may not work
-                        // without code signing entitlements).
-                        await APIClient.shared.setTestToken(pair.accessToken)
-                        // Also try Keychain as fallback for signed debug builds.
-                        try? await KeychainStore.shared.saveAccessToken(pair.accessToken)
-                        try? await KeychainStore.shared.saveRefreshToken(pair.refreshToken)
-                    } catch {
-                        print("[MELD-DEBUG] .task: dev-login FAILED: \(error)")
-                    }
+                    // Auth bypass: show the tab bar immediately, then try to
+                    // get a real API token in the background. Blocking on
+                    // dev-login makes CI tests hang because the runner has
+                    // no backend at 127.0.0.1:8000 — URLSession takes up to
+                    // 45s to time out, and XCUITest times out first.
+                    // Unblocking devLoginReady lets the tab bar render for
+                    // the UI smoke test; API calls that need a token will
+                    // fail gracefully if dev-login never completes.
                     devLoginReady = true
+                    print("[MELD-DEBUG] .task: UI-testing dev-login fire-and-forget")
+                    Task {
+                        do {
+                            let pair = try await APIClient.shared.devLogin()
+                            print("[MELD-DEBUG] .task: dev-login success, token=\(pair.accessToken.prefix(20))...")
+                            await APIClient.shared.setTestToken(pair.accessToken)
+                            try? await KeychainStore.shared.saveAccessToken(pair.accessToken)
+                            try? await KeychainStore.shared.saveRefreshToken(pair.refreshToken)
+                        } catch {
+                            print("[MELD-DEBUG] .task: dev-login FAILED (UI test; non-fatal): \(error)")
+                        }
+                    }
                     return
                 }
                 #endif
