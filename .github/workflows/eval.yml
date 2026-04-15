@@ -203,6 +203,13 @@ jobs:
     needs: [promptfoo, data-fidelity, python-quality]
     if: github.event_name == 'pull_request' && always()
     runs-on: ubuntu-latest
+    # Default GITHUB_TOKEN is read-only on non-same-repo events. Even on
+    # same-repo PRs the token needs explicit pull-requests:write to post a
+    # summary comment; without it actions/github-script fails with
+    # "Resource not accessible by integration".
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
 
