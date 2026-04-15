@@ -28,6 +28,22 @@ if TYPE_CHECKING:
 
 
 # ─────────────────────────────────────────────────────────────────────────
+# Shadow-mode gate (exposed so scheduler doesn't import ml.config directly)
+# ─────────────────────────────────────────────────────────────────────────
+
+
+def is_shadow_enabled(feature: str) -> bool:
+    """Check whether a shadow-mode flag is enabled.
+
+    ``feature`` is the suffix after ``ml_shadow_``: e.g. ``"granger_causal"``
+    maps to ``MLSettings.ml_shadow_granger_causal``.
+    """
+    from ml.config import get_ml_settings
+
+    return getattr(get_ml_settings(), f"ml_shadow_{feature}", False)
+
+
+# ─────────────────────────────────────────────────────────────────────────
 # Public dataclasses (the shapes the rest of the app is allowed to see).
 # These intentionally avoid importing pandas / numpy. Any field that would
 # need those types is returned as a plain Python primitive or dict.
@@ -923,6 +939,94 @@ async def run_associations(
         significant_results=report.significant_results,
         dynamic_pairs_generated=report.dynamic_pairs_generated,
         rows_written=report.rows_written,
+    )
+
+
+@dataclass
+class GrangerReport:
+    """Phase 6 L3 output summary. Shape mirrors the internal report from
+    ``ml.discovery.granger`` so callers (scheduler, tests) see a stable
+    shape across the public boundary.
+    """
+
+    user_id: str
+    pairs_tested: int
+    pairs_stationary: int
+    pairs_significant: int
+    pairs_skipped_non_stationary: int
+    pairs_skipped_insufficient_data: int
+    rows_written: int
+    correlations_updated: int
+
+
+@dataclass
+class CausalReport:
+    """Phase 6 L4 output summary. Shape mirrors the internal report from
+    ``ml.discovery.causal``.
+    """
+
+    user_id: str
+    pairs_tested: int
+    pairs_passed: int
+    pairs_skipped_insufficient_data: int
+    pairs_estimation_failed: int
+    rows_written: int
+    correlations_updated: int
+
+
+async def run_granger(
+    db: "AsyncSession",
+    user_id: str,
+    window_days: int = 90,
+) -> GrangerReport:
+    """Run L3 Granger causality on developing+ pairs.
+
+    Sets ``directional_support=True`` on UserCorrelation rows that pass
+    the Granger F-test at p < 0.05 with a stationarity gate.
+
+    Does NOT commit. Caller owns the transaction.
+    """
+    from ml.discovery.granger import run_granger_for_user
+
+    report = await run_granger_for_user(db, user_id, window_days=window_days)
+    return GrangerReport(
+        user_id=report.user_id,
+        pairs_tested=report.pairs_tested,
+        pairs_stationary=report.pairs_stationary,
+        pairs_significant=report.pairs_significant,
+        pairs_skipped_non_stationary=report.pairs_skipped_non_stationary,
+        pairs_skipped_insufficient_data=report.pairs_skipped_insufficient_data,
+        rows_written=report.rows_written,
+        correlations_updated=report.correlations_updated,
+    )
+
+
+async def run_causal(
+    db: "AsyncSession",
+    user_id: str,
+    window_days: int = 90,
+    max_pairs: int = 10,
+) -> CausalReport:
+    """Run L4 quasi-causal estimation on directional-supported or literature-matched pairs.
+
+    Uses DoWhy CausalModel with econml DML estimator and three refutation
+    tests. Promotes passing pairs to ``causal_candidate`` confidence tier.
+
+    Does NOT commit. Caller owns the transaction.
+    """
+    from ml.discovery.causal import run_causal_for_user
+
+    report = await run_causal_for_user(
+        db, user_id, window_days=window_days, max_pairs=max_pairs
+    )
+    return CausalReport(
+        user_id=report.user_id,
+        pairs_tested=report.pairs_tested,
+        pairs_passed=report.pairs_passed,
+        pairs_skipped_insufficient_data=report.pairs_skipped_insufficient_data,
+        pairs_estimation_failed=report.pairs_estimation_failed,
+        rows_written=report.rows_written,
+        correlations_updated=report.correlations_updated,
     )
 
 

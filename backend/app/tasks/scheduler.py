@@ -567,6 +567,53 @@ async def correlation_engine_job():
             logger.exception("correlation_engine_job DB error: %s", e)
 
 
+async def granger_causal_job():
+    """Weekly: L3 Granger causality + L4 DoWhy quasi-causal on developing+ pairs.
+
+    Runs after ``correlation_engine_job`` (04:00) so fresh L2 associations
+    are available. Shadow-gated behind ``ml_shadow_granger_causal``.
+    Phase 6 of the Signal Engine.
+    """
+    from ml import api as ml_api
+
+    if not ml_api.is_shadow_enabled("granger_causal"):
+        logger.info("granger_causal_job: shadow flag off, skipping")
+        return
+
+    logger.info("Running granger_causal_job (L3 + L4)")
+    async with async_session() as db:
+        user_id = await _get_primary_user_id(db)
+        if user_id is None:
+            logger.info("granger_causal_job: no primary user yet, skipping")
+            return
+        try:
+            granger_report = await ml_api.run_granger(db, user_id, window_days=90)
+            logger.info(
+                "granger_causal_job L3: tested=%d significant=%d updated=%d",
+                granger_report.pairs_tested,
+                granger_report.pairs_significant,
+                granger_report.correlations_updated,
+            )
+
+            causal_report = await ml_api.run_causal(
+                db, user_id, window_days=90, max_pairs=10
+            )
+            logger.info(
+                "granger_causal_job L4: tested=%d passed=%d updated=%d",
+                causal_report.pairs_tested,
+                causal_report.pairs_passed,
+                causal_report.correlations_updated,
+            )
+
+            await db.commit()
+        except SQLAlchemyError as e:
+            await db.rollback()
+            logger.exception("granger_causal_job DB error: %s", e)
+        except Exception as e:
+            await db.rollback()
+            logger.exception("granger_causal_job error: %s", e)
+
+
 async def offline_eval_job():
     """Weekly: evaluate recent coach responses for quality regressions."""
     logger.info("Running offline_eval_job")
@@ -888,6 +935,15 @@ def start_scheduler():
         trigger=CronTrigger(day_of_week="sun", hour=4, minute=0),
         id="correlation_engine",
         name="Cross-Domain Correlation Discovery",
+        replace_existing=True,
+    )
+
+    # Granger + DoWhy causal: weekly Sunday 04:30 (after correlations finish)
+    scheduler.add_job(
+        granger_causal_job,
+        trigger=CronTrigger(day_of_week="sun", hour=4, minute=30),
+        id="granger_causal",
+        name="Phase 6 L3 Granger + L4 DoWhy Causal",
         replace_existing=True,
     )
 
