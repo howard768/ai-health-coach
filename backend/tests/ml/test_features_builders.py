@@ -20,7 +20,7 @@ os.environ.setdefault("JWT_SECRET_KEY", "test-secret")
 os.environ.setdefault("ENCRYPTION_KEY", "T0TXLkHFSeZRYGIIejSFVkhQrvRE-bWLkwXSkkdWiKQ=")
 os.environ.setdefault("ANTHROPIC_API_KEY", "fake-key-tests-dont-call-anthropic")
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -252,9 +252,81 @@ async def test_nutrition_sums_food_item_macros(db):
 @pytest.mark.asyncio
 async def test_nutrition_empty_day_emits_unobserved(db):
     out = await builders.build_nutrition(db, USER, TODAY, TODAY)
+    keys = {mv.feature_key for mv in out}
+    # Empty day must still emit every nutrition key as unobserved,
+    # including dinner_hour (Phase 4.5 addition).
+    assert "dinner_hour" in keys
     for mv in out:
         assert not mv.is_observed
         assert mv.value is None
+
+
+@pytest.mark.asyncio
+async def test_nutrition_dinner_hour_from_logged_dinner(db):
+    """dinner_hour captures MealRecord.created_at.hour when meal_type=dinner."""
+    dinner_time = datetime(2026, 4, 14, 19, 30)
+    meal = MealRecord(
+        user_id=USER,
+        date="2026-04-14",
+        meal_type="dinner",
+        source="manual",
+        created_at=dinner_time,
+    )
+    db.add(meal)
+    await db.flush()
+
+    out = await builders.build_nutrition(db, USER, date(2026, 4, 14), date(2026, 4, 14))
+    by_key = {mv.feature_key: mv for mv in out}
+    assert by_key["dinner_hour"].value == 19.0
+    assert by_key["dinner_hour"].is_observed is True
+
+
+@pytest.mark.asyncio
+async def test_nutrition_dinner_hour_unobserved_without_dinner(db):
+    """Meals logged but none tagged 'dinner' leaves dinner_hour unobserved."""
+    lunch_time = datetime(2026, 4, 14, 12, 15)
+    meal = MealRecord(
+        user_id=USER,
+        date="2026-04-14",
+        meal_type="lunch",
+        source="manual",
+        created_at=lunch_time,
+    )
+    db.add(meal)
+    await db.flush()
+
+    out = await builders.build_nutrition(db, USER, date(2026, 4, 14), date(2026, 4, 14))
+    by_key = {mv.feature_key: mv for mv in out}
+    assert by_key["dinner_hour"].value is None
+    assert by_key["dinner_hour"].is_observed is False
+
+
+@pytest.mark.asyncio
+async def test_nutrition_dinner_hour_takes_latest_of_multiple(db):
+    """Multiple dinners on one day: latest hour wins (proxy for 'last logged')."""
+    db.add_all(
+        [
+            MealRecord(
+                user_id=USER,
+                date="2026-04-14",
+                meal_type="dinner",
+                source="manual",
+                created_at=datetime(2026, 4, 14, 18, 0),
+            ),
+            MealRecord(
+                user_id=USER,
+                date="2026-04-14",
+                meal_type="dinner",
+                source="manual",
+                created_at=datetime(2026, 4, 14, 21, 45),
+            ),
+        ]
+    )
+    await db.flush()
+
+    out = await builders.build_nutrition(db, USER, date(2026, 4, 14), date(2026, 4, 14))
+    by_key = {mv.feature_key: mv for mv in out}
+    assert by_key["dinner_hour"].value == 21.0
 
 
 # ─────────────────────────────────────────────────────────────────────────

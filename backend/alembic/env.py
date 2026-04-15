@@ -23,6 +23,7 @@ from app.models import refresh_token  # noqa: F401
 from app.models import ml_features  # noqa: F401
 from app.models import ml_baselines  # noqa: F401
 from app.models import ml_insights  # noqa: F401
+from app.models import ml_synth  # noqa: F401
 
 # Load app settings to get the real DATABASE_URL
 from app.config import settings

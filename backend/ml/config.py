@@ -116,6 +116,41 @@ class MLSettings(BaseSettings):
     cohort_min_surface_size: int = Field(default=100)
     cohort_dp_epsilon: float = Field(default=1.0)
 
+    # ── Synth factory (Phase 4.5). All synth rows tagged is_synthetic=True;
+    # production aggregates and crisis eval buckets filter unconditionally. ──
+    ml_shadow_synth_users: bool = Field(
+        default=True,
+        description="Phase 4.5: synth factory gate. True means synth data is generated and stored, but crisis eval and production aggregates filter it out by is_synthetic tag.",
+    )
+    synth_default_days: int = Field(
+        default=120,
+        description="Default cohort length. Covers L1 >=28, Prophet >=90, L3 Granger >=120.",
+    )
+    synth_default_generator: str = Field(
+        default="parametric",
+        description='"parametric" (scipy + numpy, always available) or "gan" (DoppelGANger, extras-gated).',
+    )
+    synth_adversarial_fraction: float = Field(
+        default=0.20,
+        description="Share of conversations seeded with adversarial personas (crisis, non-adherent, contrarian).",
+    )
+    synth_biometric_missingness_low: float = Field(
+        default=0.12,
+        description="Lower bound of target missingness for biometric features (hrv, sleep_efficiency, etc.).",
+    )
+    synth_biometric_missingness_high: float = Field(
+        default=0.18,
+        description="Upper bound of target missingness for biometric features.",
+    )
+    synth_manual_log_missingness_low: float = Field(
+        default=0.35,
+        description="Lower bound of target missingness for manual food logs.",
+    )
+    synth_manual_log_missingness_high: float = Field(
+        default=0.50,
+        description="Upper bound of target missingness for manual food logs.",
+    )
+
 
 @lru_cache(maxsize=1)
 def get_ml_settings() -> MLSettings:
