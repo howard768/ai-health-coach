@@ -362,7 +362,7 @@ async def build_nutrition(
         out: list[MaterializedValue] = []
         for d in _daterange(start, end):
             ds = _date_to_str(d)
-            for key in ("calories", "protein_g", "carbs_g", "fat_g", "meal_count"):
+            for key in ("calories", "protein_g", "carbs_g", "fat_g", "meal_count", "dinner_hour"):
                 out.append(MaterializedValue(key, ds, None, False))
         return out
 
@@ -381,10 +381,23 @@ async def build_nutrition(
     for m in meals:
         bucket = per_date.setdefault(
             m.date,
-            {"calories": 0.0, "protein_g": 0.0, "carbs_g": 0.0, "fat_g": 0.0, "meal_count": 0, "row_ids": []},
+            {
+                "calories": 0.0,
+                "protein_g": 0.0,
+                "carbs_g": 0.0,
+                "fat_g": 0.0,
+                "meal_count": 0,
+                "row_ids": [],
+                "dinner_hours": [],  # created_at.hour for each dinner MealRecord
+            },
         )
         bucket["meal_count"] += 1
         bucket["row_ids"].append(m.id)
+        # dinner_hour feature: track log-hour of any meal tagged 'dinner'.
+        # Uses created_at rather than an eat-time field (none exists yet).
+        # When multiple dinners are logged, the latest wins (see output stage).
+        if (m.meal_type or "").lower() == "dinner" and m.created_at is not None:
+            bucket["dinner_hours"].append(m.created_at.hour)
         for f in foods_by_meal.get(m.id, []):
             # serving_count scales the nutrition. Guard against None.
             servings = f.serving_count if f.serving_count is not None else 1.0
@@ -406,8 +419,21 @@ async def build_nutrition(
                 MaterializedValue("fat_g", ds, bucket["fat_g"], True, source_row_ids=src),
                 MaterializedValue("meal_count", ds, float(bucket["meal_count"]), True, source_row_ids=src),
             ])
+            dinner_hours = bucket["dinner_hours"]
+            if dinner_hours:
+                # Latest-logged dinner wins when multiple dinners on same date.
+                out.append(
+                    MaterializedValue(
+                        "dinner_hour", ds, float(max(dinner_hours)), True, source_row_ids=src
+                    )
+                )
+            else:
+                # Meals logged but none tagged 'dinner'. is_observed=False
+                # because we treat missing dinner as absence of the signal,
+                # matching the missing-as-informative convention elsewhere.
+                out.append(MaterializedValue("dinner_hour", ds, None, False))
         else:
-            for key in ("calories", "protein_g", "carbs_g", "fat_g", "meal_count"):
+            for key in ("calories", "protein_g", "carbs_g", "fat_g", "meal_count", "dinner_hour"):
                 out.append(MaterializedValue(key, ds, None, False))
 
     return out

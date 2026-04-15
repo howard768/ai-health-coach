@@ -266,6 +266,20 @@ NUTRITION = [
         version="1.0.0",
     ),
     FeatureSpec(
+        key="dinner_hour",
+        category="nutrition",
+        domain="time",
+        description=(
+            "Hour-of-day (0-23) when the latest dinner MealRecord was logged "
+            "(MealRecord.created_at). Proxy for dinner timing; log-time "
+            "usually trails eat-time by under an hour. None on days with no "
+            "dinner meal logged."
+        ),
+        unit="hour",
+        builder_module="ml.features.builders:build_nutrition",
+        version="1.0.0",
+    ),
+    FeatureSpec(
         key="protein_g.7d_rolling_mean",
         category="nutrition",
         domain="nutrition",
