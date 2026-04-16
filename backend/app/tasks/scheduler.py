@@ -642,6 +642,11 @@ async def ranker_training_job():
                 summary.get("coreml_exported", False),
                 summary.get("r2_uploaded", False),
             )
+            # Phase 10: alert on training completion.
+            try:
+                await ml_api.send_training_alert(summary)
+            except Exception:
+                logger.debug("Training alert failed (non-fatal)", exc_info=True)
         except Exception as e:
             await db.rollback()
             logger.exception("ranker_training_job error: %s", e)
@@ -677,6 +682,36 @@ async def cohort_clustering_job():
         except Exception as e:
             await db.rollback()
             logger.exception("cohort_clustering_job error: %s", e)
+
+
+async def experiment_check_job():
+    """Daily: check active experiments for phase transitions and completion.
+
+    Advances experiment phases by date, runs APTE on completed ones.
+    Shadow-gated behind ``ml_shadow_apte``. Phase 9 of the Signal Engine.
+    """
+    from ml import api as ml_api
+
+    if not ml_api.is_shadow_enabled("apte"):
+        logger.info("experiment_check_job: shadow flag off, skipping")
+        return
+
+    logger.info("Running experiment_check_job")
+    async with async_session() as db:
+        try:
+            summary = await ml_api.check_and_complete_experiments(db)
+            await db.commit()
+            logger.info(
+                "experiment_check_job done: checked=%d advanced=%d "
+                "completed=%d failed=%d",
+                summary.get("checked", 0),
+                summary.get("advanced", 0),
+                summary.get("completed", 0),
+                summary.get("failed", 0),
+            )
+        except Exception as e:
+            await db.rollback()
+            logger.exception("experiment_check_job error: %s", e)
 
 
 async def offline_eval_job():
@@ -737,6 +772,13 @@ async def synth_drift_job():
         report.html_path or "<none>",
         report.html_backend,
     )
+
+    # Phase 10: alert on drift.
+    try:
+        from ml import api as ml_api_alerts
+        await ml_api_alerts.send_drift_alert(report)
+    except Exception:
+        logger.debug("Drift alert failed (non-fatal)", exc_info=True)
 
 
 async def get_personalized_timing(db, user_id: str) -> dict:
@@ -1018,6 +1060,15 @@ def start_scheduler():
         trigger=CronTrigger(day=1, hour=5, minute=30),
         id="cohort_clustering",
         name="Phase 8 Cross-User Cohort Clustering",
+        replace_existing=True,
+    )
+
+    # Experiment lifecycle check: daily at 08:00 UTC
+    scheduler.add_job(
+        experiment_check_job,
+        trigger=CronTrigger(hour=8, minute=0),
+        id="experiment_check",
+        name="Phase 9 Experiment Phase Transitions + APTE",
         replace_existing=True,
     )
 
