@@ -1391,3 +1391,171 @@ async def run_cohort_clustering(db: "AsyncSession") -> dict:
         "largest_cluster": cluster_report.largest_cluster,
         "run_id": cluster_report.run_id,
     }
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Phase 9: L5 APTE n-of-1 experiments
+# ─────────────────────────────────────────────────────────────────────────
+
+
+async def create_experiment(
+    db: "AsyncSession",
+    user_id: str,
+    experiment_name: str,
+    treatment_metric: str,
+    outcome_metric: str,
+    hypothesis: str | None = None,
+    design: str = "ab",
+    baseline_days: int = 14,
+    treatment_days: int = 14,
+    washout_days: int = 3,
+) -> "object":
+    """Create a new personal experiment. Returns the MLExperiment row.
+
+    Computes phase dates from today. Does NOT commit.
+    """
+    from datetime import date, timedelta
+
+    from app.core.time import utcnow_naive
+    from app.models.ml_experiments import MLExperiment
+
+    today = date.today()
+    now = utcnow_naive()
+
+    baseline_end = today + timedelta(days=baseline_days - 1)
+    treatment_start = baseline_end + timedelta(days=washout_days + 1)
+    treatment_end = treatment_start + timedelta(days=treatment_days - 1)
+
+    experiment = MLExperiment(
+        user_id=user_id,
+        experiment_name=experiment_name,
+        hypothesis=hypothesis,
+        treatment_metric=treatment_metric,
+        outcome_metric=outcome_metric,
+        design=design,
+        baseline_days=baseline_days,
+        treatment_days=treatment_days,
+        washout_days=washout_days,
+        min_compliance=10,
+        status="baseline",
+        started_at=now,
+        baseline_end=baseline_end.isoformat(),
+        treatment_start=treatment_start.isoformat(),
+        treatment_end=treatment_end.isoformat(),
+        created_at=now,
+    )
+    db.add(experiment)
+    await db.flush()
+    return experiment
+
+
+async def log_experiment_adherence(
+    db: "AsyncSession",
+    experiment_id: int,
+    adherence_date: str,
+    compliant: bool,
+) -> None:
+    """Record daily compliance for an experiment phase. Does NOT commit."""
+    from datetime import date
+
+    from app.models.ml_experiments import MLExperiment
+
+    experiment = await db.get(MLExperiment, experiment_id)
+    if experiment is None or not compliant:
+        return
+
+    log_date = date.fromisoformat(adherence_date)
+    baseline_end = date.fromisoformat(experiment.baseline_end)
+    treatment_start = date.fromisoformat(experiment.treatment_start)
+    treatment_end = date.fromisoformat(experiment.treatment_end)
+
+    if log_date <= baseline_end:
+        experiment.compliant_days_baseline += 1
+    elif treatment_start <= log_date <= treatment_end:
+        experiment.compliant_days_treatment += 1
+
+    await db.flush()
+
+
+async def check_and_complete_experiments(db: "AsyncSession") -> dict:
+    """Scan active experiments, advance phases, run APTE on completable ones.
+
+    Called by the daily experiment_check_job. Does NOT commit.
+    """
+    from datetime import date
+
+    from sqlalchemy import select
+
+    from app.models.ml_experiments import MLExperiment
+
+    today = date.today()
+    summary = {"checked": 0, "advanced": 0, "completed": 0, "failed": 0}
+
+    # Find experiments that might be ready for phase transition.
+    stmt = select(MLExperiment).where(
+        MLExperiment.status.in_(("baseline", "washout_1", "treatment"))
+    )
+    result = await db.execute(stmt)
+    experiments = result.scalars().all()
+
+    for exp in experiments:
+        summary["checked"] += 1
+        treatment_end = date.fromisoformat(exp.treatment_end)
+
+        if exp.status == "baseline":
+            baseline_end = date.fromisoformat(exp.baseline_end)
+            if today > baseline_end:
+                exp.status = "washout_1"
+                summary["advanced"] += 1
+
+        elif exp.status == "washout_1":
+            treatment_start = date.fromisoformat(exp.treatment_start)
+            if today >= treatment_start:
+                exp.status = "treatment"
+                summary["advanced"] += 1
+
+        elif exp.status == "treatment":
+            if today > treatment_end:
+                exp.status = "analyzing"
+                summary["advanced"] += 1
+
+                # Try to run APTE.
+                from ml.discovery.apte import run_apte_for_experiment
+                apte_result = await run_apte_for_experiment(db, exp.id)
+                if apte_result is not None:
+                    summary["completed"] += 1
+                else:
+                    summary["failed"] += 1
+
+    await db.flush()
+    return summary
+
+
+async def get_experiment_result(
+    db: "AsyncSession",
+    experiment_id: int,
+) -> dict | None:
+    """Get the APTE result for a completed experiment. Returns None if not found."""
+    from sqlalchemy import select
+
+    from app.models.ml_experiments import MLNof1Result
+
+    result = await db.execute(
+        select(MLNof1Result).where(MLNof1Result.experiment_id == experiment_id)
+    )
+    nof1 = result.scalar_one_or_none()
+    if nof1 is None:
+        return None
+
+    return {
+        "apte": nof1.apte,
+        "ci_lower": nof1.ci_lower,
+        "ci_upper": nof1.ci_upper,
+        "p_value": nof1.p_value,
+        "effect_size_d": nof1.effect_size_d,
+        "baseline_mean": nof1.baseline_mean,
+        "treatment_mean": nof1.treatment_mean,
+        "baseline_n": nof1.baseline_n,
+        "treatment_n": nof1.treatment_n,
+        "method": nof1.method,
+    }
