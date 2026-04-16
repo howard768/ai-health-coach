@@ -68,7 +68,7 @@ class MLSettings(BaseSettings):
         description="Phase 9: APTE n-of-1 experiment mode visible in iOS.",
     )
 
-    # ── MLflow tracking (Phase 10). ──
+    # ── MLflow tracking (Phase 10, deferred until post-beta). ──
     mlflow_tracking_uri: str = Field(
         default="file:///tmp/mlflow",
         description="MLflow tracking server URI. Local filesystem in dev; self-hosted Railway URL in prod.",
@@ -76,6 +76,20 @@ class MLSettings(BaseSettings):
     mlflow_experiment_name: str = Field(
         default="meld-signal-engine",
         description="Default experiment name for all Signal Engine runs.",
+    )
+
+    # ── Ops alerting (Phase 10). Discord for all ops, Telegram for critical. ──
+    discord_ops_webhook_url: str = Field(
+        default="",
+        description="Discord Incoming Webhook URL for drift/training/ops alerts. Empty = no-op.",
+    )
+    telegram_bot_token: str = Field(
+        default="",
+        description="Telegram Bot API token (from BotFather). Empty = no-op.",
+    )
+    telegram_chat_id: str = Field(
+        default="",
+        description="Telegram chat ID for critical alerts. Empty = no-op.",
     )
 
     # ── Cloudflare R2 for CoreML artifacts + DVC datasets. ──

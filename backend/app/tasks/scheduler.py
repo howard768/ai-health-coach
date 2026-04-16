@@ -642,6 +642,11 @@ async def ranker_training_job():
                 summary.get("coreml_exported", False),
                 summary.get("r2_uploaded", False),
             )
+            # Phase 10: alert on training completion.
+            try:
+                await ml_api.send_training_alert(summary)
+            except Exception:
+                logger.debug("Training alert failed (non-fatal)", exc_info=True)
         except Exception as e:
             await db.rollback()
             logger.exception("ranker_training_job error: %s", e)
@@ -767,6 +772,13 @@ async def synth_drift_job():
         report.html_path or "<none>",
         report.html_backend,
     )
+
+    # Phase 10: alert on drift.
+    try:
+        from ml import api as ml_api_alerts
+        await ml_api_alerts.send_drift_alert(report)
+    except Exception:
+        logger.debug("Drift alert failed (non-fatal)", exc_info=True)
 
 
 async def get_personalized_timing(db, user_id: str) -> dict:
