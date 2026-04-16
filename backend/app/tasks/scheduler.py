@@ -647,6 +647,38 @@ async def ranker_training_job():
             logger.exception("ranker_training_job error: %s", e)
 
 
+async def cohort_clustering_job():
+    """Monthly: anonymize opted-in users and cluster into archetypes.
+
+    Runs on the 1st of each month at 05:30 UTC. Shadow-gated behind
+    ``ml_shadow_cohorts``. Phase 8 of the Signal Engine.
+    """
+    from ml import api as ml_api
+
+    if not ml_api.is_shadow_enabled("cohorts"):
+        logger.info("cohort_clustering_job: shadow flag off, skipping")
+        return
+
+    logger.info("Running cohort_clustering_job")
+    async with async_session() as db:
+        try:
+            summary = await ml_api.run_cohort_clustering(db)
+            await db.commit()
+            logger.info(
+                "cohort_clustering_job done: users=%d vectors=%d clusters=%d "
+                "noise=%d largest=%d run=%s",
+                summary.get("users_processed", 0),
+                summary.get("vectors_created", 0),
+                summary.get("n_clusters", 0),
+                summary.get("n_noise_points", 0),
+                summary.get("largest_cluster", 0),
+                summary.get("run_id", "none"),
+            )
+        except Exception as e:
+            await db.rollback()
+            logger.exception("cohort_clustering_job error: %s", e)
+
+
 async def offline_eval_job():
     """Weekly: evaluate recent coach responses for quality regressions."""
     logger.info("Running offline_eval_job")
@@ -977,6 +1009,15 @@ def start_scheduler():
         trigger=CronTrigger(day_of_week="sun", hour=4, minute=30),
         id="granger_causal",
         name="Phase 6 L3 Granger + L4 DoWhy Causal",
+        replace_existing=True,
+    )
+
+    # Cohort clustering: 1st of each month at 05:30 UTC
+    scheduler.add_job(
+        cohort_clustering_job,
+        trigger=CronTrigger(day=1, hour=5, minute=30),
+        id="cohort_clustering",
+        name="Phase 8 Cross-User Cohort Clustering",
         replace_existing=True,
     )
 
