@@ -20,6 +20,7 @@ final class DashboardViewModel {
     var dashboardData: DashboardData
     var isLoading: Bool = false
     var error: DashboardError? = nil
+    var userName: String? = nil
 
     /// Signal Engine Phase 4 card. Nil when the backend returned
     /// ``has_card=false`` (shadow mode, cap hit, or no candidates for
@@ -99,10 +100,15 @@ final class DashboardViewModel {
         }
 
         // Phase 4 Signal Engine card. Fetch in parallel semantics (sequential
-        // is fine here — both are small). Failures of THIS fetch should NOT
+        // is fine here, both are small). Failures of THIS fetch should NOT
         // break the dashboard; the legacy CoachInsightCard still renders
         // when signalInsight stays nil.
         await refreshSignalInsight()
+
+        // Fetch user name independently. Failure just leaves the greeting generic.
+        if let profile = try? await APIClient.shared.fetchUserProfile() {
+            userName = profile.name
+        }
 
         isLoading = false
     }
@@ -159,7 +165,8 @@ final class DashboardViewModel {
         case 17..<22: timeOfDay = "evening"
         default: timeOfDay = "night"
         }
-        return "Good \(timeOfDay)"
+        let firstName = userName?.split(separator: " ").first.map(String.init) ?? "there"
+        return "Good \(timeOfDay), \(firstName)"
     }
 
     var dateString: String {

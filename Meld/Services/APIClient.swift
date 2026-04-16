@@ -576,6 +576,18 @@ actor APIClient {
         return try await sendDecoding(request)
     }
 
+    func disconnectOura() async throws {
+        let url = serverRoot.appendingPathComponent("api/user/oura")
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+
+        let (_, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 204 else {
+            throw APIError.serverError
+        }
+    }
+
     func reportNotificationOpened(notificationId: Int) async throws {
         let url = baseURL.deletingLastPathComponent()
             .appendingPathComponent("api/notifications/opened")
