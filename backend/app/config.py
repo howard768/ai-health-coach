@@ -68,5 +68,8 @@ class Settings(BaseSettings):
     siwa_key_path: str = ""
     siwa_key_content: str = ""
 
+    # Sentry — error tracking + AI debugging (Seer). Empty DSN disables.
+    sentry_dsn: str = ""
+
 
 settings = Settings()
