@@ -148,6 +148,9 @@ final class DashboardViewModel {
     // MARK: - Computed Properties
 
     var greeting: String {
+        if !dashboardData.greeting.isEmpty {
+            return dashboardData.greeting
+        }
         let hour = Calendar.current.component(.hour, from: Date())
         let timeOfDay: String
         switch hour {
@@ -156,8 +159,7 @@ final class DashboardViewModel {
         case 17..<22: timeOfDay = "evening"
         default: timeOfDay = "night"
         }
-        // TODO: Pull user name from profile/backend
-        return "Good \(timeOfDay), Brock"
+        return "Good \(timeOfDay)"
     }
 
     var dateString: String {

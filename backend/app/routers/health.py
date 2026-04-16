@@ -4,13 +4,14 @@ from datetime import datetime, date, timedelta
 import anthropic
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, func
 
 from app.api.deps import CurrentUser
 from app.core.constants import ReadinessThreshold
 from app.core.time import utcnow_naive
 from app.database import get_db
 from app.models.health import OuraToken, SleepRecord
+from app.models.meal import MealRecord, FoodItemRecord
 from app.models.user import User
 from app.schemas.health import DashboardResponse, MetricResponse, RecoveryResponse, CoachInsightResponse
 from app.services.claude import ClaudeClient
@@ -109,7 +110,7 @@ async def get_trends(
     records = list(result.scalars().all())
 
     if not records:
-        return {"range_days": range, "metrics": {}}
+        return {"range_days": range, "metrics": {}, "nutrition": None}
 
     def build_metric(values):
         clean = [v for v in values if v is not None]
@@ -133,6 +134,40 @@ async def get_trends(
     hrv = build_metric([r.hrv_average for r in records])
     hrv["dates"] = dates
 
+    # Nutrition summary over the same window
+    nutrition_result = await db.execute(
+        select(
+            MealRecord.date,
+            func.sum(FoodItemRecord.protein).label("total_protein"),
+            func.sum(FoodItemRecord.calories).label("total_calories"),
+        )
+        .join(FoodItemRecord, FoodItemRecord.meal_id == MealRecord.id)
+        .where(MealRecord.user_id == current_user.apple_user_id, MealRecord.date >= start_date)
+        .group_by(MealRecord.date)
+    )
+    nutrition_rows = list(nutrition_result)
+
+    target_calories = 2000.0
+    target_protein = 100.0
+    if nutrition_rows:
+        days_logged = len(nutrition_rows)
+        avg_protein = round(sum(float(r.total_protein or 0) for r in nutrition_rows) / days_logged, 1)
+        avg_calories = round(sum(float(r.total_calories or 0) for r in nutrition_rows) / days_logged, 1)
+        days_in_range = sum(
+            1 for r in nutrition_rows
+            if r.total_calories and abs(float(r.total_calories) - target_calories) / target_calories <= 0.15
+        )
+        nutrition = {
+            "avg_protein_g": avg_protein,
+            "avg_calories": avg_calories,
+            "target_protein_g": target_protein,
+            "target_calories": target_calories,
+            "days_logged": days_logged,
+            "days_in_range": days_in_range,
+        }
+    else:
+        nutrition = None
+
     return {
         "range_days": range,
         "metrics": {
@@ -141,7 +176,112 @@ async def get_trends(
             "readiness": readiness,
             "hrv": hrv,
         },
+        "nutrition": nutrition,
     }
+
+
+@router.get("/trends/patterns")
+async def get_trend_patterns(
+    current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Cross-domain pattern insights derived from sleep and nutrition data over 30 days."""
+    thirty_days_ago = (date.today() - timedelta(days=30)).isoformat()
+
+    sleep_result = await db.execute(
+        select(SleepRecord)
+        .where(SleepRecord.user_id == current_user.apple_user_id, SleepRecord.date >= thirty_days_ago)
+        .order_by(SleepRecord.date)
+    )
+    sleep_records = list(sleep_result.scalars().all())
+
+    if not sleep_records:
+        return {"patterns": []}
+
+    days_total = len(sleep_records)
+
+    # Load daily nutrition totals for the same window
+    nutrition_result = await db.execute(
+        select(
+            MealRecord.date,
+            func.sum(FoodItemRecord.protein).label("total_protein"),
+            func.sum(FoodItemRecord.calories).label("total_calories"),
+        )
+        .join(FoodItemRecord, FoodItemRecord.meal_id == MealRecord.id)
+        .where(MealRecord.user_id == current_user.apple_user_id, MealRecord.date >= thirty_days_ago)
+        .group_by(MealRecord.date)
+    )
+    nutrition_by_date = {
+        row.date: {"protein": float(row.total_protein or 0), "calories": float(row.total_calories or 0)}
+        for row in nutrition_result
+    }
+
+    patterns = []
+
+    # Pattern 1: High sleep efficiency nights correlate with higher HRV
+    high_eff = [r for r in sleep_records if r.efficiency is not None and r.efficiency >= 85 and r.hrv_average]
+    low_eff = [r for r in sleep_records if r.efficiency is not None and r.efficiency < 75 and r.hrv_average]
+    if len(high_eff) >= 3 and len(low_eff) >= 2:
+        avg_high_hrv = sum(r.hrv_average for r in high_eff) / len(high_eff)
+        avg_low_hrv = sum(r.hrv_average for r in low_eff) / len(low_eff)
+        if avg_high_hrv > avg_low_hrv * 1.04:
+            confidence = min(0.95, 0.55 + len(high_eff) / days_total)
+            patterns.append({
+                "pattern_text": (
+                    f"Your HRV averages {int(avg_high_hrv)}ms on nights with >85% sleep efficiency, "
+                    f"vs {int(avg_low_hrv)}ms on poor nights."
+                ),
+                "confidence": round(confidence, 2),
+                "days_matched": len(high_eff),
+                "days_total": days_total,
+            })
+
+    # Pattern 2: High protein intake correlates with better readiness
+    if nutrition_by_date:
+        paired = [
+            (nutrition_by_date[r.date]["protein"], r.readiness_score)
+            for r in sleep_records
+            if r.date in nutrition_by_date and r.readiness_score is not None
+        ]
+        if len(paired) >= 4:
+            high_p = [(p, r) for p, r in paired if p >= 120]
+            low_p = [(p, r) for p, r in paired if p < 80]
+            if len(high_p) >= 2 and len(low_p) >= 2:
+                avg_r_high = sum(r for _, r in high_p) / len(high_p)
+                avg_r_low = sum(r for _, r in low_p) / len(low_p)
+                if avg_r_high > avg_r_low * 1.04:
+                    confidence = min(0.90, 0.48 + len(high_p) / days_total)
+                    patterns.append({
+                        "pattern_text": (
+                            f"On days you hit 120g+ protein, your readiness score averages "
+                            f"{int(avg_r_high)} vs {int(avg_r_low)} on lower-protein days."
+                        ),
+                        "confidence": round(confidence, 2),
+                        "days_matched": len(high_p),
+                        "days_total": days_total,
+                    })
+
+    # Pattern 3: Resting HR trend vs period baseline (fitness improvement signal)
+    rhr_records = [r for r in sleep_records if r.resting_hr is not None]
+    if len(rhr_records) >= 7:
+        half = len(rhr_records) // 2
+        avg_first = sum(r.resting_hr for r in rhr_records[:half]) / half
+        avg_second = sum(r.resting_hr for r in rhr_records[half:]) / (len(rhr_records) - half)
+        if avg_second < avg_first * 0.97:
+            drop = round(avg_first - avg_second, 1)
+            patterns.append({
+                "pattern_text": (
+                    f"Your resting heart rate dropped {drop} bpm over the last 30 days — "
+                    "a sign your cardiovascular fitness is improving."
+                ),
+                "confidence": 0.88,
+                "days_matched": len(rhr_records),
+                "days_total": days_total,
+            })
+
+    # Return top 3 by confidence
+    patterns.sort(key=lambda p: p["confidence"], reverse=True)
+    return {"patterns": patterns[:3]}
 
 
 @router.post("/health/apple-health")

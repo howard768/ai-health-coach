@@ -16,6 +16,7 @@ struct TrendsView: View {
     @State private var trendsData: APITrendsResponse?
     @State private var isLoading = false
     @State private var loadError: String? = nil
+    @State private var patterns: [APIPatternInsight] = []
     private let M: CGFloat = 20
 
     // Show empty state when we've loaded but the response is empty
@@ -60,7 +61,10 @@ struct TrendsView: View {
         .background(DSColor.Background.primary)
         .navigationTitle("Trends")
         .navigationBarTitleDisplayMode(.large)
-        .task { await loadTrends() }
+        .task {
+            await loadTrends()
+            await loadPatterns()
+        }
         .onChange(of: selectedRange) { _, _ in Task { await loadTrends() } }
     }
 
@@ -130,6 +134,15 @@ struct TrendsView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, DSSpacing.huge)
+    }
+
+    private func loadPatterns() async {
+        do {
+            let result = try await APIClient.shared.fetchTrendPatterns()
+            patterns = result.patterns
+        } catch {
+            // Keep existing patterns on error
+        }
     }
 
     // MARK: - Time Range Selector
@@ -207,6 +220,98 @@ struct TrendsView: View {
         return parts.joined(separator: ". ") + "."
     }
 
+    // MARK: - Cross-Domain Trend
+
+    private var crossDomainTrendInsight: some View {
+        let topPattern = patterns.first
+        return DSCard(style: .data) {
+            VStack(alignment: .leading, spacing: DSSpacing.md) {
+                Text("Pattern Found")
+                    .font(DSTypography.h3)
+                    .foregroundStyle(DSColor.Text.primary)
+
+                Text(topPattern?.pattern_text ?? "Your HRV tends to be higher on days after you eat dinner before 7pm. This pattern showed up 5 out of the last 7 times.")
+                    .font(DSTypography.body)
+                    .foregroundStyle(DSColor.Text.secondary)
+                    .lineSpacing(4)
+
+                if let pattern = topPattern {
+                    Text("\(pattern.days_matched) of \(pattern.days_total) days · \(Int(pattern.confidence * 100))% confidence")
+                        .font(DSTypography.caption)
+                        .foregroundStyle(DSColor.Text.tertiary)
+                }
+
+                DSChip(title: "Ask coach about this") {
+                    NotificationCenter.default.post(name: .init("MeldSwitchTab"), object: nil, userInfo: ["tab": "coach"])
+                    DSHaptic.light()
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    // MARK: - Nutrition Trend
+
+    private var nutritionTrendCard: some View {
+        let n = trendsData?.nutrition
+        let avgProtein = n.map { Int($0.avg_protein_g) }
+        let targetProtein = n.map { Int($0.target_protein_g) } ?? 100
+        let avgCalories = n.map { Int($0.avg_calories) }
+        let targetCalories = n.map { Int($0.target_calories) } ?? 2000
+        let daysLogged = n?.days_logged
+        let rangeDays = trendsData?.range_days ?? selectedRange.days
+
+        return DSCard(style: .metric) {
+            VStack(alignment: .leading, spacing: DSSpacing.md) {
+                Text("NUTRITION")
+                    .dsLabel()
+                    .foregroundStyle(DSColor.Text.tertiary)
+
+                HStack(spacing: DSSpacing.xxl) {
+                    VStack(alignment: .leading, spacing: DSSpacing.xxs) {
+                        Text("Avg Protein")
+                            .font(DSTypography.caption)
+                            .foregroundStyle(DSColor.Text.tertiary)
+                        Text(avgProtein.map { "\($0)g" } ?? "—")
+                            .font(DSTypography.h3)
+                            .foregroundStyle(DSColor.Text.primary)
+                        Text("Target: \(targetProtein)g")
+                            .font(DSTypography.caption)
+                            .foregroundStyle(
+                                (avgProtein ?? 0) >= targetProtein
+                                    ? DSColor.Accessible.greenText
+                                    : DSColor.Status.warning
+                            )
+                    }
+
+                    VStack(alignment: .leading, spacing: DSSpacing.xxs) {
+                        Text("Avg Calories")
+                            .font(DSTypography.caption)
+                            .foregroundStyle(DSColor.Text.tertiary)
+                        Text(avgCalories.map { $0.formatted() } ?? "—")
+                            .font(DSTypography.h3)
+                            .foregroundStyle(DSColor.Text.primary)
+                        Text("Target: \(targetCalories.formatted())")
+                            .font(DSTypography.caption)
+                            .foregroundStyle(DSColor.Accessible.greenText)
+                    }
+
+                    VStack(alignment: .leading, spacing: DSSpacing.xxs) {
+                        Text("Logged")
+                            .font(DSTypography.caption)
+                            .foregroundStyle(DSColor.Text.tertiary)
+                        Text(daysLogged.map { "\($0)/\(rangeDays)" } ?? "—")
+                            .font(DSTypography.h3)
+                            .foregroundStyle(DSColor.Text.primary)
+                        Text("days")
+                            .font(DSTypography.caption)
+                            .foregroundStyle(DSColor.Text.tertiary)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
 }
 
 // MARK: - Time Range
