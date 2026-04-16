@@ -210,7 +210,6 @@ struct DataSourceDetailView: View {
         isSyncing = true
         syncMessage = nil
 
-        let now = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)
         do {
             switch source {
             case .oura:

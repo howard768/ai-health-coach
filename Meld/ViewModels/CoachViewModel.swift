@@ -1,8 +1,7 @@
 import Foundation
 
 // MARK: - Coach Chat View Model
-// Manages chat state, message history, and mock AI responses.
-// Will integrate with Claude API in Cycle 2 backend work.
+// Manages chat state, message history, and AI coach responses via backend.
 
 @Observable @MainActor
 final class CoachViewModel {
@@ -70,8 +69,7 @@ final class CoachViewModel {
         DSHaptic.light()
         Analytics.Coach.messageSent()
 
-        // Simulate coach response
-        simulateCoachResponse(to: text)
+        fetchCoachResponse(to: text)
     }
 
     func prefill(_ text: String) {
@@ -84,7 +82,7 @@ final class CoachViewModel {
         DSHaptic.light()
         Analytics.Coach.quickActionTapped(action: action.title)
 
-        simulateCoachResponse(to: action.prompt)
+        fetchCoachResponse(to: action.prompt)
     }
 
     // MARK: - Feedback
@@ -107,7 +105,7 @@ final class CoachViewModel {
     // eval suite (evidence-bound coaching rule) and was fixed as P0-7 of the
     // 2026-04-10 audit.
 
-    private func simulateCoachResponse(to prompt: String) {
+    private func fetchCoachResponse(to prompt: String) {
         isTyping = true
 
         // Defense in depth: the backend already surfaces crisis resources when
