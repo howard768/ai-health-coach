@@ -679,6 +679,36 @@ async def cohort_clustering_job():
             logger.exception("cohort_clustering_job error: %s", e)
 
 
+async def experiment_check_job():
+    """Daily: check active experiments for phase transitions and completion.
+
+    Advances experiment phases by date, runs APTE on completed ones.
+    Shadow-gated behind ``ml_shadow_apte``. Phase 9 of the Signal Engine.
+    """
+    from ml import api as ml_api
+
+    if not ml_api.is_shadow_enabled("apte"):
+        logger.info("experiment_check_job: shadow flag off, skipping")
+        return
+
+    logger.info("Running experiment_check_job")
+    async with async_session() as db:
+        try:
+            summary = await ml_api.check_and_complete_experiments(db)
+            await db.commit()
+            logger.info(
+                "experiment_check_job done: checked=%d advanced=%d "
+                "completed=%d failed=%d",
+                summary.get("checked", 0),
+                summary.get("advanced", 0),
+                summary.get("completed", 0),
+                summary.get("failed", 0),
+            )
+        except Exception as e:
+            await db.rollback()
+            logger.exception("experiment_check_job error: %s", e)
+
+
 async def offline_eval_job():
     """Weekly: evaluate recent coach responses for quality regressions."""
     logger.info("Running offline_eval_job")
@@ -1018,6 +1048,15 @@ def start_scheduler():
         trigger=CronTrigger(day=1, hour=5, minute=30),
         id="cohort_clustering",
         name="Phase 8 Cross-User Cohort Clustering",
+        replace_existing=True,
+    )
+
+    # Experiment lifecycle check: daily at 08:00 UTC
+    scheduler.add_job(
+        experiment_check_job,
+        trigger=CronTrigger(hour=8, minute=0),
+        id="experiment_check",
+        name="Phase 9 Experiment Phase Transitions + APTE",
         replace_existing=True,
     )
 
