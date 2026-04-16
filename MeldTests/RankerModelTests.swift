@@ -132,9 +132,8 @@ struct RankerModelTests {
 
         let score = await SignalRanker.shared.heuristicScore(candidate)
 
-        // 0.35*0.8 + 0.25*0.6 + 0.15*0.9 + 0.15*1.0 + 0.10*1.0
-        // = 0.28 + 0.15 + 0.135 + 0.15 + 0.10 = 0.815
-        let expected = 0.35 * 0.8 + 0.25 * 0.6 + 0.15 * 0.9 + 0.15 * 1.0 + 0.10 * 1.0
+        // 0.35*0.8 + 0.25*0.6 + 0.15*0.9 + 0.15*1.0 + 0.10*1.0 = 0.815
+        let expected: Double = 0.815
         #expect(abs(score - expected) < 0.001)
     }
 
