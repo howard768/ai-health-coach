@@ -180,3 +180,111 @@ async def post_insight_feedback(
     ranking.feedback_at = utcnow_naive()
     await db.commit()
     return FeedbackAck()
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Phase 7B: candidates endpoint + ranker metadata
+# ─────────────────────────────────────────────────────────────────────────
+
+
+class CandidateFeaturesOut(BaseModel):
+    """Feature vector for one candidate, used by iOS on-device ranking."""
+
+    candidate_id: str
+    kind: str
+    subject_metrics: list[str]
+    effect_size: float
+    confidence: float
+    novelty: float
+    recency_days: int
+    actionability_score: float
+    literature_support: bool
+    directional_support: bool
+    causal_support: bool
+    payload: dict
+
+
+class CandidatesResponse(BaseModel):
+    """All of today's candidates for on-device ranking."""
+
+    candidates: list[CandidateFeaturesOut]
+
+
+class RankerMetadataResponse(BaseModel):
+    """CoreML model metadata for conditional download."""
+
+    model_version: str
+    file_hash: str
+    file_size_bytes: int
+    download_url: str
+
+
+@router.get("/candidates", response_model=CandidatesResponse)
+async def get_candidates(
+    user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+) -> CandidatesResponse:
+    """Return today's unranked candidate pool with feature vectors.
+
+    Used by iOS for on-device CoreML ranking (Phase 7B). Returns all
+    candidates that were generated for today, regardless of shadow mode
+    or cap status. The iOS client applies its own ranking.
+    """
+    from app.models.ml_insights import MLInsightCandidate
+
+    today = date.today()
+
+    result = await db.execute(
+        select(MLInsightCandidate).where(
+            MLInsightCandidate.user_id == user.apple_user_id,
+            MLInsightCandidate.generated_at >= today.isoformat(),
+        )
+    )
+    candidates = result.scalars().all()
+
+    out = []
+    for c in candidates:
+        subject_metrics = json.loads(c.subject_metrics_json)
+        payload = json.loads(c.payload_json) if c.payload_json else {}
+        out.append(
+            CandidateFeaturesOut(
+                candidate_id=c.id,
+                kind=c.kind,
+                subject_metrics=subject_metrics,
+                effect_size=c.effect_size,
+                confidence=c.confidence,
+                novelty=c.novelty,
+                recency_days=c.recency_days,
+                actionability_score=c.actionability_score,
+                literature_support=c.literature_support,
+                directional_support=c.directional_support,
+                causal_support=c.causal_support,
+                payload=payload,
+            )
+        )
+    return CandidatesResponse(candidates=out)
+
+
+@router.get("/ranker-metadata", response_model=RankerMetadataResponse)
+async def get_ranker_metadata(
+    user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+) -> RankerMetadataResponse:
+    """Return the latest active CoreML ranker model metadata.
+
+    iOS uses this to check whether it needs to download a new model.
+    The file_hash field enables conditional download (ETag-like).
+    Returns 404 when no active model exists.
+    """
+    from ml import api as ml_api
+
+    metadata = await ml_api.ranker_model_metadata(db)
+    if metadata is None:
+        raise HTTPException(status_code=404, detail="no active ranker model")
+
+    return RankerMetadataResponse(
+        model_version=metadata.model_version,
+        file_hash=metadata.file_hash,
+        file_size_bytes=metadata.file_size_bytes,
+        download_url=metadata.download_url,
+    )

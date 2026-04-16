@@ -370,6 +370,18 @@ actor APIClient {
         try await send(request)
     }
 
+    // MARK: - Signal Engine Phase 7B (on-device ranker)
+
+    func fetchCandidates() async throws -> CandidatesResponse {
+        let url = baseURL.appendingPathComponent("insights/candidates")
+        return try await sendDecoding(URLRequest(url: url))
+    }
+
+    func fetchRankerMetadata() async throws -> RankerModelMetadata {
+        let url = baseURL.appendingPathComponent("insights/ranker-metadata")
+        return try await sendDecoding(URLRequest(url: url))
+    }
+
     // MARK: - Coach Chat
 
     func sendMessage(_ message: String) async throws -> APIChatResponse {
