@@ -75,6 +75,10 @@ targets:
         CFBundleDisplayName: Meld
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        # Declare that Meld only uses encryption within Apple's operating system
+        # (TLS, HealthKit, Sign in with Apple). This skips the App Store Connect
+        # "App Encryption Documentation" prompt on every TestFlight upload.
+        ITSAppUsesNonExemptEncryption: false
         API_BASE_URL: $(API_BASE_URL)
         UIAppFonts:
           - Roboto-Thin.ttf
