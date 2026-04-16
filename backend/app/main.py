@@ -11,7 +11,7 @@ from slowapi.util import get_remote_address
 
 from app.config import settings
 from app.database import init_db
-from app.routers import auth, auth_apple, health, coach, notifications, meals, user, peloton_auth, garmin_auth, webhooks, waitlist, mascot, insights, privacy, experiments
+from app.routers import auth, auth_apple, health, coach, notifications, meals, user, peloton_auth, garmin_auth, webhooks, waitlist, mascot, insights, privacy, experiments, ops
 from app.tasks.scheduler import start_scheduler, stop_scheduler
 
 
@@ -24,9 +24,24 @@ limiter = Limiter(
 )
 
 
+def _init_sentry():
+    """Initialize Sentry if a DSN is configured. No-op otherwise."""
+    if not settings.sentry_dsn:
+        return
+    import sentry_sdk
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        traces_sample_rate=0.1,  # 10% of requests traced (cost control)
+        profiles_sample_rate=0.1,
+        environment=settings.app_env,
+        send_default_pii=False,  # Never send PHI/PII to Sentry
+    )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: create tables + start scheduler
+    # Startup: Sentry, DB, scheduler
+    _init_sentry()
     await init_db()
     start_scheduler()
     yield
@@ -89,6 +104,7 @@ app.include_router(mascot.router)      # Mascot accessory wardrobe
 app.include_router(insights.router)    # Signal Engine Phase 4: daily ranked insight + feedback
 app.include_router(privacy.router)     # Phase 8: cohort opt-in/opt-out + deletion
 app.include_router(experiments.router) # Phase 9: n-of-1 experiment CRUD + APTE results
+app.include_router(ops.router)         # Ops status for autonomous monitoring loops
 
 
 @app.get("/")
