@@ -9,13 +9,17 @@ import SwiftUI
 struct QuickProfileView: View {
     @Bindable var viewModel: OnboardingViewModel
 
-    // String intermediaries for numeric inputs — more reliable than
+    // String intermediaries for numeric inputs, more reliable than
     // Binding<Int?> with ParseableFormatStyle on optional types.
     @State private var ageText: String = ""
     @State private var heightFtText: String = "5"
     @State private var heightInText: String = "8"
     @State private var weightText: String = ""
     @State private var targetWeightText: String = ""
+
+    // Unified focus for all numeric fields. Powers the "Done" keyboard
+    // toolbar and also lets Next button-taps dismiss the keypad first.
+    @FocusState private var fieldFocused: Bool
 
     private let M = OnboardingLayout.margin
 
@@ -151,12 +155,17 @@ struct QuickProfileView: View {
                         }
                     }
 
-                    Spacer().frame(height: DSSpacing.xxxl)
+                    // Enough breathing room between the privacy line and the
+                    // Next CTA. Stephanie's build 3 feedback: "The 'we keep
+                    // your privacy' text is too close to the next cta".
+                    Spacer().frame(height: DSSpacing.huge)
 
                     // Privacy reassurance
                     Text("We keep your data private and safe.")
                         .font(DSTypography.caption)
                         .foregroundStyle(DSColor.Text.tertiary)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.bottom, DSSpacing.xxl)
                 }
                 .padding(.horizontal, M)
             }
@@ -168,6 +177,9 @@ struct QuickProfileView: View {
                 size: .lg,
                 isDisabled: !viewModel.canProceedFromProfile
             ) {
+                // Dismiss any open keypad so the user sees the next screen
+                // animate, not a keyboard teardown on top of a transition.
+                fieldFocused = false
                 Analytics.Onboarding.profileCompleted()
                 viewModel.next()
             }
@@ -175,6 +187,19 @@ struct QuickProfileView: View {
             .padding(.bottom, DSSpacing.lg)
         }
         .background(DSColor.Background.primary)
+        .toolbar {
+            // Keyboard Done toolbar. Without this, the decimal/number keypad
+            // on iOS has no return key and the user can't dismiss it to see
+            // the Next button (Stephanie feedback: "Age picker is very
+            // difficult to use"). The toolbar button also gives a clear
+            // affordance that the typing step is complete.
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { fieldFocused = false }
+                    .font(DSTypography.bodyEmphasis)
+                    .foregroundStyle(DSColor.Purple.purple500)
+            }
+        }
         .onAppear {
             viewModel.applyPrefill()
             initTextFields()
@@ -205,6 +230,7 @@ struct QuickProfileView: View {
                 .keyboardType(.numberPad)
                 .font(DSTypography.body)
                 .foregroundStyle(DSColor.Text.primary)
+                .focused($fieldFocused)
                 .onChange(of: ageText) { _, newValue in
                     viewModel.assessment.age = Int(newValue)
                 }
@@ -234,6 +260,7 @@ struct QuickProfileView: View {
                 .font(DSTypography.body)
                 .foregroundStyle(DSColor.Text.primary)
                 .frame(width: 28)
+                .focused($fieldFocused)
                 .onChange(of: heightFtText) { _, _ in syncHeight() }
             Text("ft")
                 .font(DSTypography.caption)
@@ -243,6 +270,7 @@ struct QuickProfileView: View {
                 .font(DSTypography.body)
                 .foregroundStyle(DSColor.Text.primary)
                 .frame(width: 28)
+                .focused($fieldFocused)
                 .onChange(of: heightInText) { _, _ in syncHeight() }
             Text("in")
                 .font(DSTypography.caption)
@@ -261,6 +289,7 @@ struct QuickProfileView: View {
                 .keyboardType(.decimalPad)
                 .font(DSTypography.body)
                 .foregroundStyle(DSColor.Text.primary)
+                .focused($fieldFocused)
                 .onChange(of: weightText) { _, newValue in
                     if newValue.isEmpty {
                         viewModel.assessment.weightLbs = nil
@@ -290,6 +319,7 @@ struct QuickProfileView: View {
                 .keyboardType(.decimalPad)
                 .font(DSTypography.body)
                 .foregroundStyle(DSColor.Text.primary)
+                .focused($fieldFocused)
                 .onChange(of: targetWeightText) { _, newValue in
                     if newValue.isEmpty {
                         viewModel.assessment.targetWeightLbs = nil

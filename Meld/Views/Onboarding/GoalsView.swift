@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Screen 2: Goals (Multi-select)
 // User picks health goals. Cannot skip — critical path.
@@ -66,7 +67,19 @@ struct GoalsView: View {
 
                     DSTextField(
                         placeholder: "Tell us in your own words...",
-                        text: $viewModel.assessment.customGoalText
+                        text: $viewModel.assessment.customGoalText,
+                        onSubmit: {
+                            // Dismiss keyboard. The text binds to customGoalText
+                            // on every keystroke, so tapping the up-arrow is
+                            // purely a convenience to get the keyboard out of
+                            // the way. Without this closure the button was a
+                            // no-op (Stephanie feedback: "Can't click the up
+                            // arrow and submit my free form text answer").
+                            UIApplication.shared.sendAction(
+                                #selector(UIResponder.resignFirstResponder),
+                                to: nil, from: nil, for: nil
+                            )
+                        }
                     )
 
                     Spacer().frame(height: DSSpacing.xxl)

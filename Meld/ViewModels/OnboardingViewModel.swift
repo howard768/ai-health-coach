@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Onboarding View Model
 // State machine for the 5-screen onboarding flow.
@@ -31,6 +32,14 @@ final class OnboardingViewModel {
     // Metrics fetched after sync completes (nil = no data yet → show "—")
     var fetchedSleepScore: String? = nil
     var fetchedHRV: String? = nil
+
+    // Connection flow state
+    // `pendingOuraConnect` flips true when the user taps Connect on Oura (we
+    // open Safari). When the app comes back to foreground, the Connect view
+    // polls /api/user/profile to see if the backend received a token and then
+    // clears this flag.
+    var pendingOuraConnect: Bool = false
+    var healthKitAuthInFlight: Bool = false
 
     // Pre-filled data from HealthKit (nil until HealthKit is integrated)
     var prefilledAge: Int? = nil
@@ -82,33 +91,89 @@ final class OnboardingViewModel {
         DSHaptic.selection()
     }
 
-    func connectSource(_ source: DataSourceType) {
-        assessment.connectedSources.insert(source)
-        DSHaptic.success()
+    /// Connect a data source. Replaces the old "insert into set and call it
+    /// connected" pattern that silently faked success without running OAuth
+    /// or asking for HealthKit authorization. Now: runs the real permission
+    /// flow and only marks `connectedSources` on actual success.
+    func connectSource(_ source: DataSourceType) async {
+        DSHaptic.light()
 
-        // Analytics
         switch source {
-        case .oura: Analytics.Onboarding.ouraConnected()
         case .appleHealth:
-            Analytics.Onboarding.healthKitGranted()
-            // Request HealthKit authorization and prefill profile data
-            Task {
-                let granted = await HealthKitService.shared.requestAuthorization()
-                if granted {
-                    prefilledAge = HealthKitService.shared.getAge()
-                    if let weight = await HealthKitService.shared.getLatestWeight() {
-                        prefilledWeightLbs = weight
-                    }
-                    if let height = await HealthKitService.shared.getLatestHeight() {
-                        prefilledHeightInches = Int(height)
-                    }
-                    applyPrefill()
-                    // Trigger background sync to backend
-                    await HealthKitService.shared.syncToBackend()
-                }
+            // Real HealthKit auth prompt. If the user approves, pull prefill
+            // data and sync to backend before marking as connected.
+            guard !healthKitAuthInFlight else { return }
+            healthKitAuthInFlight = true
+            let granted = await HealthKitService.shared.requestAuthorization()
+            healthKitAuthInFlight = false
+            guard granted else {
+                DSHaptic.error()
+                return
             }
-        default: break
+            assessment.connectedSources.insert(.appleHealth)
+            Analytics.Onboarding.healthKitGranted()
+            DSHaptic.success()
+
+            // Prefill profile data from HealthKit + background-sync to backend.
+            prefilledAge = HealthKitService.shared.getAge()
+            if let weight = await HealthKitService.shared.getLatestWeight() {
+                prefilledWeightLbs = weight
+            }
+            if let height = await HealthKitService.shared.getLatestHeight() {
+                prefilledHeightInches = Int(height)
+            }
+            applyPrefill()
+            await HealthKitService.shared.syncToBackend()
+
+        case .oura:
+            // Open the backend's Oura OAuth redirect in Safari. The backend
+            // bounces to Oura, the user authorizes, Oura redirects back to
+            // the backend callback, and the token lands on the user's row.
+            // When the app returns to foreground, ConnectDataView polls
+            // /api/user/profile.data_sources to see whether the token
+            // attached, then inserts .oura into connectedSources.
+            guard let appleUserId = try? await KeychainStore.shared.readAppleUserId() else {
+                Log.onboarding.error("Oura connect: no apple_user_id in Keychain")
+                DSHaptic.error()
+                return
+            }
+            var components = URLComponents(
+                url: APIClient.shared.serverRoot.appendingPathComponent("auth/oura"),
+                resolvingAgainstBaseURL: false
+            )
+            components?.queryItems = [URLQueryItem(name: "state", value: appleUserId)]
+            guard let authURL = components?.url else {
+                Log.onboarding.error("Oura connect: failed to build auth URL")
+                DSHaptic.error()
+                return
+            }
+            pendingOuraConnect = true
+            Analytics.Onboarding.ouraConnected()
+            await UIApplication.shared.open(authURL)
+
+        case .peloton, .garmin:
+            // Marked "Soon" in the UI — taps should never reach here, but
+            // no-op defensively so we don't insert them into connectedSources.
+            break
         }
+    }
+
+    /// Poll the backend to refresh connection status for sources that need a
+    /// server-side round trip to confirm (Oura OAuth). Call this when the
+    /// Connect view appears and when the scene returns to foreground after
+    /// the user bounced out to Safari.
+    func refreshConnectionStatus() async {
+        guard let profile = try? await APIClient.shared.fetchUserProfile() else { return }
+        let ouraConnected = profile.data_sources.contains { source in
+            source.name.lowercased().contains("oura") && source.connected
+        }
+        if ouraConnected {
+            assessment.connectedSources.insert(.oura)
+            if pendingOuraConnect {
+                DSHaptic.success()
+            }
+        }
+        pendingOuraConnect = false
     }
 
     func startSync() async {
@@ -140,14 +205,25 @@ final class OnboardingViewModel {
         }
 
         // Step 1b: Try to load real metrics for the summary card.
-        // Silently ignored — if data isn't ready yet, the card shows "—".
+        // Silently ignored, if data isn't ready yet the card shows "—".
+        //
+        // Reject obviously bogus values. Zero sleep efficiency means the
+        // backend has no reconciled sleep record yet (not that the user
+        // slept 0%), and single-digit HRV usually means an uninitialized
+        // buffer rather than a real reading. Surfacing "Sleep Score 0%" in
+        // the "You're all set!" summary looked real to Stephanie in build 3
+        // feedback and made the scores feel broken.
         if let dashboard = try? await APIClient.shared.fetchDashboard() {
             for metric in dashboard.metrics {
                 switch metric.category {
                 case "sleepEfficiency":
-                    fetchedSleepScore = "\(metric.value)\(metric.unit)"
+                    if let value = Int(metric.value), value > 0 {
+                        fetchedSleepScore = "\(metric.value)\(metric.unit)"
+                    }
                 case "hrv":
-                    fetchedHRV = "\(metric.value) \(metric.unit)"
+                    if let value = Int(metric.value), value >= 10 {
+                        fetchedHRV = "\(metric.value) \(metric.unit)"
+                    }
                 default:
                     break
                 }

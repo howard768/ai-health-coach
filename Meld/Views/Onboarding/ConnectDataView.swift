@@ -8,6 +8,7 @@ import SwiftUI
 
 struct ConnectDataView: View {
     @Bindable var viewModel: OnboardingViewModel
+    @Environment(\.scenePhase) private var scenePhase
     private let M = OnboardingLayout.margin
 
     var body: some View {
@@ -42,10 +43,11 @@ struct ConnectDataView: View {
                         Spacer().frame(height: DSSpacing.md)
                     }
 
-                    // Data reward (shown when Oura is connected)
-                    if viewModel.assessment.connectedSources.contains(.oura) {
+                    // Hint shown after the user returns from Safari but we
+                    // haven't yet confirmed Oura is connected server-side.
+                    if viewModel.pendingOuraConnect {
                         Spacer().frame(height: DSSpacing.md)
-                        dataRewardCard
+                        pendingOuraHint
                     }
 
                     // Coach acknowledgement
@@ -79,6 +81,18 @@ struct ConnectDataView: View {
         }
         .background(DSColor.Background.primary)
         .onAppear { Analytics.Onboarding.connectViewed() }
+        .task {
+            // Pick up server-side connection state in case Oura already had a
+            // token from a previous run (edge case: user re-opened onboarding).
+            await viewModel.refreshConnectionStatus()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            // When the app returns to foreground (e.g. after Safari OAuth),
+            // poll the backend to see if the Oura token was attached.
+            if newPhase == .active && viewModel.pendingOuraConnect {
+                Task { await viewModel.refreshConnectionStatus() }
+            }
+        }
     }
 
     // MARK: - Source Card
@@ -125,7 +139,7 @@ struct ConnectDataView: View {
                     .accessibilityHidden(true)
             } else if source.isAvailable {
                 DSButton(title: source == .oura ? "Connect" : "Allow", style: .primary, size: .sm) {
-                    viewModel.connectSource(source)
+                    Task { await viewModel.connectSource(source) }
                 }
             } else {
                 Text("Soon")
@@ -146,17 +160,26 @@ struct ConnectDataView: View {
         .opacity(source.isAvailable ? 1.0 : 0.6)
     }
 
-    // MARK: - Data Reward Card
+    // MARK: - Pending Oura Hint
+    //
+    // Previously this spot showed a hard-coded "We found 7 days of data!
+    // Sleep: 87 · HRV: 62ms · Readiness: High" card as soon as the user
+    // tapped Connect, regardless of whether Oura actually connected or what
+    // the real numbers were. That lie was the #1 trust-breaker in beta:
+    // Stephanie called out "My sleep was not 87" in build 3 feedback. Now
+    // that connectSource() opens Safari instead of faking success, we show
+    // a plain "checking" hint until refreshConnectionStatus() confirms the
+    // token landed. Real Oura numbers surface later on the dashboard.
 
-    private var dataRewardCard: some View {
+    private var pendingOuraHint: some View {
         VStack(alignment: .leading, spacing: DSSpacing.sm) {
-            Text("We found 7 days of data!")
+            Text("Finishing Oura connection…")
                 .font(DSTypography.bodySM)
                 .foregroundStyle(DSColor.Purple.purple600)
 
-            Text("Sleep: 87  ·  HRV: 62ms  ·  Readiness: High")
-                .font(DSTypography.bodySM)
-                .foregroundStyle(DSColor.Text.primary)
+            Text("If you just came back from Safari, give it a second.")
+                .font(DSTypography.caption)
+                .foregroundStyle(DSColor.Text.tertiary)
         }
         .padding(DSSpacing.lg)
         .background(DSColor.Purple.purple100)
