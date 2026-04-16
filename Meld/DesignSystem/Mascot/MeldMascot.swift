@@ -85,6 +85,7 @@ struct MeldMascot: View {
 
     private func startAnimation() {
         guard !reduceMotion else { return }
+        // Reset phase synchronously so SwiftUI paints the starting state.
         phase = false
         let animation: Animation = switch state {
         case .idle:
@@ -98,8 +99,17 @@ struct MeldMascot: View {
         case .error:
             DSMotion.snappy.repeatCount(4, autoreverses: true)
         }
-        withAnimation(animation) {
-            phase = true
+        // Defer withAnimation by one frame. Without this, SwiftUI can coalesce
+        // `phase = false` and `phase = true` into the same render pass, which
+        // skips the starting state (opacity=0, scale=0.3 for .greeting) so the
+        // animation appears to not happen. This was visible on the onboarding
+        // Welcome screen: the mascot only popped in after Sign in with Apple
+        // dismissed the modal and forced a re-render.
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(16))
+            withAnimation(animation) {
+                phase = true
+            }
         }
     }
 }

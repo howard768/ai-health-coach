@@ -65,10 +65,6 @@ struct WelcomeView: View {
                         .foregroundStyle(DSColor.Text.secondary)
                         .lineSpacing(4)
 
-                    Spacer().frame(height: DSSpacing.xxl)
-
-                    // Social proof
-                    socialProofCard
                 }
                 .padding(.horizontal, M)
             }
@@ -199,21 +195,6 @@ struct WelcomeView: View {
         .insightCard()
     }
 
-    // MARK: - Social Proof
-
-    private var socialProofCard: some View {
-        HStack(spacing: DSSpacing.md) {
-            MeldMascot(state: .idle, size: 24)
-
-            Text("Built by a health tech team that's coached 3M+ people at Lark Health.")
-                .font(DSTypography.bodySM)
-                .foregroundStyle(DSColor.Text.tertiary)
-                .lineSpacing(3)
-        }
-        .padding(DSSpacing.lg)
-        .background(DSColor.Surface.secondary)
-        .dsCornerRadius(DSRadius.md)
-    }
 }
 
 #Preview {

@@ -105,14 +105,21 @@ struct MeldApp: App {
 
     @ViewBuilder
     private var routedContent: some View {
-        if !authState.isSignedIn {
-            OnboardingFlow {
-                Analytics.Onboarding.dashboardReached()
-                withAnimation(DSMotion.emphasis) {
-                    hasCompletedOnboarding = true
-                }
-            }
-        } else if hasCompletedOnboarding {
+        // Single OnboardingFlow instance. Do NOT branch on authState.isSignedIn
+        // here: doing so destroys the path-A OnboardingFlow (and its @State
+        // OnboardingViewModel) the moment sign-in flips isSignedIn, resetting
+        // the flow back to `.welcome` after the user just finished the sign-in
+        // step. That was the "had to tap Sign in with Apple twice" bug in
+        // build 3: the first tap succeeded and called viewModel.next(), but
+        // the viewModel was immediately thrown away because isSignedIn flipped
+        // and SwiftUI created a brand-new OnboardingFlow on the signed-in path.
+        //
+        // OnboardingFlow itself handles the signed-out to signed-in transition
+        // internally (WelcomeView shows the Sign in with Apple button, then
+        // viewModel.next() moves past it on success). We only swap to
+        // MainTabView once hasCompletedOnboarding flips true at the end of
+        // FirstSync.
+        if hasCompletedOnboarding && authState.isSignedIn {
             MainTabView()
         } else {
             OnboardingFlow {
