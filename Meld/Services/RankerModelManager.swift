@@ -71,7 +71,7 @@ actor RankerModelManager {
         try fileManager.moveItem(at: tempURL, to: stagingURL)
 
         // Compile on-device.
-        let compiledURL = try MLModel.compileModel(at: stagingURL)
+        let compiledURL = try await MLModel.compileModel(at: stagingURL)
 
         // Move compiled model to permanent storage.
         let permanentURL = modelCacheDirectory()
@@ -99,13 +99,10 @@ actor RankerModelManager {
         return fileManager.fileExists(atPath: url.path) ? url : nil
     }
 
-    /// Load the cached CoreML model. Returns nil if no cached model exists.
-    func loadModel() throws -> MLModel? {
-        guard let url = cachedModelURL() else { return nil }
-
-        let config = MLModelConfiguration()
-        config.computeUnits = .cpuOnly  // Tree ensembles don't benefit from GPU/ANE
-        return try MLModel(contentsOf: url, configuration: config)
+    /// URL of the cached compiled model for loading. Callers load the model
+    /// themselves to avoid sending non-Sendable MLModel across actor boundaries.
+    func cachedModelURLForLoading() -> URL? {
+        cachedModelURL()
     }
 
     /// Current cached model version, or nil.

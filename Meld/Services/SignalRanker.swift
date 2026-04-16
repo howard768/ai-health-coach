@@ -28,9 +28,17 @@ actor SignalRanker {
 
     /// Load the cached CoreML model from disk (Application Support).
     /// Called on app launch and after background model updates.
+    /// Loads within this actor to avoid sending non-Sendable MLModel
+    /// across actor boundaries.
     func loadCachedModel() async {
+        guard let url = await RankerModelManager.shared.cachedModelURLForLoading() else {
+            compiledModel = nil
+            return
+        }
         do {
-            compiledModel = try await RankerModelManager.shared.loadModel()
+            let config = MLModelConfiguration()
+            config.computeUnits = .cpuOnly
+            compiledModel = try MLModel(contentsOf: url, configuration: config)
         } catch {
             compiledModel = nil
         }
