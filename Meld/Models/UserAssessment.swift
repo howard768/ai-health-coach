@@ -102,7 +102,8 @@ enum DataSourceType: String, CaseIterable, Identifiable {
 
     var isAvailable: Bool {
         switch self {
-        case .oura, .appleHealth, .peloton, .garmin: true
+        case .oura, .appleHealth: true
+        case .peloton, .garmin: false  // integrations not yet implemented
         }
     }
 }

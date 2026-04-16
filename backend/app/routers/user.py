@@ -32,6 +32,7 @@ class UserProfileResponse(BaseModel):
     training_days_per_week: int | None = None
     member_since: str | None = None
     data_sources: list[dict] = []
+    onboarding_complete: bool = False
 
 
 class UserProfileUpdate(BaseModel):
@@ -44,6 +45,7 @@ class UserProfileUpdate(BaseModel):
     goals: list[str] | None = None
     training_experience: str | None = None
     training_days_per_week: int | None = None
+    onboarding_complete: bool | None = None
 
 
 async def _build_profile_response(user: User, db: AsyncSession) -> UserProfileResponse:
@@ -81,6 +83,7 @@ async def _build_profile_response(user: User, db: AsyncSession) -> UserProfileRe
         training_days_per_week=user.training_days_per_week,
         member_since=user.created_at.strftime("%B %Y") if user.created_at else None,
         data_sources=data_sources,
+        onboarding_complete=user.onboarding_complete,
     )
 
 
@@ -133,6 +136,8 @@ async def update_profile(
         current_user.training_experience = update.training_experience
     if update.training_days_per_week is not None:
         current_user.training_days_per_week = update.training_days_per_week
+    if update.onboarding_complete is not None:
+        current_user.onboarding_complete = update.onboarding_complete
     current_user.updated_at = utcnow_naive()
 
     await db.commit()

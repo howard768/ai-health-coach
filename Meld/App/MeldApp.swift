@@ -91,6 +91,14 @@ struct MeldApp: App {
                 await KeychainStore.wipeKeychainOnFirstLaunchIfNeeded()
                 // Bootstrap auth state — if a token is stored, mark session active
                 await AuthManager.shared.bootstrapSession()
+                // After reinstall, AppStorage resets to false. If the backend says the
+                // user already completed onboarding, skip it without showing any UI.
+                if authState.isSignedIn && !hasCompletedOnboarding {
+                    if let profile = try? await APIClient.shared.fetchUserProfile(),
+                       profile.onboarding_complete == true {
+                        hasCompletedOnboarding = true
+                    }
+                }
             }
         }
     }
