@@ -1394,6 +1394,29 @@ async def run_cohort_clustering(db: "AsyncSession") -> dict:
 
 
 # ─────────────────────────────────────────────────────────────────────────
+# Phase 10: MLOps alerting (public entry points for boundary compliance)
+# ─────────────────────────────────────────────────────────────────────────
+
+
+async def send_drift_alert(report: object) -> None:
+    """Send drift detection alert to Discord + Telegram."""
+    from ml.mlops.alerts import alert_drift
+    await alert_drift(report)
+
+
+async def send_training_alert(summary: dict) -> None:
+    """Send training completion alert to Discord."""
+    from ml.mlops.alerts import alert_training_complete
+    await alert_training_complete(summary)
+
+
+async def send_rollback_alert(model_type: str, from_version: str, to_version: str) -> None:
+    """Send rollback alert to Discord + Telegram."""
+    from ml.mlops.alerts import alert_rollback
+    await alert_rollback(model_type, from_version, to_version)
+
+
+# ─────────────────────────────────────────────────────────────────────────
 # Phase 9: L5 APTE n-of-1 experiments
 # ─────────────────────────────────────────────────────────────────────────
 

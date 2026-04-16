@@ -103,3 +103,8 @@ class MLModel(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=utcnow_naive, nullable=False
     )
+    rolled_back_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        nullable=True,
+        doc="Timestamp when this model was rolled back to (re-activated after deactivation).",
+    )

@@ -288,3 +288,84 @@ async def get_ranker_metadata(
         file_size_bytes=metadata.file_size_bytes,
         download_url=metadata.download_url,
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Phase 10: model rollback
+# ─────────────────────────────────────────────────────────────────────────
+
+
+class RollbackRequest(BaseModel):
+    model_type: str
+    to_version: str
+
+
+class RollbackResponse(BaseModel):
+    ok: bool
+    activated_version: str
+    message: str
+
+
+@router.post("/admin/rollback", response_model=RollbackResponse)
+async def rollback_model(
+    req: RollbackRequest,
+    user: CurrentUser,
+    db: AsyncSession = Depends(get_db),
+) -> RollbackResponse:
+    """Roll back a model to a previous version.
+
+    Deactivates the current active model of the given type and
+    re-activates the specified version. Sends alerts to Discord + Telegram.
+    """
+    from sqlalchemy import select, update
+
+    from app.models.ml_models import MLModel
+    from ml import api as ml_api
+
+    # Find the target model.
+    result = await db.execute(
+        select(MLModel).where(
+            MLModel.model_type == req.model_type,
+            MLModel.model_version == req.to_version,
+        )
+    )
+    target = result.scalar_one_or_none()
+    if target is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Model {req.model_type}/{req.to_version} not found",
+        )
+
+    # Find current active model for logging.
+    current_result = await db.execute(
+        select(MLModel).where(
+            MLModel.model_type == req.model_type,
+            MLModel.is_active.is_(True),
+        )
+    )
+    current = current_result.scalar_one_or_none()
+    from_version = current.model_version if current else "none"
+
+    # Deactivate all models of this type.
+    await db.execute(
+        update(MLModel)
+        .where(MLModel.model_type == req.model_type, MLModel.is_active.is_(True))
+        .values(is_active=False)
+    )
+
+    # Activate the target.
+    target.is_active = True
+    target.rolled_back_at = utcnow_naive()
+    await db.commit()
+
+    # Alert (best-effort).
+    try:
+        await ml_api.send_rollback_alert(req.model_type, from_version, req.to_version)
+    except Exception:
+        pass  # non-fatal
+
+    return RollbackResponse(
+        ok=True,
+        activated_version=req.to_version,
+        message=f"Rolled back {req.model_type} from {from_version} to {req.to_version}.",
+    )
