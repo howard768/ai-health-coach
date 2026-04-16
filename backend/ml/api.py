@@ -1247,3 +1247,147 @@ async def build_synth_drift_report(
         dataset_too_small=report.dataset_too_small,
         threshold=report.threshold,
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Phase 8: Cross-user cohort clustering
+# ─────────────────────────────────────────────────────────────────────────
+
+
+async def opt_in_to_cohorts(db: "AsyncSession", user_id: str) -> None:
+    """Record user opt-in to cross-user cohort clustering. Idempotent."""
+    from sqlalchemy import select
+
+    from app.core.time import utcnow_naive
+    from app.models.ml_cohorts import MLCohortConsent
+
+    existing = await db.execute(
+        select(MLCohortConsent).where(MLCohortConsent.user_id == user_id)
+    )
+    consent = existing.scalar_one_or_none()
+    now = utcnow_naive()
+
+    if consent is None:
+        db.add(MLCohortConsent(user_id=user_id, opted_in=True, opted_in_at=now))
+    else:
+        consent.opted_in = True
+        consent.opted_in_at = now
+    await db.flush()
+
+
+async def opt_out_of_cohorts(db: "AsyncSession", user_id: str) -> None:
+    """Record user opt-out. Queue vector deletion (30-day SLA)."""
+    from sqlalchemy import select
+
+    from app.core.time import utcnow_naive
+    from app.models.ml_cohorts import MLCohortConsent
+
+    existing = await db.execute(
+        select(MLCohortConsent).where(MLCohortConsent.user_id == user_id)
+    )
+    consent = existing.scalar_one_or_none()
+    now = utcnow_naive()
+
+    if consent is None:
+        db.add(
+            MLCohortConsent(
+                user_id=user_id,
+                opted_in=False,
+                opted_out_at=now,
+                deletion_requested_at=now,
+            )
+        )
+    else:
+        consent.opted_in = False
+        consent.opted_out_at = now
+        consent.deletion_requested_at = now
+    await db.flush()
+
+
+async def delete_cohort_vectors(db: "AsyncSession", user_id: str) -> bool:
+    """Hard delete anonymized vectors for a user. Idempotent.
+
+    Returns True if vectors were found and deleted.
+    """
+    from sqlalchemy import delete, select
+
+    from app.core.time import utcnow_naive
+    from app.models.ml_cohorts import MLAnonymizedVector, MLCohortConsent
+    from ml.cohorts.anonymize import encrypt_user_id, get_rotating_key
+
+    rotating_key = get_rotating_key()
+    uid_enc = encrypt_user_id(user_id, rotating_key)
+
+    result = await db.execute(
+        delete(MLAnonymizedVector).where(
+            MLAnonymizedVector.user_id_encrypted == uid_enc
+        )
+    )
+    deleted = result.rowcount > 0
+
+    # Mark deletion completed.
+    existing = await db.execute(
+        select(MLCohortConsent).where(MLCohortConsent.user_id == user_id)
+    )
+    consent = existing.scalar_one_or_none()
+    if consent is not None:
+        consent.deletion_completed_at = utcnow_naive()
+
+    await db.flush()
+    return deleted
+
+
+async def get_cohort_status(db: "AsyncSession", user_id: str) -> dict:
+    """Get opt-in status + cluster membership for a user."""
+    from sqlalchemy import select
+
+    from app.models.ml_cohorts import MLAnonymizedVector, MLCohort, MLCohortConsent
+    from ml.cohorts.anonymize import encrypt_user_id, get_rotating_key
+
+    existing = await db.execute(
+        select(MLCohortConsent).where(MLCohortConsent.user_id == user_id)
+    )
+    consent = existing.scalar_one_or_none()
+
+    if consent is None:
+        return {"opted_in": False}
+
+    result = {
+        "opted_in": consent.opted_in,
+        "opted_in_at": consent.opted_in_at.isoformat() if consent.opted_in_at else None,
+        "opted_out_at": consent.opted_out_at.isoformat() if consent.opted_out_at else None,
+        "deletion_requested_at": (
+            consent.deletion_requested_at.isoformat()
+            if consent.deletion_requested_at
+            else None
+        ),
+        "deletion_completed_at": (
+            consent.deletion_completed_at.isoformat()
+            if consent.deletion_completed_at
+            else None
+        ),
+    }
+
+    # TODO: Phase 8B will add cluster membership lookup here.
+    return result
+
+
+async def run_cohort_clustering(db: "AsyncSession") -> dict:
+    """Full Phase 8 pipeline: anonymize opted-in users, cluster, persist.
+
+    Does NOT commit. Caller owns the transaction.
+    """
+    from ml.cohorts.anonymize import build_anonymized_vectors
+    from ml.cohorts.cluster import run_clustering_pipeline
+
+    anon_report = await build_anonymized_vectors(db)
+    cluster_report = await run_clustering_pipeline(db)
+
+    return {
+        "users_processed": anon_report.users_processed,
+        "vectors_created": anon_report.vectors_created,
+        "n_clusters": cluster_report.n_clusters,
+        "n_noise_points": cluster_report.n_noise_points,
+        "largest_cluster": cluster_report.largest_cluster,
+        "run_id": cluster_report.run_id,
+    }
