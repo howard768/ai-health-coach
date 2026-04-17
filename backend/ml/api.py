@@ -1188,6 +1188,11 @@ class DriftReportSummary:
     failed to render the HTML (import failure on Python 3.14, or a
     runtime exception during rendering). The KS-based ``p_values`` and
     ``drifted_metrics`` populate in every other case.
+
+    ``ks_statistics`` and ``sample_sizes`` are the D statistic and the
+    post-NaN-drop sample sizes per metric, carried here so
+    ``persist_drift_results`` can write ``ml_drift_results`` rows
+    without recomputing the KS test.
     """
 
     run_id: str
@@ -1199,8 +1204,20 @@ class DriftReportSummary:
     metrics_tested: list[str] = field(default_factory=list)
     drifted_metrics: list[str] = field(default_factory=list)
     p_values: dict[str, float] = field(default_factory=dict)
+    ks_statistics: dict[str, float] = field(default_factory=dict)
+    sample_sizes: dict[str, tuple[int, int]] = field(default_factory=dict)
     dataset_too_small: bool = False
     threshold: float = 0.05
+
+
+# KS-statistic cutoff for the ``drifted`` flag persisted in
+# ``ml_drift_results``. Specified by the Phase 4.5 plan: a feature is
+# considered drifted when its two-sample KS D statistic strictly
+# exceeds this value. This is a separate, more durable rule than the
+# p-value-based ``drifted_metrics`` returned by the inline KS test
+# (which is a standard alpha 0.05). Both are surfaced so the scheduler
+# can log both and the endpoint can filter on the durable one.
+DRIFT_KS_THRESHOLD: float = 0.15
 
 
 async def build_synth_drift_report(
@@ -1244,9 +1261,58 @@ async def build_synth_drift_report(
         metrics_tested=list(report.metrics_tested),
         drifted_metrics=list(report.drifted_metrics),
         p_values=dict(report.p_values),
+        ks_statistics=dict(report.ks_statistics),
+        sample_sizes=dict(report.sample_sizes),
         dataset_too_small=report.dataset_too_small,
         threshold=report.threshold,
     )
+
+
+async def persist_drift_results(
+    db: "AsyncSession",
+    summary: DriftReportSummary,
+    ks_threshold: float = DRIFT_KS_THRESHOLD,
+) -> int:
+    """Write one ``ml_drift_results`` row per metric in ``summary``.
+
+    The scheduler's ``synth_drift_job`` calls this after
+    ``build_synth_drift_report``. Each metric in
+    ``summary.ks_statistics`` becomes a row; the ``drifted`` flag is
+    ``ks_statistic > ks_threshold`` (default 0.15, from the Phase 4.5
+    plan). Skips the write entirely when ``dataset_too_small=True``
+    or no metrics were tested, so a drift-skipped run leaves the
+    table untouched rather than writing placeholders.
+
+    Does NOT commit -- caller owns the transaction. Returns the number
+    of rows staged.
+    """
+    from app.core.time import utcnow_naive
+    from app.models.ml_drift import MLDriftResult
+
+    if summary.dataset_too_small or not summary.ks_statistics:
+        return 0
+
+    now = utcnow_naive()
+    count = 0
+    for feature_key, ks_stat in summary.ks_statistics.items():
+        ks_pvalue = float(summary.p_values.get(feature_key, float("nan")))
+        n_ref, n_syn = summary.sample_sizes.get(feature_key, (0, 0))
+        db.add(
+            MLDriftResult(
+                synth_run_id=summary.run_id,
+                feature_key=feature_key,
+                ks_statistic=float(ks_stat),
+                ks_pvalue=ks_pvalue,
+                threshold=float(ks_threshold),
+                drifted=bool(ks_stat > ks_threshold),
+                sample_size_real=int(n_ref),
+                sample_size_synth=int(n_syn),
+                computed_at=now,
+            )
+        )
+        count += 1
+    await db.flush()
+    return count
 
 
 # ─────────────────────────────────────────────────────────────────────────

@@ -198,27 +198,41 @@ def test_compute_drift_flags_distribution_shift() -> None:
     """Shift HRV mean by 3 standard deviations; KS must catch it."""
     ref = _synthetic_wide(hrv_mean=50.0, hrv_sd=5.0, n=300, seed=1)
     cur = _synthetic_wide(hrv_mean=65.0, hrv_sd=5.0, n=300, seed=2)
-    p_values, drifted = _compute_drift(ref, cur, threshold=0.05)
+    p_values, drifted, ks_statistics, sample_sizes = _compute_drift(
+        ref, cur, threshold=0.05
+    )
     assert "hrv" in drifted
     assert p_values["hrv"] < 0.05
+    # The 3-sd shift yields a large D statistic.
+    assert ks_statistics["hrv"] > 0.5
+    assert sample_sizes["hrv"] == (300, 300)
 
 
 def test_compute_drift_does_not_flag_same_distribution() -> None:
     """Identical distributions; KS must NOT flag drift."""
     ref = _synthetic_wide(hrv_mean=50.0, hrv_sd=5.0, n=300, seed=1)
     cur = _synthetic_wide(hrv_mean=50.0, hrv_sd=5.0, n=300, seed=2)
-    p_values, drifted = _compute_drift(ref, cur, threshold=0.05)
+    p_values, drifted, ks_statistics, sample_sizes = _compute_drift(
+        ref, cur, threshold=0.05
+    )
     assert "hrv" not in drifted
     assert p_values["hrv"] >= 0.05
+    # D statistic still reported even when below threshold.
+    assert "hrv" in ks_statistics
+    assert sample_sizes["hrv"] == (300, 300)
 
 
 def test_compute_drift_skips_metrics_below_min_samples() -> None:
     """Short ref column -> metric omitted (not failed, not falsely flagged)."""
     ref = _synthetic_wide(hrv_mean=50.0, hrv_sd=5.0, n=10, seed=1)  # below min
     cur = _synthetic_wide(hrv_mean=65.0, hrv_sd=5.0, n=300, seed=2)
-    p_values, drifted = _compute_drift(ref, cur, threshold=0.05)
+    p_values, drifted, ks_statistics, sample_sizes = _compute_drift(
+        ref, cur, threshold=0.05
+    )
     assert "hrv" not in p_values
     assert "hrv" not in drifted
+    assert "hrv" not in ks_statistics
+    assert "hrv" not in sample_sizes
 
 
 # ─────────────────────────────────────────────────────────────────────────

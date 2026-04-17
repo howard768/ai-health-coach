@@ -39,6 +39,7 @@ from sqlalchemy.ext.asyncio import (
 # ``app`` FastAPI instance we bind next.
 from app.models import correlation  # noqa: F401
 from app.models import ml_discovery  # noqa: F401
+from app.models import ml_drift  # noqa: F401
 from app.models import ml_experiments as _ml_experiments_module  # noqa: F401
 from app.models import ml_insights as _ml_insights_module  # noqa: F401
 from app.models import ml_models as _ml_models_module  # noqa: F401
@@ -268,6 +269,114 @@ async def test_feature_drift_empty_db_has_empty_arrays(empty_db):
     assert data["features_over_threshold"] == []
     assert data["total_features_checked"] == 0
     assert data["drifted_count"] == 0
+    # Empty table -> no timestamp to surface.
+    assert data["last_computed"] is None
+
+
+@pytest.mark.asyncio
+async def test_feature_drift_seeded_rows_appear(empty_db):
+    """Insert ml_drift_results rows and verify the endpoint surfaces them.
+
+    Seeds one batch of four features: two drifted, two not. The endpoint
+    must return total_features_checked=4, drifted_count=2, and only the
+    drifted entries in features_over_threshold.
+    """
+    from app.models.ml_drift import MLDriftResult
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    run_id = "run-alpha-0000000000000000000000000000"[:36]
+    rows = [
+        # (feature_key, ks_stat, threshold, drifted)
+        ("hrv", 0.22, 0.15, True),
+        ("resting_hr", 0.31, 0.15, True),
+        ("sleep_efficiency", 0.08, 0.15, False),
+        ("steps", 0.05, 0.15, False),
+    ]
+    for feature_key, ks_stat, threshold, drifted in rows:
+        empty_db.add(
+            MLDriftResult(
+                synth_run_id=run_id,
+                feature_key=feature_key,
+                ks_statistic=ks_stat,
+                ks_pvalue=0.0,  # arbitrary for this test
+                threshold=threshold,
+                drifted=drifted,
+                sample_size_real=200,
+                sample_size_synth=200,
+                computed_at=now,
+            )
+        )
+    await empty_db.commit()
+
+    resp = await _get("/ops/ml/feature-drift", db_session=empty_db)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total_features_checked"] == 4
+    assert data["drifted_count"] == 2
+    assert data["last_computed"] is not None
+    drifted_features = {f["feature"] for f in data["features_over_threshold"]}
+    assert drifted_features == {"hrv", "resting_hr"}
+    # Each drifted entry carries ks_stat + threshold.
+    for entry in data["features_over_threshold"]:
+        assert 0.0 < entry["ks_stat"] <= 1.0
+        assert entry["threshold"] == 0.15
+
+
+@pytest.mark.asyncio
+async def test_feature_drift_picks_most_recent_run_id(empty_db):
+    """When multiple synth_run_ids exist, the endpoint returns only the
+    most recent batch (by MAX(computed_at)).
+
+    Seeds an older run (1 drifted feature) and a newer run (2 drifted +
+    1 not drifted). The response must reflect the newer run's three rows
+    only.
+    """
+    from app.models.ml_drift import MLDriftResult
+
+    base = datetime.now(timezone.utc).replace(tzinfo=None)
+    older = base - timedelta(days=2)
+    newer = base
+
+    empty_db.add(
+        MLDriftResult(
+            synth_run_id="older-run-aaaaaaaaaaaaaaaaaaaaaaaaaaa"[:36],
+            feature_key="hrv",
+            ks_statistic=0.9,
+            ks_pvalue=0.0,
+            threshold=0.15,
+            drifted=True,
+            sample_size_real=100,
+            sample_size_synth=100,
+            computed_at=older,
+        )
+    )
+    for feature_key, ks_stat, drifted in [
+        ("hrv", 0.2, True),
+        ("resting_hr", 0.25, True),
+        ("steps", 0.05, False),
+    ]:
+        empty_db.add(
+            MLDriftResult(
+                synth_run_id="newer-run-bbbbbbbbbbbbbbbbbbbbbbbbbbb"[:36],
+                feature_key=feature_key,
+                ks_statistic=ks_stat,
+                ks_pvalue=0.0,
+                threshold=0.15,
+                drifted=drifted,
+                sample_size_real=100,
+                sample_size_synth=100,
+                computed_at=newer,
+            )
+        )
+    await empty_db.commit()
+
+    resp = await _get("/ops/ml/feature-drift", db_session=empty_db)
+    data = resp.json()
+    # Newer batch has 3 rows; older batch's "hrv" must not be re-counted.
+    assert data["total_features_checked"] == 3
+    assert data["drifted_count"] == 2
+    drifted_features = {f["feature"] for f in data["features_over_threshold"]}
+    assert drifted_features == {"hrv", "resting_hr"}
 
 
 # -- /ops/ml/experiments --
