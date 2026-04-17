@@ -5,7 +5,10 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
-  contents: read
+  # `contents: write` is needed for `gh pr merge --auto --merge` on the
+  # Tier 0 path. Without it GitHub rejects the call with
+  # `Resource not accessible by integration (mergePullRequest)`.
+  contents: write
   pull-requests: write
   issues: write
 
