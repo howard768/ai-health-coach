@@ -49,9 +49,8 @@ jobs:
       - name: Run Claude review
         if: steps.has_key.outputs.has_key == 'true'
         uses: anthropics/claude-code-action@v1
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
             You are the Meld Code Review Agent. Review the PR diff against the project's specific conventions. Be concise. Only flag real issues; do not nitpick.
 
