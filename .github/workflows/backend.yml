@@ -91,16 +91,40 @@ jobs:
           # auth tests passed only because pydantic defaulted the field to "".
           JWT_SECRET_KEY: "test-jwt-secret-must-be-long-enough-for-hs256-aaaaaaaa"
           ENCRYPTION_KEY: "T0TXLkHFSeZRYGIIejSFVkhQrvRE-bWLkwXSkkdWiKQ="
-        # Upgrade to head, downgrade one, upgrade back. Catches broken
+        # Upgrade to head, downgrade one step, upgrade back. Catches broken
         # downgrades and autogenerate noise that crept into hand-edited files.
+        #
+        # The "one step" is subtle: ``alembic downgrade -1`` fails with
+        # "Ambiguous walk" when the current head is a merge migration, because
+        # its ``down_revision`` is a tuple of two parents and alembic can't
+        # pick which parent to walk to. See MEL-5 / revision b384bb88217f for
+        # the case that bit us. Fix: inspect head's ``down_revision`` type and
+        # pick the first parent deterministically for merge heads, fall back
+        # to ``-1`` semantics otherwise.
         run: |
           TMPDB="${RUNNER_TEMP:-/tmp}/meld-ci-roundtrip.db"
           export DATABASE_URL="sqlite+aiosqlite:///${TMPDB}"
           echo "::group::alembic upgrade head"
           uv run python -m alembic upgrade head
           echo "::endgroup::"
-          echo "::group::alembic downgrade -1"
-          uv run python -m alembic downgrade -1
+          echo "::group::alembic downgrade one step (merge-aware)"
+          DOWN_TARGET=$(uv run python -c "
+          from alembic.config import Config
+          from alembic.script import ScriptDirectory
+          cfg = Config('alembic.ini')
+          sd = ScriptDirectory.from_config(cfg)
+          heads = sd.get_heads()
+          if len(heads) != 1:
+              raise SystemExit(f'expected single head, got: {heads}')
+          head = sd.get_revision(heads[0])
+          down = head.down_revision
+          if down is None:
+              raise SystemExit(f'head {heads[0]} has no down_revision')
+          target = down[0] if isinstance(down, tuple) else down
+          print(target)
+          ")
+          echo "downgrading head to parent: $DOWN_TARGET"
+          uv run python -m alembic downgrade "$DOWN_TARGET"
           echo "::endgroup::"
           echo "::group::alembic upgrade head (re-apply)"
           uv run python -m alembic upgrade head
