@@ -26,6 +26,9 @@ jobs:
       contents: read
       pull-requests: write
       issues: write
+      # anthropics/claude-code-action@v1 requires OIDC for GitHub identity;
+      # without id-token: write the action fails at setupGitHubToken.
+      id-token: write
 
     steps:
       - uses: actions/checkout@v6
