@@ -86,6 +86,18 @@ Six categories (morning brief, coaching nudge, bedtime coaching, streak saver, w
 | iOS unit | XCTest | ViewModels, token decoding, dashboard state |
 | CI | GitHub Actions | Backend pytest, ruff lint, iOS xcodebuild + test, eval suite on PRs |
 
+## Autonomous engineering
+
+Most of the engineering cadence on this repo runs autonomously under a tier-classified HITL model (`~/.claude/plans/hitl-tier-model.md`). Every PR runs through:
+
+- **`Claude Code Review`** (`.github/workflows/code-review.yml`): project-specific review prompt covering em dashes, ML boundary, cold-boot budget, PHI leakage, hardcoded colors, coach prompt safety, shadow flag protection.
+- **`HITL Classifier`** (`.github/workflows/hitl-classifier.yml` + `.github/hitl-config.json`): routes PRs to Tier 0 (engineering, auto-merge), Tier 2 (product surface, Brock merges), or Tier 3 (safety, refuse and close).
+- **`Dependabot Auto-merge`** (`.github/workflows/dependabot-automerge.yml`): patch and minor bumps auto-merge, majors stay open.
+
+Scheduled monitors run production health, ML pipeline freshness, SSL, dependabot hygiene, and weekly coach-eval regressions, filing Linear issues on failure. A morning digest (`meld-hitl-daily`) summarizes the previous day's activity.
+
+Kill switch: repo variable `AUTO_MERGE_ENABLED` (default `true`). Flip to `false` to pause all auto-merges without removing the workflows.
+
 ## What's NOT in this repo
 
 - The Anthropic API key, JWT secret, encryption key, APNs `.p8`, and Sign in with Apple `.p8` — all in Railway env vars and `.env` (gitignored).
