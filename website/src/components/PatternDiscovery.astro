@@ -1,0 +1,155 @@
+---
+---
+
+<section class="section patterns">
+  <div class="container">
+    <header class="patterns-header">
+      <p class="eyebrow">Under the hood</p>
+      <h2 class="h1">Not just AI. Real statistics.</h2>
+      <p class="subhead">
+        Most AI health apps read your data and guess. Meld runs actual statistical tests.
+      </p>
+    </header>
+
+    <div class="patterns-grid">
+      <div class="pattern-step card-glass reveal">
+        <div class="step-icon" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 1 1-9-9"/>
+            <path d="M21 3v6h-6"/>
+          </svg>
+        </div>
+        <h3 class="h3">30 days of your data</h3>
+        <p>
+          Meld collects sleep, food, workouts, HR, HRV, and recovery
+          from every source you connect. After 30 days it has enough
+          signal to start looking for patterns.
+        </p>
+      </div>
+
+      <div class="pattern-step card-glass reveal">
+        <div class="step-icon" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 3v18h18"/>
+            <path d="m7 12 4-4 4 4 4-4"/>
+          </svg>
+        </div>
+        <h3 class="h3">Test every pair</h3>
+        <p>
+          Protein vs deep sleep. Workout intensity vs next-day HRV.
+          Dinner timing vs sleep onset. Meld tests correlations across
+          every domain, not just the obvious ones.
+        </p>
+      </div>
+
+      <div class="pattern-step card-glass reveal">
+        <div class="step-icon" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <path d="m9 12 2 2 4-4"/>
+          </svg>
+        </div>
+        <h3 class="h3">Control for false discovery</h3>
+        <p>
+          With dozens of metric pairs, some will look correlated by
+          chance. Meld applies false-discovery correction so you only
+          see patterns that hold up statistically, not lucky noise.
+        </p>
+      </div>
+
+      <div class="pattern-step card-glass reveal">
+        <div class="step-icon" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="8" y1="13" x2="16" y2="13"/>
+            <line x1="8" y1="17" x2="16" y2="17"/>
+          </svg>
+        </div>
+        <h3 class="h3">Validate against research</h3>
+        <p>
+          If a pattern survives statistical testing, Meld checks it
+          against published studies. You see the finding AND the paper
+          behind it. Not a hunch. Not a hallucination.
+        </p>
+      </div>
+    </div>
+
+    <p class="patterns-bottom">
+      413 automated tests verify this pipeline before every release.
+      The coach only tells you what the numbers actually show.
+    </p>
+  </div>
+</section>
+
+<style>
+  .patterns {
+    background: linear-gradient(180deg, var(--bg-primary) 0%, var(--purple-50) 100%);
+  }
+
+  .patterns-header {
+    text-align: center;
+    margin-bottom: var(--sp-12);
+  }
+
+  .patterns-header .h1 {
+    margin-bottom: var(--sp-4);
+  }
+
+  .patterns-header .subhead {
+    margin-inline: auto;
+  }
+
+  .patterns-grid {
+    display: grid;
+    gap: var(--sp-5);
+    grid-template-columns: 1fr;
+  }
+
+  @media (min-width: 680px) {
+    .patterns-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  @media (min-width: 1100px) {
+    .patterns-grid {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+
+  .pattern-step {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+  }
+
+  .step-icon {
+    width: 48px;
+    height: 48px;
+    background: var(--purple-100);
+    color: var(--purple-600);
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+  }
+
+  .pattern-step .h3 {
+    color: var(--text-primary);
+  }
+
+  .pattern-step p {
+    font-size: var(--fs-body-sm);
+    color: var(--text-secondary);
+    line-height: var(--lh-relaxed);
+  }
+
+  .patterns-bottom {
+    text-align: center;
+    margin-top: var(--sp-10);
+    font-size: var(--fs-body-sm);
+    color: var(--text-tertiary);
+    font-weight: var(--fw-medium);
+  }
+</style>
