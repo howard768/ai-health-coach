@@ -107,6 +107,12 @@ class DriftReport:
     AND both partitions met ``_MIN_SAMPLES_PER_METRIC``. Everything
     else is always populated so callers (scheduler, ops dashboards)
     can reason about the run without loading the HTML.
+
+    ``ks_statistics`` and ``sample_sizes`` are populated alongside
+    ``p_values`` so the persistence layer (``ml.api.persist_drift_results``)
+    can write one ``ml_drift_results`` row per metric without recomputing
+    the KS test. ``sample_sizes[m]`` is ``(n_reference, n_current)``
+    after NaN drop for metric ``m``.
     """
 
     run_id: str
@@ -118,6 +124,8 @@ class DriftReport:
     metrics_tested: list[str] = field(default_factory=list)
     drifted_metrics: list[str] = field(default_factory=list)
     p_values: dict[str, float] = field(default_factory=dict)
+    ks_statistics: dict[str, float] = field(default_factory=dict)
+    sample_sizes: dict[str, tuple[int, int]] = field(default_factory=dict)
     dataset_too_small: bool = False
     threshold: float = _DEFAULT_P_VALUE_THRESHOLD
 
@@ -189,19 +197,27 @@ def _compute_drift(
     reference: "pd.DataFrame",
     current: "pd.DataFrame",
     threshold: float,
-) -> tuple[dict[str, float], list[str]]:
+) -> tuple[dict[str, float], list[str], dict[str, float], dict[str, tuple[int, int]]]:
     """Run a two-sample KS test per metric column.
 
-    Returns ``(p_values_by_metric, drifted_metrics)``. A metric is
-    considered drifted when its p-value is strictly below
-    ``threshold``. Metrics with fewer than
-    ``_MIN_SAMPLES_PER_METRIC`` observations on either side after
-    dropping NaNs are skipped (omitted from the dicts), because the
-    KS statistic is not meaningful with a tiny sample.
+    Returns ``(p_values, drifted, ks_statistics, sample_sizes)``. The
+    drift decision surfaced in the HTML / logs still uses the p-value
+    threshold (standard Evidently convention). The ``ks_statistics``
+    dict carries the D statistic so the persistence layer can apply a
+    KS-statistic-based cutoff (Phase 4.5 plan: 0.15) that is more
+    durable across scipy versions than a raw p-value. ``sample_sizes``
+    records ``(n_reference, n_current)`` after NaN drop for the
+    persistence layer.
+
+    Metrics with fewer than ``_MIN_SAMPLES_PER_METRIC`` observations
+    on either side are skipped (omitted from all dicts), because the
+    KS test is not meaningful with a tiny sample.
     """
     from scipy import stats  # lazy
 
     p_values: dict[str, float] = {}
+    ks_statistics: dict[str, float] = {}
+    sample_sizes: dict[str, tuple[int, int]] = {}
     drifted: list[str] = []
     for metric in _DRIFT_METRICS:
         ref_col = reference[metric].dropna().to_numpy()
@@ -210,9 +226,11 @@ def _compute_drift(
             continue
         result = stats.ks_2samp(ref_col, cur_col)
         p_values[metric] = float(result.pvalue)
+        ks_statistics[metric] = float(result.statistic)
+        sample_sizes[metric] = (int(len(ref_col)), int(len(cur_col)))
         if result.pvalue < threshold:
             drifted.append(metric)
-    return p_values, drifted
+    return p_values, drifted, ks_statistics, sample_sizes
 
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -304,7 +322,9 @@ async def build_drift_report(
             threshold=threshold,
         )
 
-    p_values, drifted = _compute_drift(reference, current, threshold)
+    p_values, drifted, ks_statistics, sample_sizes = _compute_drift(
+        reference, current, threshold
+    )
 
     # Best-effort HTML; failures are logged and swallowed.
     resolved_output_dir.mkdir(parents=True, exist_ok=True)
@@ -322,6 +342,8 @@ async def build_drift_report(
         metrics_tested=sorted(p_values.keys()),
         drifted_metrics=sorted(drifted),
         p_values=p_values,
+        ks_statistics=ks_statistics,
+        sample_sizes=sample_sizes,
         dataset_too_small=False,
         threshold=threshold,
     )

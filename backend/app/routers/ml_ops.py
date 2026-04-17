@@ -371,26 +371,80 @@ async def feature_drift(
 ) -> FeatureDriftResponse:
     """Return latest synth-vs-real KS drift snapshot.
 
-    No dedicated drift-stats table exists yet (Phase 4.5 stores only the
-    run manifest in ``ml_synth_runs``, not per-feature KS results). Until
-    that table lands, we surface the most recent synth run timestamp as
-    ``last_computed`` and leave the feature arrays empty. The endpoint
-    stays stable so scheduled tasks can start polling now.
+    Reads the most recent batch from ``ml_drift_results`` (one row per
+    ``(synth_run_id, feature_key)`` populated by ``synth_drift_job``).
+    The "most recent batch" is the synth_run_id whose MAX(computed_at)
+    is the largest across the table. Returns empty arrays when the
+    table exists but is empty (freshly migrated, no drift run yet) or
+    is missing entirely (staging lags production by a phase).
+
+    All counts / lists, never per-user data.
     """
     now = datetime.now(timezone.utc)
     last_computed: str | None = None
+    features: list[DriftedFeature] = []
+    total = 0
+    drifted_count = 0
+
+    # Identify the most recent batch. One query gets the synth_run_id of
+    # the newest row; a second bounds the "as of" timestamp to that run's
+    # rows. If the table is missing entirely the first call raises and we
+    # fall through to the empty response (graceful staging degradation).
+    latest_run_id: Any = None
     try:
-        val = await _scalar_or_none(db, "SELECT MAX(created_at) FROM ml_synth_runs")
-        last_computed = _iso(val)
+        latest_run_id = await _scalar_or_none(
+            db,
+            "SELECT synth_run_id FROM ml_drift_results "
+            "ORDER BY computed_at DESC LIMIT 1",
+        )
     except Exception:
-        last_computed = None
+        latest_run_id = None
+
+    if latest_run_id is not None:
+        try:
+            latest_ts = await _scalar_or_none(
+                db,
+                "SELECT MAX(computed_at) FROM ml_drift_results "
+                "WHERE synth_run_id = :run_id",
+                run_id=latest_run_id,
+            )
+            last_computed = _iso(latest_ts)
+        except Exception:
+            last_computed = None
+
+        try:
+            result = await db.execute(
+                text(
+                    "SELECT feature_key, ks_statistic, threshold, drifted "
+                    "FROM ml_drift_results "
+                    "WHERE synth_run_id = :run_id "
+                    "ORDER BY feature_key"
+                ),
+                {"run_id": latest_run_id},
+            )
+            for row in result.all():
+                total += 1
+                # SQLite returns drifted as 0/1 int; bool() works in both.
+                if bool(row[3]):
+                    drifted_count += 1
+                    features.append(
+                        DriftedFeature(
+                            feature=str(row[0]),
+                            ks_stat=float(row[1]),
+                            threshold=float(row[2]),
+                        )
+                    )
+        except Exception:
+            features = []
+            total = 0
+            drifted_count = 0
 
     return FeatureDriftResponse(
         timestamp=now.isoformat(),
         last_computed=last_computed,
-        features_over_threshold=[],
-        total_features_checked=0,
-        drifted_count=0,
+        features_over_threshold=features,
+        total_features_checked=total,
+        drifted_count=drifted_count,
     )
 
 

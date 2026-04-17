@@ -740,11 +740,19 @@ async def synth_drift_job():
     The HTML path is best-effort: Evidently 0.7.21 fails to import on
     Python 3.14 (pydantic v1 incompat); Railway runs 3.12 so it works
     there. On failure ``html_path`` is None and only the KS summary
-    is logged. No DB writes here; no commit needed.
+    is logged.
+
+    Persists one ``ml_drift_results`` row per metric so
+    ``/ops/ml/feature-drift`` can surface the latest snapshot without
+    recomputing. Persistence is best-effort: if the write fails, the
+    drift run still logs cleanly (the table might be missing in an
+    environment that lagged the migration, and we degrade rather than
+    crash the scheduler).
     """
     from ml import api as ml_api
 
     logger.info("Running synth_drift_job")
+    persisted = 0
     async with async_session() as db:
         try:
             report = await ml_api.build_synth_drift_report(db)
@@ -755,6 +763,26 @@ async def synth_drift_job():
             logger.exception("synth_drift_job unexpected error: %s", e)
             return
 
+        # Persist per-feature KS results so ``/ops/ml/feature-drift``
+        # can surface this run. No-op when the report was too small.
+        if not report.dataset_too_small:
+            try:
+                persisted = await ml_api.persist_drift_results(db, report)
+                if persisted > 0:
+                    await db.commit()
+            except SQLAlchemyError as e:
+                logger.exception("synth_drift_job persist DB error: %s", e)
+                try:
+                    await db.rollback()
+                except Exception:  # noqa: BLE001 -- rollback is best-effort
+                    pass
+            except Exception as e:  # noqa: BLE001 -- persist must not crash the job
+                logger.exception("synth_drift_job persist error: %s", e)
+                try:
+                    await db.rollback()
+                except Exception:  # noqa: BLE001
+                    pass
+
     if report.dataset_too_small:
         logger.info(
             "synth_drift_job: dataset too small (ref=%d, cur=%d); nothing to compare yet",
@@ -764,11 +792,12 @@ async def synth_drift_job():
         return
 
     logger.info(
-        "synth_drift_job done: ref=%d cur=%d tested=%s drifted=%s html=%s backend=%s",
+        "synth_drift_job done: ref=%d cur=%d tested=%s drifted=%s persisted=%d html=%s backend=%s",
         report.n_reference_rows,
         report.n_current_rows,
         report.metrics_tested,
         report.drifted_metrics,
+        persisted,
         report.html_path or "<none>",
         report.html_backend,
     )
