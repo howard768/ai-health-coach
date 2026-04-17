@@ -96,7 +96,7 @@ jobs:
 
           claude_args: |
             --model claude-sonnet-4-5
-            --max-turns 5
+            --max-turns 20
 
       - name: Note skip if no API key
         if: steps.has_key.outputs.has_key == 'false'
