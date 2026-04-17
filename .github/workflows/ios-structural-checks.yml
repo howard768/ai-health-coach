@@ -1,0 +1,216 @@
+name: iOS Structural Checks
+
+# Phase 4 Design QA: structural checks for the Meld iOS app.
+#
+# Two checks:
+#   1. Snapshot baseline coverage (INFO only, not a hard fail). Snapshot CI
+#      is disabled for simulator-drift reasons, so this surfaces missing
+#      baselines without blocking the PR.
+#   2. Design-system token files exist. Hard-fail if any of the expected
+#      DSColor.swift / DSTypography.swift / DSSpacing.swift file is missing
+#      (protects against an accidental reorg of the DS layer).
+#
+# Posts one summary comment per PR with findings.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "Meld/**"
+      - ".github/workflows/ios-structural-checks.yml"
+  push:
+    branches: [main]
+    paths:
+      - "Meld/**"
+
+jobs:
+  structural-checks:
+    name: iOS Structural Checks
+    runs-on: ubuntu-latest
+    # Skip dependabot and fork PRs (no pull-request write on forks anyway).
+    if: >
+      github.event.pull_request.user.login != 'dependabot[bot]' &&
+      (github.event_name != 'pull_request' ||
+       github.event.pull_request.head.repo.full_name == github.repository)
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Run structural checks
+        id: checks
+        shell: python
+        run: |
+          import os
+          import re
+          import sys
+          from pathlib import Path
+
+          repo = Path(".").resolve()
+
+          # --- Check 1: Design-system token files exist. ----------------
+          required_tokens = [
+              "Meld/DesignSystem/Tokens/DSColor.swift",
+              "Meld/DesignSystem/Tokens/DSTypography.swift",
+              "Meld/DesignSystem/Tokens/DSSpacing.swift",
+          ]
+          missing_tokens = [p for p in required_tokens if not (repo / p).is_file()]
+
+          # Sanity: every token file must be non-empty and contain at least
+          # one `import` or `struct`/`enum` declaration. That is our proxy
+          # for "parses" without running swiftc on the runner.
+          unparseable_tokens = []
+          token_decl = re.compile(r"^\s*(import|struct|enum|extension)\b", re.MULTILINE)
+          for p in required_tokens:
+              fp = repo / p
+              if not fp.is_file():
+                  continue
+              text = fp.read_text(encoding="utf-8", errors="replace")
+              if not text.strip() or not token_decl.search(text):
+                  unparseable_tokens.append(p)
+
+          # --- Check 2: Snapshot baseline coverage. --------------------
+          # Collect every top-level `struct X: View` in Meld/Views/**/*.swift.
+          # Skip names ending in Helper / Modifier / Style / Preview.
+          view_root = repo / "Meld" / "Views"
+          skip_suffixes = ("Helper", "Modifier", "Style", "Preview")
+          # Match top-level (column 0) struct declarations that conform to View.
+          view_decl = re.compile(
+              r"^struct\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:<[^>]*>)?\s*:\s*[^{]*\bView\b",
+              re.MULTILINE,
+          )
+          discovered_views = []  # (name, relpath)
+          if view_root.is_dir():
+              for swift_path in sorted(view_root.rglob("*.swift")):
+                  rel = swift_path.relative_to(repo).as_posix()
+                  text = swift_path.read_text(encoding="utf-8", errors="replace")
+                  for match in view_decl.finditer(text):
+                      name = match.group(1)
+                      if name.endswith(skip_suffixes):
+                          continue
+                      discovered_views.append((name, rel))
+
+          # Collect existing snapshot baseline filenames (recursively, since
+          # snapshots live in per-test-suite __Snapshots__ directories).
+          snap_root = repo / "MeldSnapshotTests"
+          snapshot_filenames = set()
+          if snap_root.is_dir():
+              for png in snap_root.rglob("*.png"):
+                  # Only count PNGs inside a __Snapshots__ directory.
+                  if "__Snapshots__" in png.parts:
+                      snapshot_filenames.add(png.name)
+
+          views_missing_baselines = []
+          for name, relpath in discovered_views:
+              if not any(name in fname for fname in snapshot_filenames):
+                  views_missing_baselines.append((name, relpath))
+
+          # --- Build summary. ------------------------------------------
+          lines = ["## iOS Structural Checks"]
+          hard_fail = False
+
+          if missing_tokens:
+              hard_fail = True
+              lines.append("")
+              lines.append("### Blocking: missing design-system token file(s)")
+              for p in missing_tokens:
+                  lines.append(f"- `{p}`")
+              lines.append(
+                  "Expected DS token files were not found. If this was an "
+                  "intentional reorg, update this workflow. Otherwise, restore "
+                  "the missing files before merging."
+              )
+
+          if unparseable_tokens:
+              hard_fail = True
+              lines.append("")
+              lines.append("### Blocking: DS token file looks empty or malformed")
+              for p in unparseable_tokens:
+                  lines.append(f"- `{p}`")
+
+          if not missing_tokens and not unparseable_tokens:
+              lines.append("")
+              lines.append("- DS token files present and non-empty.")
+
+          lines.append("")
+          if not discovered_views:
+              lines.append(
+                  "- Snapshot coverage: no top-level `struct X: View` found "
+                  "under `Meld/Views/**`."
+              )
+          elif views_missing_baselines:
+              lines.append(
+                  f"### FYI: {len(views_missing_baselines)} view(s) without a "
+                  "snapshot baseline"
+              )
+              lines.append(
+                  "Snapshot CI is currently disabled for simulator-drift "
+                  "reasons, so this is informational only."
+              )
+              for name, relpath in views_missing_baselines[:40]:
+                  lines.append(f"- `{name}` in `{relpath}`")
+              if len(views_missing_baselines) > 40:
+                  extra = len(views_missing_baselines) - 40
+                  lines.append(f"- ... and {extra} more")
+          else:
+              count = len(discovered_views)
+              lines.append(
+                  f"- Snapshot coverage: all {count} view(s) have a baseline."
+              )
+
+          summary = "\n".join(lines)
+          print(summary)
+
+          # Expose to later steps.
+          gh_out = os.environ.get("GITHUB_OUTPUT")
+          if gh_out:
+              with open(gh_out, "a", encoding="utf-8") as fh:
+                  fh.write("hard_fail=" + ("true" if hard_fail else "false") + "\n")
+                  fh.write("summary<<EOF_SUMMARY\n")
+                  fh.write(summary)
+                  fh.write("\nEOF_SUMMARY\n")
+
+          # Also write to the GitHub step summary for push events (no PR).
+          step_summary = os.environ.get("GITHUB_STEP_SUMMARY")
+          if step_summary:
+              with open(step_summary, "a", encoding="utf-8") as fh:
+                  fh.write(summary + "\n")
+
+          if hard_fail:
+              sys.exit(1)
+
+      - name: Post PR comment
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        env:
+          SUMMARY: ${{ steps.checks.outputs.summary }}
+        with:
+          script: |
+            const body = process.env.SUMMARY;
+            if (!body || !body.trim()) {
+              core.info("No summary to post.");
+              return;
+            }
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const marker = "## iOS Structural Checks";
+            const { data: comments } = await github.rest.issues.listComments({
+              owner, repo, issue_number, per_page: 100,
+            });
+            const existing = comments.find(
+              (c) => c.user && c.user.type === "Bot" && c.body && c.body.startsWith(marker)
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner, repo, comment_id: existing.id, body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number, body,
+              });
+            }
