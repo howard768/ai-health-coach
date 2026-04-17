@@ -20,6 +20,11 @@ class User(Base):
     weight_lbs: Mapped[float] = mapped_column(Float, nullable=True)
     target_weight_lbs: Mapped[float] = mapped_column(Float, nullable=True)
     goals: Mapped[str] = mapped_column(JSON, nullable=True)  # List of goal strings
+    # Free-form "what do you want to get out of this?" text captured in onboarding
+    # Goals step. Not required, but fed into the coach system prompt as additional
+    # personalization context so it can address the user's actual situation rather
+    # than only the canned chip goals.
+    custom_goal_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     training_experience: Mapped[str] = mapped_column(String(50), nullable=True)
     training_days_per_week: Mapped[int] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)

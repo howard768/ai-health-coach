@@ -375,6 +375,7 @@ USER'S HEALTH DATA (cite these values):
 
 USER'S GOALS: {goals}
 
+{custom_goal_context}
 {memory_context}
 
 {active_patterns}
@@ -475,6 +476,7 @@ class CoachEngine:
         health_data: dict,
         user_name: str = "Brock",
         user_goals: list[str] | None = None,
+        custom_goal_text: str | None = None,
         history: list[dict] | None = None,
         signal_context: "SignalContext | None" = None,
     ) -> dict:
@@ -530,10 +532,21 @@ class CoachEngine:
                 concerns=", ".join(safety.reasons)
             )
 
+        # Free-form onboarding goal text from the Goals step. Feeds the coach
+        # the user's actual situation in their own words so responses can speak
+        # to "I want to lose weight for my wedding" rather than only the chip
+        # set. Omitted cleanly when the user left the field blank.
+        custom_goal_trimmed = (custom_goal_text or "").strip()
+        custom_goal_context = (
+            f"WHAT THE USER TOLD US IN THEIR OWN WORDS:\n{custom_goal_trimmed}\n"
+            if custom_goal_trimmed else ""
+        )
+
         system_prompt = EVIDENCE_BOUND_SYSTEM_PROMPT.format(
             user_name=user_name,
             health_data=json.dumps(health_data, indent=2),
             goals=", ".join(user_goals or ["general wellness"]),
+            custom_goal_context=custom_goal_context,
             memory_context=f"USER PREFERENCES (learned over time):\n{memory_context}" if memory_context else "",
             active_patterns=active_patterns_section,
             recent_anomalies=recent_anomalies_section,

@@ -31,6 +31,7 @@ def _build_prompt(health_data: dict) -> str:
         user_name="TestUser",
         health_data=json.dumps(health_data, indent=2),
         goals="general wellness",
+        custom_goal_context="",
         memory_context="",
         active_patterns="",
         recent_anomalies="",

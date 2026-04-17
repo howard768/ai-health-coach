@@ -1043,6 +1043,10 @@ struct APIUserProfileUpdate: Codable {
     var weight_lbs: Double?
     var target_weight_lbs: Double?
     var goals: [String]?
+    // Free-form "what do you want to get out of this?" text from onboarding.
+    // Was previously only in iOS state; now round-trips to the users table so
+    // the coach system prompt can use it on every session.
+    var custom_goal_text: String?
     var training_experience: String?
     var training_days_per_week: Int?
     var onboarding_complete: Bool?

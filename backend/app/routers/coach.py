@@ -129,8 +129,8 @@ async def chat(
     # Load reconciled health data (multi-source: Oura + Apple Health + Garmin)
     health_data = await get_latest_health_data(db, user_id)
 
-    # Load user profile for personalized name + goals
-    user_name, user_goals = await _load_user_context(db, user_id)
+    # Load user profile for personalized name + goals + free-form goal text
+    user_name, user_goals, custom_goal_text = await _load_user_context(db, user_id)
 
     # Phase 5: load Signal Engine context (active patterns, recent anomalies,
     # personal forecasts). Pre-loaded here in the async request path so the
@@ -151,6 +151,7 @@ async def chat(
         health_data,
         user_name,
         user_goals,
+        custom_goal_text,
         history,
         signal_context,
     )
@@ -370,7 +371,7 @@ async def generate_insight(
     import asyncio
     user_id = current_user.apple_user_id
     health_data = await get_latest_health_data(db, user_id)
-    _, user_goals = await _load_user_context(db, user_id)
+    _, user_goals, _ = await _load_user_context(db, user_id)
     # generate_daily_insight calls the sync Anthropic SDK — must offload
     result = await asyncio.to_thread(
         engine.generate_daily_insight,
@@ -504,17 +505,21 @@ async def _get_or_create_conversation(db: AsyncSession, user_id: str) -> Convers
     return conv
 
 
-async def _load_user_context(db: AsyncSession, user_id: str) -> tuple[str, list[str]]:
-    """Load the user's first name and goals from the profile.
+async def _load_user_context(
+    db: AsyncSession, user_id: str
+) -> tuple[str, list[str], str | None]:
+    """Load the user's first name, goals, and free-form goal text.
 
     Falls back to sensible defaults if no profile exists (e.g. after DB reset).
+    The free-form text is the "Want to share more?" answer from onboarding;
+    it flows into the coach system prompt as additional context.
     """
     import json
     result = await db.execute(select(User).where(User.apple_user_id == user_id))
     user = result.scalar_one_or_none()
 
     if not user:
-        return "there", []  # Neutral greeting, no assumed goals
+        return "there", [], None  # Neutral greeting, no assumed goals
 
     first_name = (user.name.split()[0] if user.name else "there")
 
@@ -527,7 +532,7 @@ async def _load_user_context(db: AsyncSession, user_id: str) -> tuple[str, list[
         except (json.JSONDecodeError, TypeError):
             pass
 
-    return first_name, goals
+    return first_name, goals, user.custom_goal_text
 
 
 async def _get_recent_messages(db: AsyncSession, conversation_id: int, limit: int = 20) -> list[ChatMessageRecord]:

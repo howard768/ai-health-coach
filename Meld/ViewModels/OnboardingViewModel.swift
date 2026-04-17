@@ -186,6 +186,14 @@ final class OnboardingViewModel {
         // Failing silently is OK — the user can retry from Profile settings
         // later. But we log it so we can spot repeated failures.
         do {
+            // Normalize the free-form goal text: trim whitespace, collapse empty
+            // to nil so the backend clears the column. Anything meaningful gets
+            // persisted on the users row and flows into the coach system prompt.
+            let normalizedCustomGoal: String? = {
+                let trimmed = assessment.customGoalText.trimmingCharacters(in: .whitespacesAndNewlines)
+                return trimmed.isEmpty ? nil : trimmed
+            }()
+
             let update = APIUserProfileUpdate(
                 name: AuthSessionState.shared.userDisplayName,
                 email: AuthSessionState.shared.userEmail,
@@ -194,6 +202,7 @@ final class OnboardingViewModel {
                 weight_lbs: assessment.weightLbs,
                 target_weight_lbs: assessment.targetWeightLbs,
                 goals: assessment.goals.map(\.rawValue),
+                custom_goal_text: normalizedCustomGoal,
                 training_experience: assessment.trainingExperience?.rawValue,
                 training_days_per_week: assessment.trainingDaysPerWeek,
                 onboarding_complete: true

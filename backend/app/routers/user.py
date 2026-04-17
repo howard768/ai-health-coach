@@ -28,6 +28,7 @@ class UserProfileResponse(BaseModel):
     weight_lbs: float | None = None
     target_weight_lbs: float | None = None
     goals: list[str] = []
+    custom_goal_text: str | None = None
     training_experience: str | None = None
     training_days_per_week: int | None = None
     member_since: str | None = None
@@ -43,6 +44,7 @@ class UserProfileUpdate(BaseModel):
     weight_lbs: float | None = None
     target_weight_lbs: float | None = None
     goals: list[str] | None = None
+    custom_goal_text: str | None = None
     training_experience: str | None = None
     training_days_per_week: int | None = None
     onboarding_complete: bool | None = None
@@ -79,6 +81,7 @@ async def _build_profile_response(user: User, db: AsyncSession) -> UserProfileRe
         weight_lbs=user.weight_lbs,
         target_weight_lbs=user.target_weight_lbs,
         goals=goals,
+        custom_goal_text=user.custom_goal_text,
         training_experience=user.training_experience,
         training_days_per_week=user.training_days_per_week,
         member_since=user.created_at.strftime("%B %Y") if user.created_at else None,
@@ -132,6 +135,10 @@ async def update_profile(
         current_user.target_weight_lbs = update.target_weight_lbs
     if update.goals is not None:
         current_user.goals = json.dumps(update.goals)
+    if update.custom_goal_text is not None:
+        # Empty string is a valid clear; trim whitespace-only input to None.
+        trimmed = update.custom_goal_text.strip()
+        current_user.custom_goal_text = trimmed if trimmed else None
     if update.training_experience is not None:
         current_user.training_experience = update.training_experience
     if update.training_days_per_week is not None:

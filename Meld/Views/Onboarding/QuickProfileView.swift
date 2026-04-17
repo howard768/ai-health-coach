@@ -1,27 +1,44 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Screen 3: Quick Profile (Adaptive)
 // Fields shown depend on goals selected in Screen 2.
 // Pre-fills from HealthKit where available (green checkmark).
 // All required fields for selected goals — no skip.
 // 4th grade reading level. 20pt margins, 8pt grid.
+//
+// Build 6 revision (2026-04-16): replaced TextField + numeric-pad inputs with
+// native SwiftUI `.pickerStyle(.wheel)` pickers for age, height, weight, and
+// goal weight. Stephanie's build 3-5 feedback called these out as hard to use
+// (no keyboard dismiss, awkward placeholder, keyboard covered the Next
+// button). Wheel pickers match Apple Health / Apple Fitness onboarding
+// convention, require zero text entry, and are fully accessible out of the
+// box. When a value is still null the field is labeled "Tap to set" until
+// the user interacts. Inline-expand-on-tap keeps the screen scannable.
 
 struct QuickProfileView: View {
     @Bindable var viewModel: OnboardingViewModel
 
-    // String intermediaries for numeric inputs, more reliable than
-    // Binding<Int?> with ParseableFormatStyle on optional types.
-    @State private var ageText: String = ""
-    @State private var heightFtText: String = "5"
-    @State private var heightInText: String = "8"
-    @State private var weightText: String = ""
-    @State private var targetWeightText: String = ""
+    // Sensible starting defaults for the wheel pickers. These do NOT write
+    // back to the assessment until the user actually interacts with the
+    // wheel — see the `isSet` flags below. This matches the "picker shows
+    // something, but user hasn't confirmed" pattern Apple Health uses.
+    @State private var ageValue: Int = 30
+    @State private var heightFt: Int = 5
+    @State private var heightIn: Int = 8
+    @State private var weightValue: Int = 160
+    @State private var targetWeightValue: Int = 145
 
-    // Unified focus for all numeric fields. Powers the "Done" keyboard
-    // toolbar and also lets Next button-taps dismiss the keypad first.
-    @FocusState private var fieldFocused: Bool
+    // Track which picker the user is actively editing. Only one picker is
+    // expanded at a time to keep the scroll view short; tapping a collapsed
+    // row expands it and collapses the others.
+    @State private var activeField: ProfileField? = nil
 
     private let M = OnboardingLayout.margin
+
+    enum ProfileField: String, CaseIterable {
+        case age, height, weight, targetWeight
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -48,39 +65,36 @@ struct QuickProfileView: View {
 
                     Spacer().frame(height: DSSpacing.xxl)
 
-                    // Age — always required
+                    // Age, always required
                     fieldLabel("AGE")
-                    ageInputField
+                    agePickerRow
                     if viewModel.prefilledAge != nil {
                         prefillBadge
                     }
 
-                    // Height + Weight — required for weight loss / muscle
+                    // Height + Weight, required for weight loss or muscle goals
                     if viewModel.assessment.needsHeight {
                         Spacer().frame(height: DSSpacing.xxl)
-                        HStack(spacing: DSSpacing.lg) {
-                            VStack(alignment: .leading, spacing: DSSpacing.sm) {
-                                fieldLabel("HEIGHT")
-                                heightInputField
-                            }
-                            VStack(alignment: .leading, spacing: DSSpacing.sm) {
-                                fieldLabel("WEIGHT")
-                                weightInputField
-                            }
-                        }
+                        fieldLabel("HEIGHT")
+                        heightPickerRow
+
+                        Spacer().frame(height: DSSpacing.xxl)
+                        fieldLabel("WEIGHT")
+                        weightPickerRow
+
                         if viewModel.prefilledHeightInches != nil || viewModel.prefilledWeightLbs != nil {
                             prefillBadge
                         }
                     }
 
-                    // Target weight — required for weight loss
+                    // Target weight, required for weight loss
                     if viewModel.assessment.needsTargetWeight {
                         Spacer().frame(height: DSSpacing.xxl)
                         fieldLabel("GOAL WEIGHT")
-                        targetWeightInputField
+                        targetWeightPickerRow
                     }
 
-                    // Training experience — required for muscle
+                    // Training experience, required for muscle
                     if viewModel.assessment.needsExperience {
                         Spacer().frame(height: DSSpacing.xxl)
                         fieldLabel("HOW LONG HAVE YOU TRAINED?")
@@ -98,7 +112,7 @@ struct QuickProfileView: View {
                         }
                     }
 
-                    // Training days — required for muscle
+                    // Training days, required for muscle
                     if viewModel.assessment.needsTrainingDays {
                         Spacer().frame(height: DSSpacing.xxl)
                         fieldLabel("DAYS PER WEEK YOU TRAIN")
@@ -137,7 +151,7 @@ struct QuickProfileView: View {
                         }
                     }
 
-                    // Chronotype — required for sleep
+                    // Chronotype, required for sleep
                     if viewModel.assessment.needsChronotype {
                         Spacer().frame(height: DSSpacing.xxl)
                         fieldLabel("ARE YOU A...")
@@ -155,9 +169,8 @@ struct QuickProfileView: View {
                         }
                     }
 
-                    // Enough breathing room between the privacy line and the
-                    // Next CTA. Stephanie's build 3 feedback: "The 'we keep
-                    // your privacy' text is too close to the next cta".
+                    // Breathing room before the privacy line so it doesn't
+                    // jam the Next CTA.
                     Spacer().frame(height: DSSpacing.huge)
 
                     // Privacy reassurance
@@ -177,9 +190,8 @@ struct QuickProfileView: View {
                 size: .lg,
                 isDisabled: !viewModel.canProceedFromProfile
             ) {
-                // Dismiss any open keypad so the user sees the next screen
-                // animate, not a keyboard teardown on top of a transition.
-                fieldFocused = false
+                // Collapse any open picker so the transition is clean.
+                activeField = nil
                 Analytics.Onboarding.profileCompleted()
                 viewModel.next()
             }
@@ -187,22 +199,9 @@ struct QuickProfileView: View {
             .padding(.bottom, DSSpacing.lg)
         }
         .background(DSColor.Background.primary)
-        .toolbar {
-            // Keyboard Done toolbar. Without this, the decimal/number keypad
-            // on iOS has no return key and the user can't dismiss it to see
-            // the Next button (Stephanie feedback: "Age picker is very
-            // difficult to use"). The toolbar button also gives a clear
-            // affordance that the typing step is complete.
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("Done") { fieldFocused = false }
-                    .font(DSTypography.bodyEmphasis)
-                    .foregroundStyle(DSColor.Purple.purple500)
-            }
-        }
         .onAppear {
             viewModel.applyPrefill()
-            initTextFields()
+            loadFromAssessment()
             Analytics.Onboarding.profileViewed()
             let prefilled = [viewModel.prefilledAge, viewModel.prefilledHeightInches].compactMap { $0 }.count
                 + (viewModel.prefilledWeightLbs != nil ? 1 : 0)
@@ -210,142 +209,169 @@ struct QuickProfileView: View {
         }
     }
 
-    // MARK: - Initialize text fields from assessment (after HealthKit prefill)
+    // MARK: - Initialize picker state from assessment (after HealthKit prefill)
 
-    private func initTextFields() {
-        if let age = viewModel.assessment.age { ageText = "\(age)" }
+    private func loadFromAssessment() {
+        if let age = viewModel.assessment.age { ageValue = age }
         if let h = viewModel.assessment.heightInches {
-            heightFtText = "\(h / 12)"
-            heightInText = "\(h % 12)"
+            heightFt = max(3, min(7, h / 12))
+            heightIn = max(0, min(11, h % 12))
         }
-        if let w = viewModel.assessment.weightLbs { weightText = "\(Int(w))" }
-        if let tw = viewModel.assessment.targetWeightLbs { targetWeightText = "\(Int(tw))" }
+        if let w = viewModel.assessment.weightLbs { weightValue = Int(w) }
+        if let tw = viewModel.assessment.targetWeightLbs { targetWeightValue = Int(tw) }
     }
 
-    // MARK: - Editable Input Fields
+    // MARK: - Picker Rows
+    //
+    // Each row renders:
+    //   - A compact "current value" pill that's always visible
+    //   - A checkmark (prefill badge) when HealthKit filled it in
+    //   - An inline wheel picker that expands when the row is tapped
+    //
+    // Tapping a row sets activeField so only one picker is open at a time.
 
-    private var ageInputField: some View {
-        HStack {
-            TextField("—", text: $ageText)
-                .keyboardType(.numberPad)
-                .font(DSTypography.body)
-                .foregroundStyle(DSColor.Text.primary)
-                .focused($fieldFocused)
-                .onChange(of: ageText) { _, newValue in
-                    viewModel.assessment.age = Int(newValue)
-                }
-            Spacer()
-            if viewModel.prefilledAge != nil {
-                Circle()
-                    .fill(DSColor.Status.success)
-                    .frame(width: 20, height: 20)
-                    .overlay(
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(.white)
-                    )
+    private var agePickerRow: some View {
+        pickerRow(
+            field: .age,
+            displayValue: viewModel.assessment.age.map { "\($0) years" } ?? "Tap to set"
+        ) {
+            Picker("Age", selection: $ageValue) {
+                ForEach(13...99, id: \.self) { Text("\($0)").tag($0) }
+            }
+            .pickerStyle(.wheel)
+            .frame(height: 150)
+            .onChange(of: ageValue) { _, newValue in
+                viewModel.assessment.age = newValue
+                DSHaptic.selection()
             }
         }
-        .frame(height: 48)
-        .padding(.horizontal, DSSpacing.lg)
-        .background(DSColor.Surface.secondary)
-        .dsCornerRadius(DSRadius.md)
-        .padding(.top, DSSpacing.sm)
     }
 
-    private var heightInputField: some View {
-        HStack(spacing: DSSpacing.xs) {
-            TextField("5", text: $heightFtText)
-                .keyboardType(.numberPad)
-                .font(DSTypography.body)
-                .foregroundStyle(DSColor.Text.primary)
-                .frame(width: 28)
-                .focused($fieldFocused)
-                .onChange(of: heightFtText) { _, _ in syncHeight() }
-            Text("ft")
-                .font(DSTypography.caption)
-                .foregroundStyle(DSColor.Text.tertiary)
-            TextField("8", text: $heightInText)
-                .keyboardType(.numberPad)
-                .font(DSTypography.body)
-                .foregroundStyle(DSColor.Text.primary)
-                .frame(width: 28)
-                .focused($fieldFocused)
-                .onChange(of: heightInText) { _, _ in syncHeight() }
-            Text("in")
-                .font(DSTypography.caption)
-                .foregroundStyle(DSColor.Text.tertiary)
-            Spacer()
-        }
-        .frame(height: 48)
-        .padding(.horizontal, DSSpacing.lg)
-        .background(DSColor.Surface.secondary)
-        .dsCornerRadius(DSRadius.md)
-    }
-
-    private var weightInputField: some View {
-        HStack {
-            TextField("—", text: $weightText)
-                .keyboardType(.decimalPad)
-                .font(DSTypography.body)
-                .foregroundStyle(DSColor.Text.primary)
-                .focused($fieldFocused)
-                .onChange(of: weightText) { _, newValue in
-                    if newValue.isEmpty {
-                        viewModel.assessment.weightLbs = nil
-                    } else if let w = Double(newValue) {
-                        viewModel.assessment.weightLbs = w
-                        // Auto-set default target weight on first entry
-                        if viewModel.assessment.targetWeightLbs == nil && targetWeightText.isEmpty {
-                            let defaultTarget = max(w - 15, 100)
-                            viewModel.assessment.targetWeightLbs = defaultTarget
-                            targetWeightText = "\(Int(defaultTarget))"
-                        }
-                    }
+    private var heightPickerRow: some View {
+        pickerRow(
+            field: .height,
+            displayValue: viewModel.assessment.heightInches.map {
+                "\($0 / 12)' \($0 % 12)\""
+            } ?? "Tap to set"
+        ) {
+            HStack(spacing: 0) {
+                Picker("Feet", selection: $heightFt) {
+                    ForEach(3...7, id: \.self) { Text("\($0) ft").tag($0) }
                 }
-            Text("lbs")
-                .font(DSTypography.caption)
-                .foregroundStyle(DSColor.Text.tertiary)
+                .pickerStyle(.wheel)
+                .frame(maxWidth: .infinity)
+
+                Picker("Inches", selection: $heightIn) {
+                    ForEach(0...11, id: \.self) { Text("\($0) in").tag($0) }
+                }
+                .pickerStyle(.wheel)
+                .frame(maxWidth: .infinity)
+            }
+            .frame(height: 150)
+            .onChange(of: heightFt) { _, _ in syncHeight() }
+            .onChange(of: heightIn) { _, _ in syncHeight() }
         }
-        .frame(height: 48)
-        .padding(.horizontal, DSSpacing.lg)
-        .background(DSColor.Surface.secondary)
-        .dsCornerRadius(DSRadius.md)
     }
 
-    private var targetWeightInputField: some View {
-        HStack {
-            TextField("—", text: $targetWeightText)
-                .keyboardType(.decimalPad)
-                .font(DSTypography.body)
-                .foregroundStyle(DSColor.Text.primary)
-                .focused($fieldFocused)
-                .onChange(of: targetWeightText) { _, newValue in
-                    if newValue.isEmpty {
-                        viewModel.assessment.targetWeightLbs = nil
-                    } else if let tw = Double(newValue) {
-                        viewModel.assessment.targetWeightLbs = tw
-                    }
+    private var weightPickerRow: some View {
+        pickerRow(
+            field: .weight,
+            displayValue: viewModel.assessment.weightLbs.map {
+                "\(Int($0)) lbs"
+            } ?? "Tap to set"
+        ) {
+            Picker("Weight", selection: $weightValue) {
+                ForEach(80...400, id: \.self) { Text("\($0) lbs").tag($0) }
+            }
+            .pickerStyle(.wheel)
+            .frame(height: 150)
+            .onChange(of: weightValue) { _, newValue in
+                viewModel.assessment.weightLbs = Double(newValue)
+                // Auto-seed a sensible target weight the first time the
+                // user picks a weight, if their goal is loss and they
+                // haven't set one yet.
+                if viewModel.assessment.targetWeightLbs == nil {
+                    let defaultTarget = max(newValue - 15, 100)
+                    viewModel.assessment.targetWeightLbs = Double(defaultTarget)
+                    targetWeightValue = defaultTarget
                 }
-            Text("lbs")
-                .font(DSTypography.caption)
-                .foregroundStyle(DSColor.Text.tertiary)
+                DSHaptic.selection()
+            }
         }
-        .frame(height: 48)
-        .padding(.horizontal, DSSpacing.lg)
-        .background(DSColor.Surface.secondary)
-        .dsCornerRadius(DSRadius.md)
+    }
+
+    private var targetWeightPickerRow: some View {
+        pickerRow(
+            field: .targetWeight,
+            displayValue: viewModel.assessment.targetWeightLbs.map {
+                "\(Int($0)) lbs"
+            } ?? "Tap to set"
+        ) {
+            Picker("Goal weight", selection: $targetWeightValue) {
+                ForEach(80...400, id: \.self) { Text("\($0) lbs").tag($0) }
+            }
+            .pickerStyle(.wheel)
+            .frame(height: 150)
+            .onChange(of: targetWeightValue) { _, newValue in
+                viewModel.assessment.targetWeightLbs = Double(newValue)
+                DSHaptic.selection()
+            }
+        }
+    }
+
+    // MARK: - Picker row scaffolding
+
+    @ViewBuilder
+    private func pickerRow<Content: View>(
+        field: ProfileField,
+        displayValue: String,
+        @ViewBuilder picker: () -> Content
+    ) -> some View {
+        VStack(spacing: 0) {
+            Button(action: {
+                withAnimation(DSMotion.standard) {
+                    activeField = (activeField == field) ? nil : field
+                }
+                DSHaptic.light()
+            }) {
+                HStack {
+                    Text(displayValue)
+                        .font(DSTypography.body)
+                        .foregroundStyle(
+                            displayValue == "Tap to set"
+                                ? DSColor.Text.tertiary
+                                : DSColor.Text.primary
+                        )
+
+                    Spacer()
+
+                    Image(systemName: activeField == field ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(DSColor.Text.tertiary)
+                }
+                .frame(height: 48)
+                .padding(.horizontal, DSSpacing.lg)
+                .background(DSColor.Surface.secondary)
+                .dsCornerRadius(DSRadius.md)
+            }
+            .buttonStyle(.plain)
+
+            if activeField == field {
+                picker()
+                    .padding(.top, DSSpacing.xs)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
         .padding(.top, DSSpacing.sm)
     }
 
     // MARK: - Helpers
 
     private func syncHeight() {
-        let ft = Int(heightFtText) ?? 0
-        let inch = Int(heightInText) ?? 0
-        let total = ft * 12 + inch
+        let total = heightFt * 12 + heightIn
         if total > 0 {
             viewModel.assessment.heightInches = total
+            DSHaptic.selection()
         }
     }
 

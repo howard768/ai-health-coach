@@ -275,6 +275,7 @@ def test_full_prompt_includes_all_three_sections():
         user_name="Brock",
         health_data="{}",
         goals="general wellness",
+        custom_goal_context="",
         memory_context="",
         active_patterns=_render_active_patterns(ctx),
         recent_anomalies=_render_recent_anomalies(ctx),
@@ -298,6 +299,7 @@ def test_full_prompt_gracefully_omits_empty_sections():
         user_name="Brock",
         health_data="{}",
         goals="general wellness",
+        custom_goal_context="",
         memory_context="",
         active_patterns="",
         recent_anomalies="",
@@ -307,3 +309,29 @@ def test_full_prompt_gracefully_omits_empty_sections():
     assert "ACTIVE PATTERNS" not in prompt
     assert "RECENT ANOMALIES" not in prompt
     assert "PERSONAL FORECAST" not in prompt
+    assert "WHAT THE USER TOLD US" not in prompt
+
+
+def test_full_prompt_includes_custom_goal_text_when_provided():
+    """When a user filled in the 'Want to share more?' field during
+    onboarding, the raw text flows into the coach prompt as its own
+    section so responses can speak to their actual situation, not just
+    the canned chip goals."""
+    from app.services.coach_engine import EVIDENCE_BOUND_SYSTEM_PROMPT
+
+    prompt = EVIDENCE_BOUND_SYSTEM_PROMPT.format(
+        user_name="Brock",
+        health_data="{}",
+        goals="Build muscle",
+        custom_goal_context=(
+            "WHAT THE USER TOLD US IN THEIR OWN WORDS:\n"
+            "I want a custom workout plan. I use the Peloton tread primarily.\n"
+        ),
+        memory_context="",
+        active_patterns="",
+        recent_anomalies="",
+        personal_forecast="",
+        safety_disclaimer="",
+    )
+    assert "WHAT THE USER TOLD US IN THEIR OWN WORDS" in prompt
+    assert "Peloton tread" in prompt
