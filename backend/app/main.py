@@ -11,7 +11,7 @@ from slowapi.util import get_remote_address
 
 from app.config import settings
 from app.database import init_db
-from app.routers import auth, auth_apple, health, coach, notifications, meals, user, peloton_auth, garmin_auth, webhooks, waitlist, mascot, insights, privacy, experiments, ops
+from app.routers import auth, auth_apple, health, coach, notifications, meals, user, peloton_auth, garmin_auth, webhooks, waitlist, mascot, insights, privacy, experiments, ops, ml_ops
 from app.tasks.scheduler import start_scheduler, stop_scheduler
 
 
@@ -105,6 +105,7 @@ app.include_router(insights.router)    # Signal Engine Phase 4: daily ranked ins
 app.include_router(privacy.router)     # Phase 8: cohort opt-in/opt-out + deletion
 app.include_router(experiments.router) # Phase 9: n-of-1 experiment CRUD + APTE results
 app.include_router(ops.router)         # Ops status for autonomous monitoring loops
+app.include_router(ml_ops.router)      # Read-only ML ops endpoints for Phase 5 monitors
 
 
 @app.get("/")
