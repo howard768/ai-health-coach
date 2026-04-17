@@ -5,8 +5,8 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
-  # `contents: write` is needed for `gh pr merge --auto --merge` on the
-  # Tier 0 path. Without it GitHub rejects the call with
+  # `contents: write` is needed for `gh pr merge --merge` on the Tier 0
+  # path. Without it GitHub rejects with
   # `Resource not accessible by integration (mergePullRequest)`.
   contents: write
   pull-requests: write
@@ -235,8 +235,13 @@ jobs:
               esac
             done
             if [ "$all_ok" = "true" ]; then
-              echo "All required checks green; enabling auto-merge."
-              gh pr merge "$PR_NUM" --auto --merge
+              # Direct merge, not --auto. Auto-merge requires the repo-level
+              # "Allow auto-merge" setting to be enabled AND calls
+              # enablePullRequestAutoMerge via GraphQL, which GITHUB_TOKEN
+              # does not have scope for by default. Since we just polled
+              # for all required checks to be SUCCESS, we can merge directly.
+              echo "All required checks green; merging directly."
+              gh pr merge "$PR_NUM" --merge
               exit 0
             fi
             sleep 30
