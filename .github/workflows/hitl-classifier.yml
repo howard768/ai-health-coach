@@ -165,32 +165,22 @@ jobs:
           gh pr comment "$PR_NUM" --body "$BODY"
           gh pr close "$PR_NUM"
 
-      - name: Tier 2 — label, comment, convert to draft
+      - name: Tier 2 — label + comment (soft signal to Brock)
         if: steps.killswitch.outputs.enabled == 'true' && steps.classify.outputs.tier == 'tier2'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUM: ${{ github.event.pull_request.number }}
-          PR_NODE_ID: ${{ github.event.pull_request.node_id }}
           REASONS: ${{ steps.classify.outputs.reasons }}
           MATCHED: ${{ steps.classify.outputs.matched_files }}
-          IS_DRAFT: ${{ github.event.pull_request.draft }}
         run: |
-          # Ensure label exists, then apply it.
+          # Ensure label exists, then apply it. The label is the gate: the
+          # Tier 0 auto-merge path only runs when tier == 'tier0', so a PR
+          # classified as Tier 2 will NOT be auto-merged by this workflow.
           gh label create product-review --color FBCA04 --description "Tier 2: needs Brock's product review" 2>/dev/null || true
           gh pr edit "$PR_NUM" --add-label product-review
 
-          BODY=$(printf '### Tier 2 PRODUCT — Brock reviews\n\nThis PR touches paths classified as Tier 2 (coach / chat_stream / design tokens / onboarding / website content). These have product surface implications and will not be auto-merged.\n\n**Matched files:**\n%s\n\n**Why:**\n%s\n\nConverted to draft. Brock will review and mark ready when it''s good to ship.\n\nTODO: Linear issue creation will be handled by the Linear MCP from a separate scheduled task.' "$MATCHED" "$REASONS")
+          BODY=$(printf '### Tier 2 PRODUCT — Brock reviews\n\nThis PR touches paths classified as Tier 2 (coach / chat_stream / design tokens / onboarding / website content). These have product surface implications and will not be auto-merged by the HITL classifier.\n\n**Matched files:**\n%s\n\n**Why:**\n%s\n\nBrock merges when ready. The `product-review` label is the signal; the PR stays in its current draft/ready state (GITHUB_TOKEN cannot convert to draft without an app token, so we rely on the label instead).\n\nLinear issue creation will be handled by the Linear MCP from a separate scheduled task.' "$MATCHED" "$REASONS")
           gh pr comment "$PR_NUM" --body "$BODY"
-
-          # Convert to draft via GraphQL (gh pr ready --undo is not universally available).
-          if [ "$IS_DRAFT" != "true" ]; then
-            gh api graphql -f query='
-              mutation($id: ID!) {
-                convertPullRequestToDraft(input: {pullRequestId: $id}) {
-                  pullRequest { isDraft }
-                }
-              }' -f id="$PR_NODE_ID"
-          fi
 
       - name: Tier 0 — wait for required checks, then auto-merge
         if: steps.killswitch.outputs.enabled == 'true' && steps.classify.outputs.tier == 'tier0'
