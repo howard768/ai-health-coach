@@ -14,14 +14,29 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy import func, select, text
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.database import get_db
 
 logger = logging.getLogger("meld.ops")
 
 router = APIRouter(prefix="/ops", tags=["ops"])
+
+
+# Per-table freshness column map. Each ML table uses a different timestamp
+# column (computed_at, generated_at, etc.). ml_synth_runs.created_at is a
+# String ISO-8601 timestamp, not a DateTime, so the MAX() result comes back
+# as a str and is returned verbatim. Everything else is a DateTime.
+_FRESHNESS_SOURCES: dict[str, tuple[str, str]] = {
+    "ml_features_latest": ("ml_features", "computed_at"),
+    "ml_baselines_latest": ("ml_baselines", "computed_at"),
+    "ml_insights_latest": ("ml_insights", "generated_at"),
+    "ml_synth_runs_latest": ("ml_synth_runs", "created_at"),
+    "user_correlations_latest": ("user_correlations", "discovered_at"),
+    "notification_records_latest": ("notification_records", "sent_at"),
+}
 
 
 # -- Response models --
@@ -48,6 +63,7 @@ class OpsStatusResponse(BaseModel):
     deploy_sha: str | None
     uptime_env: str
     scheduler_running: bool
+    sentry_enabled: bool
     jobs: list[JobStatus]
     pipeline_freshness: PipelineFreshness
     db_ok: bool
@@ -85,24 +101,32 @@ async def _get_pipeline_freshness(db: AsyncSession) -> PipelineFreshness:
     """Query latest timestamps from ML and notification tables.
 
     Uses raw SQL to avoid importing model classes (keeps cold-boot clean).
-    Tables may not exist in all environments, so each query is try/excepted.
+    Per-table column map lives in ``_FRESHNESS_SOURCES``; each table has its
+    own timestamp column name (``computed_at``, ``generated_at`` etc.).
+    Tables may not exist in all environments, so each query is try/excepted
+    independently so one missing table does not zero out the rest.
     """
     results: dict[str, str | None] = {}
-    tables = {
-        "ml_features_latest": "ml_features",
-        "ml_baselines_latest": "ml_baselines",
-        "ml_insights_latest": "ml_insights",
-        "ml_synth_runs_latest": "ml_synth_runs",
-        "user_correlations_latest": "user_correlations",
-        "notification_records_latest": "notification_records",
-    }
-    for key, table in tables.items():
+    for key, (table, column) in _FRESHNESS_SOURCES.items():
         try:
             row = await db.execute(
-                text(f"SELECT MAX(updated_at) FROM {table}")  # noqa: S608
+                text(f"SELECT MAX({column}) FROM {table}")  # noqa: S608
             )
             val = row.scalar()
-            results[key] = val.isoformat() if val else None
+            if val is None:
+                results[key] = None
+            elif isinstance(val, datetime):
+                results[key] = val.isoformat()
+            else:
+                # Two sources of strings here: ml_synth_runs.created_at is a
+                # String column already in ISO-8601 with T separator. SQLite's
+                # raw-SQL path also returns DateTime columns as text with a
+                # space separator ("YYYY-MM-DD HH:MM:SS.ffffff"). Normalize
+                # to T so downstream parsers get a consistent ISO-8601 string.
+                s = str(val)
+                if len(s) >= 11 and s[10] == " ":
+                    s = s[:10] + "T" + s[11:]
+                results[key] = s
         except Exception:
             results[key] = None
 
@@ -135,6 +159,7 @@ async def ops_status(db: AsyncSession = Depends(get_db)) -> OpsStatusResponse:
         deploy_sha=os.environ.get("RAILWAY_GIT_COMMIT_SHA"),
         uptime_env=os.environ.get("APP_ENV", "development"),
         scheduler_running=scheduler_running,
+        sentry_enabled=bool(settings.sentry_dsn),
         jobs=jobs,
         pipeline_freshness=pipeline,
         db_ok=db_ok,
