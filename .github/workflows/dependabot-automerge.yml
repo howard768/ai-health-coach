@@ -1,0 +1,77 @@
+name: Dependabot Auto-merge
+
+# HITL Tier 0: auto-merge dependabot patch and minor bumps once required CI
+# checks pass. Major bumps post a comment and stay open for Brock review.
+#
+# Plan: ~/.claude/plans/hitl-tier-model.md
+#
+# Kill switch: repo variable AUTO_MERGE_ENABLED must be set to "true". If it is
+# missing or any other value, the workflow exits early and nothing is merged.
+# Toggle at: Settings -> Secrets and variables -> Actions -> Variables tab.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  automerge:
+    name: Classify and auto-merge
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+
+    steps:
+      - name: Check kill switch
+        id: killswitch
+        run: |
+          if [ "${{ vars.AUTO_MERGE_ENABLED }}" != "true" ]; then
+            echo "AUTO_MERGE_ENABLED is not 'true' (got '${{ vars.AUTO_MERGE_ENABLED }}'). Skipping auto-merge."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fetch dependabot metadata
+        if: steps.killswitch.outputs.enabled == 'true'
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Handle major version bump
+        if: >
+          steps.killswitch.outputs.enabled == 'true' &&
+          steps.metadata.outputs.update-type == 'version-update:semver-major'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          gh pr comment "$PR_URL" --body "Major version bump, needs Brock. Auto-merge skipped."
+          echo "Major bump detected, not auto-merging."
+
+      - name: Wait for required checks (patch/minor)
+        if: >
+          steps.killswitch.outputs.enabled == 'true' &&
+          (steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
+           steps.metadata.outputs.update-type == 'version-update:semver-minor')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          echo "Waiting for required checks on $PR_URL..."
+          gh pr checks "$PR_URL" --watch --required --fail-fast
+
+      - name: Enable auto-merge (patch/minor)
+        if: >
+          steps.killswitch.outputs.enabled == 'true' &&
+          (steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
+           steps.metadata.outputs.update-type == 'version-update:semver-minor')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          echo "Auto-merging ${{ steps.metadata.outputs.update-type }} bump: $PR_URL"
+          gh pr merge "$PR_URL" --auto --merge
