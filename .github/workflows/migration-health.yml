@@ -1,0 +1,294 @@
+name: Migration Health
+
+# Phase 7 Loop 12. Pattern-level checks on Alembic migration files.
+# Runs on any PR/push touching backend/alembic/versions/. Complements
+# backend.yml's alembic round-trip: catches data-loss patterns, PHI-table
+# edits, size bloat, and orphan down_revisions that round-trip can't see.
+# Posts ONE summary comment per PR. Hard-FAILs only on structural errors
+# (missing parent revision, syntax error) or PHI-touching migration by
+# a non-howard768 author (Tier 3 refuse per HITL v2). Stdlib only,
+# read-only, no secret reads, no ML imports.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "backend/alembic/versions/**"
+  push:
+    branches: [main]
+    paths:
+      - "backend/alembic/versions/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  audit:
+    name: Audit migration patterns
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Compute changed migrations
+        id: diff
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.event.after }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          # On PR use base...head (merge-base). On push use before..after.
+          # Filter to files under backend/alembic/versions/ with .py suffix.
+          if [ "$EVENT" = "pull_request" ]; then
+            RANGE="${BASE_SHA}...${HEAD_SHA}"
+          else
+            RANGE="${BEFORE_SHA}..${AFTER_SHA}"
+          fi
+          echo "diff range: $RANGE"
+          git diff --name-only --diff-filter=AM "$RANGE" -- 'backend/alembic/versions/*.py' \
+            | grep -v '__pycache__' > changed_migrations.txt || true
+          echo "Changed migration files:"
+          cat changed_migrations.txt
+          COUNT=$(wc -l < changed_migrations.txt | tr -d ' ')
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+
+      - name: Run migration pattern audit
+        if: steps.diff.outputs.count != '0'
+        id: audit
+        env:
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          python3 <<'PY'
+          """Audit Alembic migrations. Reads changed_migrations.txt, emits
+          audit_report.md and audit_hard_fail.flag. Stdlib only."""
+          import ast
+          import os
+          import re
+          from pathlib import Path
+
+          VERSIONS_DIR = Path("backend/alembic/versions")
+          PHI_TABLES = {
+              "health_metric_records", "sleep_records", "chat_messages",
+              "meals", "oura_sleep", "oura_heart_rate",
+              "oura_daily_activity", "oura_heart_rate_variability",
+              "garmin_daily_records", "peloton_workouts",
+              "user_correlations", "ml_features", "ml_baselines",
+              "ml_insights",
+          }
+          # Data-loss regex. Each captures the call-site for line reporting.
+          # op.drop_column, op.drop_table, op.drop_constraint, op.alter_column
+          # with a type= or new_type= (approximates a type-change narrowing),
+          # and raw op.execute containing DELETE/DROP/TRUNCATE.
+          DATALOSS_PATTERNS = [
+              (re.compile(r"\bop\.drop_column\b"), "drop_column"),
+              (re.compile(r"\bop\.drop_table\b"), "drop_table"),
+              (re.compile(r"\bop\.drop_constraint\b"), "drop_constraint"),
+              (re.compile(r"\bop\.alter_column\b[^)]*\btype_\s*="),
+               "alter_column(type change)"),
+              (re.compile(r"\bop\.execute\b[^)]*(?:DELETE|DROP|TRUNCATE)",
+                          re.IGNORECASE), "execute(DELETE/DROP/TRUNCATE)"),
+          ]
+          ENCRYPTED_PATTERN = re.compile(r"Encrypted", re.IGNORECASE)
+          PR_AUTHOR = os.environ.get("PR_AUTHOR", "").strip()
+
+          changed = [
+              Path(line.strip())
+              for line in Path("changed_migrations.txt").read_text().splitlines()
+              if line.strip()
+          ]
+
+          def find_revisions_on_disk() -> set[str]:
+              """Revisions available in the checkout (from every .py file)."""
+              revs: set[str] = set()
+              if not VERSIONS_DIR.is_dir():
+                  return revs
+              for f in VERSIONS_DIR.glob("*.py"):
+                  try:
+                      src = f.read_text()
+                  except OSError:
+                      continue
+                  m = re.search(r"^revision\s*(?::[^=]+)?=\s*['\"]([^'\"]+)['\"]",
+                                src, re.MULTILINE)
+                  if m:
+                      revs.add(m.group(1))
+              return revs
+
+          ALL_REVS = find_revisions_on_disk()
+
+          def parse_down_revision(tree: ast.AST):
+              """Return None, str, or tuple of str. Raise on assign-missing."""
+              for node in ast.iter_child_nodes(tree):
+                  if isinstance(node, ast.AnnAssign) and isinstance(
+                          node.target, ast.Name) and node.target.id == "down_revision":
+                      return _literal_value(node.value) if node.value else None
+                  if isinstance(node, ast.Assign):
+                      for t in node.targets:
+                          if isinstance(t, ast.Name) and t.id == "down_revision":
+                              return _literal_value(node.value)
+              return None
+
+          def _literal_value(node):
+              try:
+                  return ast.literal_eval(node)
+              except (ValueError, SyntaxError):
+                  return None
+
+          def function_is_trivial(tree: ast.AST, name: str) -> bool:
+              """True if function body is empty or contains only Pass/Expr-str."""
+              for node in ast.walk(tree):
+                  if isinstance(node, ast.FunctionDef) and node.name == name:
+                      body = [n for n in node.body
+                              if not (isinstance(n, ast.Expr)
+                                      and isinstance(n.value, ast.Constant)
+                                      and isinstance(n.value.value, str))]
+                      if not body:
+                          return True
+                      return all(isinstance(n, ast.Pass) for n in body)
+              return True  # Missing function counts as trivial.
+
+          def scan_file(path: Path) -> dict:
+              result = {"path": str(path), "warnings": [], "errors": [], "notes": []}
+              try:
+                  src = path.read_text()
+              except OSError as exc:
+                  result["errors"].append(f"unreadable: {exc}")
+                  return result
+              try:
+                  tree = ast.parse(src, filename=str(path))
+              except SyntaxError as exc:
+                  result["errors"].append(f"syntax error line {exc.lineno}: {exc.msg}")
+                  return result
+
+              # Size check (over 300 lines).
+              nlines = src.count("\n") + 1
+              if nlines > 300:
+                  result["warnings"].append(
+                      f"size: {nlines} lines, consider splitting (>300).")
+
+              # down_revision parse and parent existence.
+              down = parse_down_revision(tree)
+              is_merge = isinstance(down, tuple)
+              if down is None:
+                  result["notes"].append("initial migration (no down_revision).")
+              elif is_merge:
+                  missing = [p for p in down if p not in ALL_REVS]
+                  if missing:
+                      result["errors"].append(
+                          f"merge down_revision references missing parent(s): {missing}")
+              else:
+                  if down not in ALL_REVS:
+                      result["errors"].append(
+                          f"down_revision '{down}' not found on disk.")
+
+              # upgrade/downgrade triviality.
+              up_trivial = function_is_trivial(tree, "upgrade")
+              down_trivial = function_is_trivial(tree, "downgrade")
+              if up_trivial and down_trivial and not is_merge:
+                  result["warnings"].append(
+                      "both upgrade() and downgrade() are empty and this is not a merge.")
+              elif down_trivial and not is_merge and not up_trivial:
+                  result["warnings"].append(
+                      "downgrade() is empty on a non-merge migration (irreversible).")
+
+              # Data-loss scan: line-number accurate via per-line search.
+              for i, line in enumerate(src.splitlines(), start=1):
+                  for pattern, label in DATALOSS_PATTERNS:
+                      if pattern.search(line):
+                          result["warnings"].append(
+                              f"data-loss op '{label}' at line {i}: {line.strip()[:120]}")
+
+              # PHI table + encrypted column detection.
+              touched_phi = sorted(t for t in PHI_TABLES
+                                   if re.search(rf"['\"]{re.escape(t)}['\"]", src))
+              if touched_phi:
+                  result["phi_tables"] = touched_phi
+                  result["notes"].append(
+                      f"PHI-touching tables: {', '.join(touched_phi)} "
+                      "(Tier 3 per HITL v2; Brock approves).")
+              if ENCRYPTED_PATTERN.search(src):
+                  result["notes"].append(
+                      "contains 'Encrypted' reference: verify EncryptedString "
+                      "type decorator is applied and ENCRYPTION_KEY env unchanged.")
+
+              return result
+
+          reports = [scan_file(p) for p in changed]
+
+          # Decide hard-fail. Two triggers: (a) PHI-touching migration by
+          # non-howard768 author, (b) any structural error (missing parent
+          # revision, syntax error).
+          hard_fail = False
+          hard_fail_reasons: list[str] = []
+          for r in reports:
+              if r["errors"]:
+                  hard_fail = True
+                  hard_fail_reasons.append(
+                      f"{r['path']}: {'; '.join(r['errors'])}")
+              if r.get("phi_tables") and PR_AUTHOR and PR_AUTHOR != "howard768":
+                  hard_fail = True
+                  hard_fail_reasons.append(
+                      f"{r['path']}: PHI-table migration by '{PR_AUTHOR}' "
+                      "(Tier 3 refuse, must be authored by howard768).")
+
+          # Build the Markdown report.
+          lines = ["### Migration Health audit", ""]
+          if not changed:
+              lines.append("No migration files changed in this diff.")
+          else:
+              lines.append(f"Audited **{len(changed)}** migration file(s).")
+              lines.append("")
+              if hard_fail:
+                  lines.append("#### HARD FAIL")
+                  for reason in hard_fail_reasons:
+                      lines.append(f"- {reason}")
+                  lines.append("")
+              for r in reports:
+                  lines.append(f"#### `{r['path']}`")
+                  if not (r["errors"] or r["warnings"] or r["notes"]):
+                      lines.append("- clean: no structural or pattern issues found.")
+                  for e in r["errors"]:
+                      lines.append(f"- ERROR: {e}")
+                  for w in r["warnings"]:
+                      lines.append(f"- WARNING: {w}")
+                  for n in r["notes"]:
+                      lines.append(f"- note: {n}")
+                  lines.append("")
+              lines.append("---")
+              lines.append(
+                  "Complements (does not replace) the `backend.yml` alembic "
+                  "round-trip gate. Warnings do not fail the check; only "
+                  "structural errors or Tier 3 PHI-by-non-Brock do.")
+
+          Path("audit_report.md").write_text("\n".join(lines) + "\n")
+          if hard_fail:
+              Path("audit_hard_fail.flag").write_text("1")
+          print("audit complete; hard_fail=", hard_fail)
+          PY
+          # Surface whether we need a hard fail after comment posting.
+          if [ -f audit_hard_fail.flag ]; then
+            echo "hard_fail=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "hard_fail=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Post summary comment
+        if: >
+          steps.diff.outputs.count != '0' &&
+          github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+        run: |
+          gh pr comment "$PR_NUM" --body-file audit_report.md
+
+      - name: Hard fail if required
+        if: steps.audit.outputs.hard_fail == 'true'
+        run: |
+          echo "::error::Migration audit produced a hard-fail condition (see PR comment)."
+          exit 1
