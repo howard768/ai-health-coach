@@ -92,6 +92,20 @@ jobs:
 
             Cite specific file:line for every flag. Under 300 words total. Do NOT suggest rewrites, just identify the issue.
 
+            ## iOS-specific rules (when PR touches Meld/** or MeldNotificationServiceExtension/**)
+
+            - **No hardcoded colors**: flag any `Color(red:green:blue:)`, `Color(.sRGB, ...)`, `UIColor(red:green:blue:)`, `UIColor.init(_, red:)`, or literal hex strings like `"#FF00FF"`/`0xFF00FF` in any file under `Meld/Views/**` or `Meld/Components/**`. These must use a design-system token from `Meld/DesignSystem/Tokens/DSColor.swift` instead. Exception: `Meld/DesignSystem/Tokens/DSColor.swift` itself is where the primitives live; hex literals are OK there.
+
+            - **No hardcoded font sizes or weights**: flag any `.font(.system(size: 17))` or similar literal sizes in view files. Must use a token from `Meld/DesignSystem/Tokens/DSTypography.swift`.
+
+            - **No hardcoded spacing**: flag any `.padding(16)` or similar in view files that should use tokens from `Meld/DesignSystem/Tokens/DSSpacing.swift`. Accept `.padding()` (default) or `.padding(.horizontal)`.
+
+            - **Accessibility labels**: flag any `Button`, `Image(systemName:)`, tappable `Circle()`/`RoundedRectangle()`, or similar interactive view that lacks a `.accessibilityLabel(...)` modifier. Decorative elements can use `.accessibilityHidden(true)`.
+
+            - **No emoji in Swift string literals** under `Meld/**`: memory `feedback_design.md` says no emoji icons. Flag any string literal in `.swift` files containing Unicode code points in the emoji ranges (U+1F300-U+1FAFF, U+2600-U+27BF). Exception: tests that intentionally assert emoji handling, and any `// MARK:` or doc-comment decorations.
+
+            - **Design-token value changes (Tier 2)**: if the PR modifies values (not just adds new tokens) in `Meld/DesignSystem/Tokens/DSColor.swift`, `DSTypography.swift`, or `DSSpacing.swift`, flag as "Tier 2 Product: design token value change needs Brock's eye, ripples across the whole app".
+
             If the PR ONLY touches iOS files (`Meld/**`, `project.yml`), skip backend-specific checks. If the PR ONLY touches `website/**`, skip ML/PHI/coach checks.
 
           claude_args: |
