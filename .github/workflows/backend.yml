@@ -17,16 +17,22 @@ name: Backend CI
 # prophet, coremltools) lag new releases.
 
 on:
+  # Intentionally no `paths:` filter. Two reasons:
+  # 1. Railway has "Wait for CI" enabled and waits on ALL GitHub Actions
+  #    before deploying. If backend.yml path-filters out iOS-only commits,
+  #    iOS CI becomes the only gate and backend-side breakage can land on
+  #    main unnoticed (this bit us 2026-04-16 when the alembic merge head
+  #    broke the round-trip gate and went red for 2.5 hours because every
+  #    subsequent main commit was iOS-only and skipped backend.yml).
+  # 2. Env-var-only Railway redeploys queue behind any iOS-only commit
+  #    that never triggered backend CI, so the "Wait for CI" queue never
+  #    drains. Running backend.yml on every main push gives Railway a
+  #    deterministic green-signal source.
+  # Cost: ~1.5min of CI on PRs that don't touch backend. Acceptable.
   pull_request:
-    paths:
-      - 'backend/**'
-      - '.github/workflows/backend.yml'
 
   push:
     branches: [main]
-    paths:
-      - 'backend/**'
-      - '.github/workflows/backend.yml'
 
   workflow_dispatch:
 
