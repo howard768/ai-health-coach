@@ -1,0 +1,243 @@
+name: HITL Classifier
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  classify:
+    name: Classify PR tier
+    runs-on: ubuntu-latest
+    # Skip dependabot (handled by dependabot-automerge.yml) and fork PRs (safety).
+    if: >
+      github.event.pull_request.user.login != 'dependabot[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+
+    steps:
+      - name: Kill switch check
+        id: killswitch
+        env:
+          AUTO_MERGE_ENABLED: ${{ vars.AUTO_MERGE_ENABLED }}
+        run: |
+          if [ "${AUTO_MERGE_ENABLED}" != "true" ]; then
+            echo "AUTO_MERGE_ENABLED=${AUTO_MERGE_ENABLED:-unset}; skipping classifier."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.killswitch.outputs.enabled == 'true'
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Compute diff file list
+        if: steps.killswitch.outputs.enabled == 'true'
+        id: files
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh api --paginate "/repos/${REPO}/pulls/${PR_NUM}/files" --jq '.[].filename' > changed_files.txt
+          echo "Changed files:"
+          cat changed_files.txt
+
+      - name: Classify changes
+        if: steps.killswitch.outputs.enabled == 'true'
+        id: classify
+        run: |
+          python3 <<'PY'
+          import fnmatch
+          import json
+          import os
+          import subprocess
+          import sys
+
+          with open(".github/hitl-config.json") as f:
+              cfg = json.load(f)
+
+          with open("changed_files.txt") as f:
+              changed = [line.strip() for line in f if line.strip()]
+
+          def matches_any(path, patterns):
+              """Match a path against a list of prefixes or glob patterns."""
+              for pat in patterns:
+                  # Directory/file prefix match (no glob metachars).
+                  if not any(c in pat for c in "*?["):
+                      if path == pat or path.startswith(pat.rstrip("/") + "/") or path.startswith(pat):
+                          return pat
+                  # Glob match on basename and full path.
+                  if fnmatch.fnmatch(path, pat) or fnmatch.fnmatch(os.path.basename(path), pat):
+                      return pat
+              return None
+
+          tier3_path_hits = []
+          tier2_path_hits = []
+          for path in changed:
+              hit3 = matches_any(path, cfg.get("tier3_refuse", []))
+              if hit3:
+                  tier3_path_hits.append((path, hit3))
+                  continue
+              hit2 = matches_any(path, cfg.get("tier2_product", []))
+              if hit2:
+                  tier2_path_hits.append((path, hit2))
+
+          # Content-match check: scan diffs of changed files for forbidden strings.
+          tier3_content_hits = []
+          content_needles = cfg.get("tier3_refuse_content_match", [])
+          if content_needles and changed:
+              base_sha = os.environ.get("BASE_SHA", "")
+              head_sha = os.environ.get("HEAD_SHA", "")
+              for path in changed:
+                  try:
+                      diff = subprocess.check_output(
+                          ["git", "diff", f"{base_sha}...{head_sha}", "--", path],
+                          text=True,
+                          stderr=subprocess.DEVNULL,
+                      )
+                  except subprocess.CalledProcessError:
+                      continue
+                  # Only scan added lines (start with '+' but not '+++').
+                  added = [
+                      ln[1:] for ln in diff.splitlines()
+                      if ln.startswith("+") and not ln.startswith("+++")
+                  ]
+                  added_text = "\n".join(added)
+                  for needle in content_needles:
+                      if needle in added_text:
+                          tier3_content_hits.append((path, needle))
+
+          tier = "tier0"
+          if tier3_path_hits or tier3_content_hits:
+              tier = "tier3"
+          elif tier2_path_hits:
+              tier = "tier2"
+
+          reasons = []
+          if tier3_path_hits:
+              reasons.append("Path matches (Tier 3 refuse):")
+              for p, pat in tier3_path_hits:
+                  reasons.append(f"  - `{p}` matched `{pat}`")
+          if tier3_content_hits:
+              reasons.append("Content matches (Tier 3 refuse):")
+              for p, needle in tier3_content_hits:
+                  reasons.append(f"  - `{p}` contains `{needle}`")
+          if tier2_path_hits:
+              reasons.append("Path matches (Tier 2 product):")
+              for p, pat in tier2_path_hits:
+                  reasons.append(f"  - `{p}` matched `{pat}`")
+
+          gh_output = os.environ["GITHUB_OUTPUT"]
+          with open(gh_output, "a") as out:
+              out.write(f"tier={tier}\n")
+              out.write("reasons<<EOF\n")
+              out.write("\n".join(reasons) + "\n")
+              out.write("EOF\n")
+              file_list = "\n".join(f"- `{p}`" for p, _ in (tier3_path_hits + tier3_content_hits + tier2_path_hits))
+              out.write("matched_files<<EOF\n")
+              out.write(file_list + "\n")
+              out.write("EOF\n")
+
+          print(f"Classified as {tier}")
+          for line in reasons:
+              print(line)
+          PY
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+
+      - name: Tier 3 — block and close
+        if: steps.killswitch.outputs.enabled == 'true' && steps.classify.outputs.tier == 'tier3'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          REASONS: ${{ steps.classify.outputs.reasons }}
+          MATCHED: ${{ steps.classify.outputs.matched_files }}
+        run: |
+          BODY=$(printf '### Tier 3 BLOCKED\n\nThis PR touches paths or content classified as Tier 3 (safety / encryption / evidence-bound prompt / PHI / credentials). These changes must be authored by Brock and cannot be auto-merged or auto-drafted.\n\n**Matched:**\n%s\n\n**Details:**\n%s\n\nClosing this PR. If this is a false positive, edit `.github/hitl-config.json` and reopen.' "$MATCHED" "$REASONS")
+          gh pr comment "$PR_NUM" --body "$BODY"
+          gh pr close "$PR_NUM"
+
+      - name: Tier 2 — label, comment, convert to draft
+        if: steps.killswitch.outputs.enabled == 'true' && steps.classify.outputs.tier == 'tier2'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          PR_NODE_ID: ${{ github.event.pull_request.node_id }}
+          REASONS: ${{ steps.classify.outputs.reasons }}
+          MATCHED: ${{ steps.classify.outputs.matched_files }}
+          IS_DRAFT: ${{ github.event.pull_request.draft }}
+        run: |
+          # Ensure label exists, then apply it.
+          gh label create product-review --color FBCA04 --description "Tier 2: needs Brock's product review" 2>/dev/null || true
+          gh pr edit "$PR_NUM" --add-label product-review
+
+          BODY=$(printf '### Tier 2 PRODUCT — Brock reviews\n\nThis PR touches paths classified as Tier 2 (coach / chat_stream / design tokens / onboarding / website content). These have product surface implications and will not be auto-merged.\n\n**Matched files:**\n%s\n\n**Why:**\n%s\n\nConverted to draft. Brock will review and mark ready when it''s good to ship.\n\nTODO: Linear issue creation will be handled by the Linear MCP from a separate scheduled task.' "$MATCHED" "$REASONS")
+          gh pr comment "$PR_NUM" --body "$BODY"
+
+          # Convert to draft via GraphQL (gh pr ready --undo is not universally available).
+          if [ "$IS_DRAFT" != "true" ]; then
+            gh api graphql -f query='
+              mutation($id: ID!) {
+                convertPullRequestToDraft(input: {pullRequestId: $id}) {
+                  pullRequest { isDraft }
+                }
+              }' -f id="$PR_NODE_ID"
+          fi
+
+      - name: Tier 0 — wait for required checks, then auto-merge
+        if: steps.killswitch.outputs.enabled == 'true' && steps.classify.outputs.tier == 'tier0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUM: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "Classified as Tier 0 engineering. Waiting for Claude PR Review and Backend CI to succeed."
+
+          # Poll check-runs for the head SHA until both required checks report SUCCESS,
+          # or bail after ~30 minutes.
+          REQUIRED=("Claude PR Review" "Backend CI")
+          DEADLINE=$(( $(date +%s) + 1800 ))
+
+          while [ "$(date +%s)" -lt "$DEADLINE" ]; do
+            RUNS=$(gh api "/repos/${REPO}/commits/${HEAD_SHA}/check-runs" --paginate --jq '.check_runs[] | {name: .name, status: .status, conclusion: .conclusion}')
+            all_ok=true
+            for name in "${REQUIRED[@]}"; do
+              status_line=$(echo "$RUNS" | jq -r --arg n "$name" 'select(.name == $n) | "\(.status)/\(.conclusion)"' | tail -n 1)
+              if [ -z "$status_line" ]; then
+                echo "Check '$name' not reported yet."
+                all_ok=false
+                break
+              fi
+              case "$status_line" in
+                completed/success)
+                  echo "Check '$name' = success."
+                  ;;
+                completed/failure|completed/cancelled|completed/timed_out|completed/action_required)
+                  echo "Check '$name' failed ($status_line). Aborting auto-merge."
+                  exit 0
+                  ;;
+                *)
+                  echo "Check '$name' still running ($status_line)."
+                  all_ok=false
+                  break
+                  ;;
+              esac
+            done
+            if [ "$all_ok" = "true" ]; then
+              echo "All required checks green; enabling auto-merge."
+              gh pr merge "$PR_NUM" --auto --merge
+              exit 0
+            fi
+            sleep 30
+          done
+
+          echo "Timed out waiting for required checks after 30 minutes. Leaving PR for manual review."

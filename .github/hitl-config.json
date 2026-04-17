@@ -1,0 +1,23 @@
+{
+  "tier3_refuse": [
+    "backend/app/services/safety",
+    "backend/app/core/encryption.py",
+    ".env",
+    "*.p8",
+    "*.pem"
+  ],
+  "tier3_refuse_content_match": [
+    "EVIDENCE_BOUND_SYSTEM_PROMPT",
+    "ml_shadow_"
+  ],
+  "tier2_product": [
+    "backend/app/services/coach",
+    "backend/app/services/chat_stream",
+    "Meld/DesignSystem/Tokens/Colors.swift",
+    "Meld/DesignSystem/Tokens/Typography.swift",
+    "Meld/DesignSystem/Tokens/Spacing.swift",
+    "Meld/Views/Onboarding/",
+    "website/src/content/",
+    "website/src/pages/"
+  ]
+}
