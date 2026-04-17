@@ -190,11 +190,20 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           REPO: ${{ github.repository }}
         run: |
-          echo "Classified as Tier 0 engineering. Waiting for Claude PR Review and Backend CI to succeed."
+          echo "Classified as Tier 0 engineering. Waiting for Claude PR Review and Backend CI checks to succeed."
 
-          # Poll check-runs for the head SHA until both required checks report SUCCESS,
-          # or bail after ~30 minutes.
-          REQUIRED=("Claude PR Review" "Backend CI")
+          # Poll check-runs for the head SHA until the required checks report
+          # SUCCESS, or bail after ~30 minutes.
+          #
+          # Check-run names must match the `name:` field of the CheckRun entity
+          # returned by the check-runs API, NOT the workflow name. Previously
+          # this listed "Backend CI" (the workflow name) which never matched
+          # any check-run and caused the classifier to hang 30 minutes on
+          # every Tier 0 PR. Use the actual job-level check-run names:
+          #   - "Claude PR Review"  (from workflow: Claude Code Review)
+          #   - "pytest + ML gates + alembic round-trip"  (from workflow: Backend CI)
+          # Ruff and type-imports checks are advisory; not in REQUIRED.
+          REQUIRED=("Claude PR Review" "pytest + ML gates + alembic round-trip")
           DEADLINE=$(( $(date +%s) + 1800 ))
 
           while [ "$(date +%s)" -lt "$DEADLINE" ]; do
