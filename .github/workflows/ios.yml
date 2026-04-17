@@ -39,7 +39,7 @@ jobs:
       DESTINATION: 'platform=iOS Simulator,name=iPhone 16 Pro'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Show available Xcode versions
         run: |
@@ -162,7 +162,7 @@ jobs:
       DESTINATION: 'platform=iOS Simulator,name=iPhone 16 Pro'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Maestro
         run: |
@@ -232,7 +232,7 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install SwiftLint
         run: brew install swiftlint
