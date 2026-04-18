@@ -28,6 +28,11 @@ updates:
       - "source/routine"
     commit-message:
       prefix: "deps(website):"
+    # TODO: remove once @astrojs/check ships a release with peer typescript ^6
+    # Track: https://github.com/withastro/language-tools (check @astrojs/check peerDependencies)
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
