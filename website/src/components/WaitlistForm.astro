@@ -122,7 +122,9 @@ const endpoint = '/api/waitlist/subscribe';
         });
 
         if (!response.ok) {
-          const data = await response.json().catch(() => ({ detail: 'Something went wrong.' }));
+          const data = (await response
+            .json()
+            .catch(() => ({ detail: 'Something went wrong.' }))) as { detail?: string };
           throw new Error(data.detail || `HTTP ${response.status}`);
         }
 

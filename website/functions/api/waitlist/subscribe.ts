@@ -121,7 +121,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
     null;
   const ipHash = ip ? await sha256(ip) : null;
-  // @ts-expect-error — cf is present at runtime on Cloudflare Workers / Pages
   const cfCountry: string | null = (request.cf?.country as string | undefined) ?? null;
 
   // Look up existing row.
