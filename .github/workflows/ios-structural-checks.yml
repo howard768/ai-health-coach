@@ -75,39 +75,51 @@ jobs:
                   unparseable_tokens.append(p)
 
           # --- Check 2: Snapshot baseline coverage. --------------------
-          # Collect every top-level `struct X: View` in Meld/Views/**/*.swift.
-          # Skip names ending in Helper / Modifier / Style / Preview.
-          view_root = repo / "Meld" / "Views"
+          # Only design-system COMPONENTS are expected to have snapshot
+          # baselines. Regular screen views under Meld/Views/ (MealsView,
+          # DashboardView, etc.) are composed screens that change often and
+          # are not individually snapshot-tested by project convention.
+          # Design-system components live under Meld/DesignSystem/ in
+          # Components, Mascot, Visualizations, States, Effects subdirs.
+          ds_components_root = repo / "Meld" / "DesignSystem"
+          ds_scan_subdirs = ("Components", "Mascot", "Visualizations", "States", "Effects")
           skip_suffixes = ("Helper", "Modifier", "Style", "Preview")
           # Match top-level (column 0) struct declarations that conform to View.
           view_decl = re.compile(
               r"^struct\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:<[^>]*>)?\s*:\s*[^{]*\bView\b",
               re.MULTILINE,
           )
-          discovered_views = []  # (name, relpath)
-          if view_root.is_dir():
-              for swift_path in sorted(view_root.rglob("*.swift")):
-                  rel = swift_path.relative_to(repo).as_posix()
-                  text = swift_path.read_text(encoding="utf-8", errors="replace")
-                  for match in view_decl.finditer(text):
-                      name = match.group(1)
-                      if name.endswith(skip_suffixes):
-                          continue
-                      discovered_views.append((name, rel))
+          discovered_views = []  # (name, relpath) — only DS components here
+          if ds_components_root.is_dir():
+              for sub in ds_scan_subdirs:
+                  sub_root = ds_components_root / sub
+                  if not sub_root.is_dir():
+                      continue
+                  for swift_path in sorted(sub_root.rglob("*.swift")):
+                      rel = swift_path.relative_to(repo).as_posix()
+                      text = swift_path.read_text(encoding="utf-8", errors="replace")
+                      for match in view_decl.finditer(text):
+                          name = match.group(1)
+                          if name.endswith(skip_suffixes):
+                              continue
+                          discovered_views.append((name, rel))
 
-          # Collect existing snapshot baseline filenames (recursively, since
-          # snapshots live in per-test-suite __Snapshots__ directories).
+          # Collect snapshot baseline coverage. Snapshot PNGs live at
+          # MeldSnapshotTests/<suite>/__Snapshots__/<TestClassName>/<case>.1.png
+          # The matcher checks for the component name appearing in either the
+          # PNG filename OR its immediate parent directory name (which is the
+          # test class, typically `<ComponentName>SnapshotTests`).
           snap_root = repo / "MeldSnapshotTests"
-          snapshot_filenames = set()
+          snapshot_match_tokens = set()
           if snap_root.is_dir():
               for png in snap_root.rglob("*.png"):
-                  # Only count PNGs inside a __Snapshots__ directory.
                   if "__Snapshots__" in png.parts:
-                      snapshot_filenames.add(png.name)
+                      snapshot_match_tokens.add(png.name)
+                      snapshot_match_tokens.add(png.parent.name)
 
           views_missing_baselines = []
           for name, relpath in discovered_views:
-              if not any(name in fname for fname in snapshot_filenames):
+              if not any(name in tok for tok in snapshot_match_tokens):
                   views_missing_baselines.append((name, relpath))
 
           # --- Build summary. ------------------------------------------
