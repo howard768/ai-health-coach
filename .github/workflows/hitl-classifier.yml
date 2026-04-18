@@ -93,12 +93,27 @@ jobs:
                   tier2_path_hits.append((path, hit2))
 
           # Content-match check: scan diffs of changed files for forbidden strings.
+          #
+          # EXCLUDED from content-match: workflow YAML files and the hitl-config
+          # itself. These files legitimately reference the refuse-list needles as
+          # metadata (a workflow prompt telling Claude to refuse when it sees
+          # certain coach-safety or shadow-flag identifiers). Adding or editing
+          # that metadata must not itself trigger a Tier 3 block, otherwise we
+          # cannot iterate on the safety machinery. Path-based refuse still
+          # applies to these files via tier3_refuse (credentials, encryption.py,
+          # etc.) and tier2_product.
+          content_scan_excluded_prefixes = (
+              ".github/workflows/",
+              ".github/hitl-config.json",
+          )
           tier3_content_hits = []
           content_needles = cfg.get("tier3_refuse_content_match", [])
           if content_needles and changed:
               base_sha = os.environ.get("BASE_SHA", "")
               head_sha = os.environ.get("HEAD_SHA", "")
               for path in changed:
+                  if any(path.startswith(pfx) for pfx in content_scan_excluded_prefixes):
+                      continue
                   try:
                       diff = subprocess.check_output(
                           ["git", "diff", f"{base_sha}...{head_sha}", "--", path],
