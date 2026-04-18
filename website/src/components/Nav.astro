@@ -97,6 +97,72 @@ import Mascot from './Mascot.astro';
     };
     mq.addEventListener?.('change', onMqChange);
   }
+
+  // ── Waitlist CTA: smooth-scroll + focus the email input ──────────
+  // Without this, clicking "Get early access" on the homepage at scroll=0
+  // scrolls to a target that's already in view, so nothing appears to happen.
+  // Focusing the input gives the user visible feedback (cursor + iOS keyboard).
+  const ctaLinks = document.querySelectorAll<HTMLAnchorElement>(
+    'a[href="/#waitlist"], a[href="#waitlist"]',
+  );
+
+  function focusHeroEmail() {
+    const input = document.getElementById('email-hero') as HTMLInputElement | null;
+    if (input) input.focus({ preventScroll: true });
+  }
+
+  ctaLinks.forEach((link) => {
+    link.addEventListener('click', (event) => {
+      // Only intercept when already on the homepage — otherwise let the
+      // browser navigate to "/#waitlist" normally; the hash handler below
+      // will focus the input after the homepage loads.
+      if (window.location.pathname !== '/') return;
+
+      event.preventDefault();
+      // Focus synchronously to preserve the user-gesture trust chain
+      // (iOS Safari only pops the keyboard from a direct click handler).
+      focusHeroEmail();
+      document.getElementById('waitlist')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+      history.replaceState(null, '', '#waitlist');
+    });
+  });
+
+  // Cross-page case: arriving on homepage with #waitlist hash
+  if (window.location.pathname === '/' && window.location.hash === '#waitlist') {
+    // Let the browser's default hash-scroll settle first, then focus.
+    window.addEventListener('load', () => {
+      setTimeout(focusHeroEmail, 400);
+    });
+  }
+
+  // ── Hide nav CTA while the hero waitlist form is visible ─────────
+  // Two CTAs asking for the same thing (nav + hero form) feels redundant.
+  // On the homepage, hide the nav button while the form is in view; reveal
+  // once the user scrolls past so there's always a path back.
+  if (window.location.pathname === '/' && nav) {
+    const heroForm = document.querySelector<HTMLElement>(
+      '.waitlist-form[data-source="hero"]',
+    );
+    if (heroForm && 'IntersectionObserver' in window) {
+      // Default to hidden so there's no flash on initial load.
+      nav.setAttribute('data-hero-visible', '');
+      const heroObserver = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting) nav.setAttribute('data-hero-visible', '');
+            else nav.removeAttribute('data-hero-visible');
+          }
+        },
+        // Exclude the 72px sticky-nav region so form hidden behind the nav
+        // counts as "not visible" and the CTA returns.
+        { threshold: 0, rootMargin: '-72px 0px 0px 0px' },
+      );
+      heroObserver.observe(heroForm);
+    }
+  }
 </script>
 
 <style>
@@ -182,6 +248,24 @@ import Mascot from './Mascot.astro';
     padding-inline: var(--sp-5);
     font-size: var(--fs-body-sm);
     flex-shrink: 0;
+    transition:
+      opacity var(--dur-base) var(--ease-out),
+      transform var(--dur-base) var(--ease-out),
+      visibility 0s linear 0s;
+  }
+
+  /* When the hero waitlist form is in view, hide the nav CTA to avoid two
+     CTAs asking for the same thing side-by-side. Delay visibility flip so
+     the opacity fade plays out before the element becomes non-focusable. */
+  .nav[data-hero-visible] .btn-nav {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(-4px);
+    transition:
+      opacity var(--dur-base) var(--ease-out),
+      transform var(--dur-base) var(--ease-out),
+      visibility 0s linear var(--dur-base);
   }
 
   /* On very narrow screens (phones), hide the inline CTA — the hamburger menu
