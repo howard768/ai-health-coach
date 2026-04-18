@@ -99,7 +99,7 @@ jobs:
 
       - name: Upload Promptfoo results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: promptfoo-results
           path: |
@@ -159,7 +159,7 @@ jobs:
 
       - name: Upload fidelity results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: fidelity-results
           path: |
@@ -193,7 +193,7 @@ jobs:
 
       - name: Upload pytest results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pytest-results
           path: evals/pytest-output.txt

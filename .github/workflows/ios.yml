@@ -130,7 +130,7 @@ jobs:
 
       - name: Upload build logs on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ios-build-logs
           path: |
@@ -139,7 +139,7 @@ jobs:
 
       - name: Upload snapshot failures
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: snapshot-failures
           path: |
@@ -220,7 +220,7 @@ jobs:
 
       - name: Upload Maestro results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: maestro-results
           path: maestro-results.xml
