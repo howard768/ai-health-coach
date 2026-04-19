@@ -19,11 +19,11 @@ final class NotificationNavigator: ObservableObject {
     func handle(url: URL) {
         guard url.scheme == "meld", let host = url.host else { return }
         switch host {
-        case "dashboard": navigate(to: .home)
-        case "coach": navigate(to: .coach)
+        case "dashboard", "home", "today": navigate(to: .home)
         case "trends": navigate(to: .trends)
-        case "meals": navigate(to: .meals)
-        case "profile": navigate(to: .profile)
+        case "coach": navigate(to: .coach)
+        case "log", "meals": navigate(to: .log)
+        case "you", "profile": navigate(to: .you)
         default: break
         }
     }

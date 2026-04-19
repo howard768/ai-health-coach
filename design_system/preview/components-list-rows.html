@@ -1,0 +1,24 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding:24px; background: var(--bg-primary); font-family: var(--font-family); max-width: 480px; }
+  .row { display: flex; align-items: center; padding: 14px 0; gap: 14px; border-bottom: 1px solid var(--bg-tertiary); }
+  .row:last-child { border: none; }
+  .icon { width: 36px; height: 36px; border-radius: var(--r-sm); background: var(--purple-100); display: flex; align-items: center; justify-content: center; color: var(--purple-600); font-size: 18px; flex: none; }
+  .icon.g { background: var(--green-100); color: var(--green-600); }
+  .main { flex: 1; min-width: 0; }
+  .title { font-size: 15px; font-weight: 400; color: var(--text-primary); }
+  .sub { font-size: 13px; font-weight: 300; color: var(--text-tertiary); margin-top: 2px; }
+  .right { font-size: 13px; color: var(--text-secondary); }
+  .chev { color: var(--text-tertiary); font-size: 14px; }
+  .toggle { width: 44px; height: 26px; border-radius: 13px; background: var(--green-500); position: relative; }
+  .toggle::after { content: ""; position: absolute; top: 2px; right: 2px; width: 22px; height: 22px; border-radius: 50%; background: #fff; }
+  .toggle.off { background: var(--text-disabled); }
+  .toggle.off::after { left: 2px; right: auto; }
+</style></head>
+<body>
+  <div class="row"><div class="icon g">◎</div><div class="main"><div class="title">Oura Ring</div><div class="sub">Synced 2 min ago</div></div><div class="toggle"></div></div>
+  <div class="row"><div class="icon">♡</div><div class="main"><div class="title">Apple Health</div><div class="sub">Heart, workouts, steps</div></div><div class="toggle"></div></div>
+  <div class="row"><div class="icon">↻</div><div class="main"><div class="title">Peloton</div><div class="sub">Not connected</div></div><span class="chev">›</span></div>
+  <div class="row"><div class="icon">⚙</div><div class="main"><div class="title">Daily coach notifications</div><div class="sub">8:00 AM</div></div><div class="toggle off"></div></div>
+</body></html>

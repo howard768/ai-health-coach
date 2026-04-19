@@ -1,0 +1,16 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 24px; background: var(--bg-primary); font-family: var(--font-family); }
+  .row { display: grid; grid-template-columns: 160px 1fr auto; align-items: center; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--bg-tertiary); }
+  .row:last-child { border: none; }
+  .sw { width: 40px; height: 40px; border-radius: var(--r-sm); border: 1px solid rgba(0,0,0,0.04); }
+  .name { font-weight: 500; font-size: 13px; color: var(--text-primary); }
+  .hex { font-family: ui-monospace, monospace; font-size: 12px; color: var(--text-tertiary); }
+</style></head>
+<body>
+  <div class="row"><div style="display:flex;gap:12px;align-items:center"><div class="sw" style="background:#121217"></div><span class="name">Primary</span></div><span style="color:var(--text-primary);font-weight:300">Aa body text, headings</span><span class="hex">#121217</span></div>
+  <div class="row"><div style="display:flex;gap:12px;align-items:center"><div class="sw" style="background:#666673"></div><span class="name">Secondary</span></div><span style="color:var(--text-secondary);font-weight:300">Aa subtitles, captions</span><span class="hex">#666673</span></div>
+  <div class="row"><div style="display:flex;gap:12px;align-items:center"><div class="sw" style="background:#737380"></div><span class="name">Tertiary</span></div><span style="color:var(--text-tertiary);font-weight:400">Aa timestamps, labels (4.5:1 AA)</span><span class="hex">#737380</span></div>
+  <div class="row"><div style="display:flex;gap:12px;align-items:center"><div class="sw" style="background:#c7c7cc"></div><span class="name">Disabled</span></div><span style="color:var(--text-disabled)">Aa inactive</span><span class="hex">#c7c7cc</span></div>
+</body></html>

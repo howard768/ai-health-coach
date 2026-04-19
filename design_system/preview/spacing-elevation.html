@@ -1,0 +1,19 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding:24px; background: var(--bg-primary); font-family: var(--font-family); display: flex; gap: 32px; align-items: center; }
+  .item { text-align: center; }
+  .box { background: var(--surface-primary); border-radius: var(--r-lg); padding: 24px; box-shadow: var(--shadow-card); margin-bottom: 8px; display: inline-flex; align-items: center; justify-content: center; width: 80px; height: 80px; font-weight: 100; font-size: 32px; color: var(--purple-600); }
+  .lbl { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); }
+  .spec { font-size: 11px; font-family: ui-monospace, monospace; color: var(--text-secondary); margin-top: 2px; }
+  .low { box-shadow: var(--shadow-low); }
+  .med { box-shadow: var(--shadow-card); }
+  .high { box-shadow: var(--shadow-high); }
+  .modal { box-shadow: var(--shadow-modal); }
+</style></head>
+<body>
+  <div class="item"><div class="box low">1</div><div class="lbl">Low</div><div class="spec">0 1 2 / 4%</div></div>
+  <div class="item"><div class="box med">2</div><div class="lbl">Card</div><div class="spec">0 2 16 / 6%</div></div>
+  <div class="item"><div class="box high">3</div><div class="lbl">High</div><div class="spec">0 8 32 / purple</div></div>
+  <div class="item"><div class="box modal">4</div><div class="lbl">Modal</div><div class="spec">0 16 48 / 16%</div></div>
+</body></html>

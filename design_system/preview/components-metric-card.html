@@ -1,0 +1,28 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding:24px; background: var(--bg-secondary); font-family: var(--font-family); display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .metric-card { background: var(--surface-primary); border-radius: var(--r-lg); padding: 20px; box-shadow: var(--shadow-card); }
+  .label { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+  .label .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--purple-500); }
+  .val { font-weight: 100; font-size: 48px; line-height: 1; letter-spacing: -0.02em; color: var(--text-primary); }
+  .unit { font-size: 16px; font-weight: 400; color: var(--text-secondary); margin-left: 4px; }
+  .trend { margin-top: 12px; font-size: 13px; color: var(--green-text); display: flex; align-items: center; gap: 4px; }
+  .trend.down { color: var(--status-error); }
+  .spark { margin-top: 8px; height: 28px; }
+  .sub { color: var(--text-tertiary); }
+</style></head>
+<body>
+  <div class="metric-card">
+    <div class="label"><span class="dot"></span>Sleep efficiency</div>
+    <span class="val">91</span><span class="unit">%</span>
+    <svg class="spark" viewBox="0 0 160 28" preserveAspectRatio="none"><polyline points="0,20 20,18 40,14 60,16 80,10 100,12 120,8 140,6 160,4" fill="none" stroke="#219e80" stroke-width="1.5"/></svg>
+    <div class="trend">↑ 14% vs baseline</div>
+  </div>
+  <div class="metric-card">
+    <div class="label"><span class="dot" style="background:#219e80"></span>HRV</div>
+    <span class="val">68</span><span class="unit">ms</span>
+    <svg class="spark" viewBox="0 0 160 28" preserveAspectRatio="none"><polyline points="0,12 20,14 40,10 60,16 80,14 100,12 120,10 140,14 160,12" fill="none" stroke="#6b52b8" stroke-width="1.5"/></svg>
+    <div class="trend sub" style="color:var(--text-tertiary)">Stable this week</div>
+  </div>
+</body></html>

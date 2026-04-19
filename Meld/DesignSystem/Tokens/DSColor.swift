@@ -105,9 +105,11 @@ enum DSColor {
     // MARK: - Tab Bar
 
     enum TabBar {
-        /// Active tab text + dot
-        static let active = Green.green500
-        /// Inactive tab text
+        /// Active tab icon + label
+        static let active = Purple.purple600
+        /// Active state indicator (dot below label)
+        static let indicator = Green.green500
+        /// Inactive tab icon + label
         static let inactive = Text.tertiary
     }
 }
