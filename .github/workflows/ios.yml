@@ -111,19 +111,60 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             test 2>&1 | xcpretty --test --color
 
+      # Pre-warm the simulator before the UI test to dodge the macos-15 +
+      # iOS 18 RunningBoard race. Symptom on a cold boot: xctrunner asks
+      # RBS for a background assertion on the SUT pid, but runningboardd
+      # has not yet registered the process, so the assertion call returns
+      # "Failed to get background assertion for target app with pid X"
+      # (or pid 0 if the process never registered at all). Booting the
+      # device + waiting for bootstatus + giving SpringBoard a moment to
+      # settle eliminates the race window.
+      #
+      # Refs:
+      # - actions/runner-images#12862, #12777, #12948 (macos-15 sim flake)
+      # - Apple Forums 813260 (iOS 18 accessibility load race)
+      # - cordova-ios#1103 (RBS background assertion same error string)
+      - name: Pre-warm simulator for UI tests
+        id: prewarm
+        run: |
+          DEVICE_ID=$(xcrun simctl list devices available \
+            | grep "iPhone 16 Pro (" \
+            | head -1 \
+            | grep -oE '[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}')
+          if [ -z "$DEVICE_ID" ]; then
+            echo "::error::Could not find iPhone 16 Pro simulator UDID"
+            xcrun simctl list devices available
+            exit 1
+          fi
+          echo "Booting simulator $DEVICE_ID"
+          xcrun simctl boot "$DEVICE_ID" 2>/dev/null || true
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+          # Let SpringBoard + runningboardd finish registration before
+          # xctrunner attaches. 8s is empirically enough on macos-15.
+          sleep 8
+          xcrun simctl list devices booted
+          echo "device_id=$DEVICE_ID" >> "$GITHUB_OUTPUT"
+
       # UI tests spawn Meld.app as a separate process via XCUIApplication,
       # which the simulator's xctrunner refuses to launch when the bundle
       # is entirely unsigned. Ad-hoc identity ("-") works without a real
       # developer certificate.
+      #
+      # `-test-iterations 2 -retry-tests-on-failure` is Xcode-native: if
+      # the runner still hits the RBS race despite the pre-warm above,
+      # xcodebuild re-spawns xctrunner cleanly for a second attempt
+      # before reporting failure. Belt-and-suspenders against the flake.
       - name: Test (UI)
         run: |
           set -o pipefail
           xcodebuild \
             -project Meld.xcodeproj \
             -scheme "$SCHEME" \
-            -destination "$DESTINATION" \
+            -destination "id=${{ steps.prewarm.outputs.device_id }}" \
             -configuration Debug \
             -only-testing:MeldUITests \
+            -test-iterations 2 \
+            -retry-tests-on-failure \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
             test 2>&1 | xcpretty --test --color
