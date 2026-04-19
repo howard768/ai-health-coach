@@ -1,0 +1,29 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin:0; padding:24px; background: var(--bg-primary); font-family: var(--font-family); max-width: 520px; }
+  .field { margin-bottom: 20px; }
+  .lbl { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 6px; }
+  .inp { width: 100%; background: var(--surface-primary); border: 1px solid var(--text-disabled); border-radius: var(--r-md); padding: 12px 14px; font-family: inherit; font-size: 16px; font-weight: 300; color: var(--text-primary); box-sizing: border-box; transition: all 200ms; }
+  .inp:focus { outline: none; border-color: var(--purple-600); border-width: 2px; padding: 11px 13px; box-shadow: 0 0 0 3px var(--purple-100); }
+  .inp::placeholder { color: var(--text-disabled); }
+  .hint { font-size: 12px; color: var(--text-tertiary); margin-top: 6px; font-weight: 300; }
+  .err { color: var(--status-error); }
+  .inp.err { border-color: var(--status-error); }
+</style></head>
+<body>
+  <div class="field">
+    <div class="lbl">Email</div>
+    <input class="inp" value="brock@meld.health">
+  </div>
+  <div class="field">
+    <div class="lbl">Bedtime goal</div>
+    <input class="inp" placeholder="10:30 PM">
+    <div class="hint">Based on your average wake time + 8h sleep window.</div>
+  </div>
+  <div class="field">
+    <div class="lbl">Invite code</div>
+    <input class="inp err" value="TESTFLIGHT-A1">
+    <div class="hint err">That code has already been used.</div>
+  </div>
+</body></html>

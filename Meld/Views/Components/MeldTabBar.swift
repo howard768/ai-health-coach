@@ -2,11 +2,16 @@ import SwiftUI
 import PhosphorSwift
 
 // MARK: - Meld Custom Tab Bar
-// Glassmorphic background with Phosphor Duotone icons.
-// Coach tab features the custom mascot blob.
+// Floating glass pill (per Meld Design System UI kit, 2026-04-19).
+// Phosphor Light/Duotone for non-coach tabs, SquatBlob mascot for Coach.
+// Active state: purple-600 icon + label, green-500 dot indicator below.
 // Every interaction has haptic feedback and spring animation.
 
 struct MeldTabBar: View {
+    /// Total bottom inset that content should reserve to clear the floating pill.
+    /// Pill height (~64) + bottomInset (28) + a small breathing margin.
+    static let contentInset: CGFloat = 100
+
     @Binding var selectedTab: Tab
     @Environment(\.colorScheme) private var colorScheme
 
@@ -25,20 +30,23 @@ struct MeldTabBar: View {
             }
         }
         .padding(.horizontal, DSSpacing.sm)
-        .padding(.top, DSSpacing.md)
-        .padding(.bottom, DSSpacing.xxl)
-        .background(tabBarBackground)
+        .padding(.vertical, DSSpacing.sm)
+        .background(pillBackground)
+        .padding(.horizontal, 14)
+        .padding(.bottom, 28)
     }
 
-    private var tabBarBackground: some View {
-        Rectangle()
+    private var pillBackground: some View {
+        RoundedRectangle(cornerRadius: 28, style: .continuous)
             .fill(.ultraThinMaterial)
-            .overlay(alignment: .top) {
-                Rectangle()
-                    .fill(Color.white.opacity(colorScheme == .dark ? 0.06 : 0.5))
-                    .frame(height: 0.5)
-            }
-            .ignoresSafeArea(.all, edges: .bottom)
+            .overlay(
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .strokeBorder(
+                        Color.white.opacity(colorScheme == .dark ? 0.12 : 0.6),
+                        lineWidth: 0.5
+                    )
+            )
+            .shadow(color: Color.black.opacity(colorScheme == .dark ? 0.0 : 0.08), radius: 16, x: 0, y: 8)
     }
 }
 
@@ -53,22 +61,22 @@ private struct MeldTabItem: View {
     var body: some View {
         Button(action: action) {
             VStack(spacing: DSSpacing.xs) {
-                // Active dot indicator
-                Circle()
-                    .fill(isSelected ? DSColor.Green.green500 : Color.clear)
-                    .frame(width: 5, height: 5)
-
-                // Icon
+                // Icon: 24pt box for all tabs. Mascot scales into the same box.
                 tabIcon
-                    .scaleEffect(isSelected && !reduceMotion ? 1.08 : 1.0)
-                    .frame(width: 28, height: 28)
+                    .frame(width: 24, height: 24)
+                    .scaleEffect(isSelected && !reduceMotion ? 1.06 : 1.0)
 
                 // Label
                 Text(tab.title)
                     .font(DSTypography.caption)
                     .foregroundStyle(
-                        isSelected ? DSColor.Green.green500 : DSColor.Text.tertiary
+                        isSelected ? DSColor.TabBar.active : DSColor.TabBar.inactive
                     )
+
+                // Active dot indicator (below label)
+                Circle()
+                    .fill(isSelected ? DSColor.TabBar.indicator : Color.clear)
+                    .frame(width: 4, height: 4)
             }
             .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
@@ -79,13 +87,13 @@ private struct MeldTabItem: View {
 
     @ViewBuilder
     private var tabIcon: some View {
-        let color = isSelected ? DSColor.Green.green500 : DSColor.Text.tertiary
+        let color = isSelected ? DSColor.TabBar.active : DSColor.TabBar.inactive
 
         if tab == .coach {
-            // Mascot blob — custom drawn, not a Phosphor icon
-            SquatBlobIcon(isActive: isSelected)
+            // Mascot scaled to the same 24pt baseline as Phosphor icons so glyphs
+            // sit on a single optical line in the tray.
+            SquatBlobIcon(isActive: isSelected, size: 24)
         } else {
-            // Phosphor Duotone icons for everything else
             tab.phosphorIcon(isSelected: isSelected)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
@@ -101,19 +109,19 @@ extension Tab {
     func phosphorIcon(isSelected: Bool) -> Image {
         if isSelected {
             switch self {
-            case .home:    return Ph.house.duotone
-            case .coach:   return Ph.chat.duotone // unused, mascot replaces
-            case .trends:  return Ph.trendUp.duotone
-            case .meals:   return Ph.forkKnife.duotone
-            case .profile: return Ph.user.duotone
+            case .home:   return Ph.house.duotone
+            case .trends: return Ph.trendUp.duotone
+            case .coach:  return Ph.chat.duotone // unused, mascot replaces
+            case .log:    return Ph.forkKnife.duotone
+            case .you:    return Ph.user.duotone
             }
         } else {
             switch self {
-            case .home:    return Ph.house.light
-            case .coach:   return Ph.chat.light // unused, mascot replaces
-            case .trends:  return Ph.trendUp.light
-            case .meals:   return Ph.forkKnife.light
-            case .profile: return Ph.user.light
+            case .home:   return Ph.house.light
+            case .trends: return Ph.trendUp.light
+            case .coach:  return Ph.chat.light // unused, mascot replaces
+            case .log:    return Ph.forkKnife.light
+            case .you:    return Ph.user.light
             }
         }
     }

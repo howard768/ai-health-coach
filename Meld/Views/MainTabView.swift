@@ -19,24 +19,24 @@ struct MainTabView: View {
                     NavigationStack {
                         DashboardView(switchToTab: switchToTab)
                     }
-                case .coach:
-                    CoachChatView(viewModel: coachViewModel)
                 case .trends:
                     NavigationStack {
                         TrendsView()
                     }
-                case .meals:
+                case .coach:
+                    CoachChatView(viewModel: coachViewModel)
+                case .log:
                     MealsView()
-                case .profile:
+                case .you:
                     NavigationStack {
                         ProfileSettingsView()
                     }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            // Push content up so it clears the tab bar
+            // Push content above the floating tab bar pill (pill height + bottom inset).
             .safeAreaInset(edge: .bottom) {
-                Color.clear.frame(height: 80)
+                Color.clear.frame(height: MeldTabBar.contentInset)
             }
 
             // Custom tab bar — stays at bottom even when keyboard is shown
@@ -83,18 +83,18 @@ struct MainTabView: View {
 
 enum Tab: String, CaseIterable {
     case home
-    case coach
     case trends
-    case meals
-    case profile
+    case coach
+    case log
+    case you
 
     var title: String {
         switch self {
-        case .home: "Home"
-        case .coach: "Coach"
+        case .home: "Today"
         case .trends: "Trends"
-        case .meals: "Meals"
-        case .profile: "Profile"
+        case .coach: "Coach"
+        case .log: "Log"
+        case .you: "You"
         }
     }
 }

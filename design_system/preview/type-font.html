@@ -1,0 +1,41 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body { margin: 0; padding: 32px; background: var(--bg-primary); font-family: var(--font-family); color: var(--text-primary); }
+  .head { display: flex; align-items: baseline; gap: 16px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--bg-tertiary); }
+  .name { font-size: 32px; font-weight: 300; letter-spacing: -0.015em; }
+  .meta { font-size: 12px; font-family: ui-monospace, monospace; color: var(--text-tertiary); }
+  .spec { font-size: 13px; font-weight: 300; color: var(--text-secondary); max-width: 56ch; margin-bottom: 24px; line-height: 1.55; }
+  .row { display: grid; grid-template-columns: 180px 1fr; align-items: baseline; padding: 14px 0; border-bottom: 1px dashed var(--bg-tertiary); }
+  .row:last-child { border: none; }
+  .lbl { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); font-family: var(--font-family); }
+  .sample { font-size: 24px; color: var(--text-primary); }
+  .w100 { font-weight: 100; }
+  .w300 { font-weight: 300; }
+  .w400 { font-weight: 400; }
+  .w500 { font-weight: 500; }
+  .w700 { font-weight: 700; }
+  .aa { margin-top: 32px; padding: 24px; background: var(--bg-secondary); border-radius: var(--r-lg); }
+  .aa-title { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 12px; }
+  .abc { font-size: 20px; font-weight: 300; color: var(--text-primary); letter-spacing: 0.02em; line-height: 1.6; }
+</style></head>
+<body>
+  <div class="head">
+    <div class="name" style="font-weight: 300;">Roboto</div>
+    <div class="meta">Google Fonts · --font-family</div>
+  </div>
+  <div class="spec">Meld uses Roboto across product and marketing. Five weights, exactly. The signature move is Thin 100 for big numerals and Light 300 for body copy, the rest of the UI stays calm because type doesn't shout.</div>
+
+  <div class="row"><div class="lbl">Thin · 100</div><div class="sample w100">Good evening, Brock. 91%</div></div>
+  <div class="row"><div class="lbl">Light · 300</div><div class="sample w300">Your health, synthesized.</div></div>
+  <div class="row"><div class="lbl">Regular · 400</div><div class="sample w400">Today · Tue, Apr 16</div></div>
+  <div class="row"><div class="lbl">Medium · 500</div><div class="sample w500">Pattern found · 21 days</div></div>
+  <div class="row"><div class="lbl">Bold · 700</div><div class="sample w700">Rarely used. Emphasis only.</div></div>
+
+  <div class="aa">
+    <div class="aa-title">Glyph check</div>
+    <div class="abc w300">ABCDEFGHIJKLMNOPQRSTUVWXYZ</div>
+    <div class="abc w300">abcdefghijklmnopqrstuvwxyz</div>
+    <div class="abc w100">0123456789 · ↑ ↓ → • %ms bpm</div>
+  </div>
+</body></html>

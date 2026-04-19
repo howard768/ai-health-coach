@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Meld · iOS UI Kit</title>
+<link rel="stylesheet" href="../../colors_and_type.css">
+<style>
+  body { margin: 0; background: var(--bg-secondary); font-family: var(--font-family); color: var(--text-primary); min-height: 100vh; }
+  .page { max-width: 1440px; margin: 0 auto; padding: 48px 32px 80px; }
+  .header { margin-bottom: 40px; }
+  .eyebrow { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--purple-600); margin-bottom: 8px; }
+  .title { font-size: 40px; font-weight: 100; letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 12px; }
+  .sub { font-size: 17px; font-weight: 300; color: var(--text-secondary); max-width: 60ch; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; align-items: start; }
+  @media (max-width: 1200px) { .grid { grid-template-columns: 1fr; justify-items: center; } }
+  .frame-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .frame-label { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); }
+  .frame-title { font-size: 18px; font-weight: 500; color: var(--text-primary); margin-top: -4px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <div class="eyebrow">UI Kit · iOS</div>
+    <h1 class="title">Meld for iPhone</h1>
+    <p class="sub">Three canonical screens: the Today dashboard, the Coach chat, and a mid-flow onboarding step. All copy, spacing, and type weights are lifted from the tokens file. The mascot does the emotional work.</p>
+  </div>
+  <div class="grid" id="root"></div>
+</div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="screens.jsx"></script>
+
+<script type="text/babel">
+  const { IOSDevice } = window;
+  const { Dashboard, Coach, Onboarding } = window;
+
+  function App() {
+    const frames = [
+      { label: 'Home · 01 Today', title: 'Today dashboard', Screen: Dashboard },
+      { label: 'Home · 02 Coach', title: 'Coach chat', Screen: Coach },
+      { label: 'Flow · Onboarding', title: 'Connect sources', Screen: Onboarding },
+    ];
+    return (
+      <>
+        {frames.map(f => (
+          <div key={f.label} className="frame-wrap" data-screen-label={f.label}>
+            <div>
+              <div className="frame-label">{f.label}</div>
+              <div className="frame-title">{f.title}</div>
+            </div>
+            <IOSDevice width={390} height={844}>
+              <f.Screen />
+            </IOSDevice>
+          </div>
+        ))}
+      </>
+    );
+  }
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

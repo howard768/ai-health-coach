@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Meld · Website UI Kit</title>
+<link rel="icon" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../colors_and_type.css">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: var(--font-family); color: var(--text-primary); background: var(--bg-primary); }
+
+  /* ========== TOP NAV ========== */
+  .nav {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(255,255,255,0.82); backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-bottom: 1px solid var(--bg-tertiary);
+  }
+  .nav-inner {
+    max-width: 1200px; margin: 0 auto; padding: 16px 32px;
+    display: flex; align-items: center; gap: 32px;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text-primary); }
+  .logo img { height: 28px; }
+  .logo .wordmark { font-size: 18px; font-weight: 500; letter-spacing: -0.01em; }
+  .nav-links { display: flex; gap: 28px; flex: 1; margin-left: 16px; }
+  .nav-links a { color: var(--text-secondary); text-decoration: none; font-size: 14px; font-weight: 400; }
+  .nav-links a:hover { color: var(--purple-600); }
+  .nav-cta {
+    background: var(--purple-600); color: #fff; padding: 10px 20px;
+    border-radius: 12px; font-size: 14px; font-weight: 500; text-decoration: none;
+    transition: all 250ms var(--ease-spring);
+  }
+  .nav-cta:hover { transform: translateY(-1px); box-shadow: var(--shadow-high); background: var(--purple-500); }
+
+  /* ========== HERO ========== */
+  .hero { background: var(--hero-gradient); padding: clamp(64px, 10vw, 120px) 0 clamp(80px, 12vw, 140px); }
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 clamp(20px, 4vw, 32px); }
+  .hero-inner { display: grid; grid-template-columns: 1.2fr 1fr; gap: clamp(32px, 6vw, 80px); align-items: center; }
+  @media (max-width: 880px) { .hero-inner { grid-template-columns: 1fr; } }
+  .hero-eyebrow { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--purple-600); margin-bottom: 16px; display: inline-flex; align-items: center; gap: 8px; }
+  .hero-eyebrow::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--purple-500); }
+  .hero h1 {
+    font-size: var(--fs-display-fluid); font-weight: 100;
+    line-height: 1.05; letter-spacing: -0.025em;
+    margin: 0 0 24px; color: var(--text-primary);
+    text-wrap: pretty;
+  }
+  .hero h1 em { font-style: normal; color: var(--purple-600); }
+  .hero p.lede { font-size: 18px; font-weight: 300; line-height: 1.55; color: var(--text-secondary); max-width: 52ch; margin: 0 0 32px; }
+
+  .form-row { display: flex; gap: 8px; max-width: 440px; }
+  .form-row input {
+    flex: 1; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--text-disabled);
+    background: #fff; font-family: inherit; font-size: 15px; font-weight: 300; color: var(--text-primary);
+  }
+  .form-row input:focus { outline: none; border-color: var(--purple-600); box-shadow: 0 0 0 3px var(--purple-100); }
+  .form-row button {
+    background: var(--purple-600); color: #fff; border: none; padding: 14px 22px;
+    border-radius: 12px; font-family: inherit; font-size: 15px; font-weight: 500; cursor: pointer;
+    transition: all 250ms var(--ease-spring);
+  }
+  .form-row button:hover { transform: translateY(-1px); background: var(--purple-500); box-shadow: var(--shadow-high); }
+  .hero-meta { margin-top: 14px; font-size: 13px; color: var(--text-tertiary); font-weight: 300; }
+
+  /* Hero mascot card */
+  .hero-card {
+    background: var(--surface-primary); border-radius: 24px; padding: 28px;
+    box-shadow: var(--shadow-card);
+  }
+  .hero-card .insight-header { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+  .hero-card .mascot { width: 48px; height: 48px; background: var(--amber-tint); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+  .hero-card .mascot img { width: 32px; }
+  .hero-card .mascot-name { font-weight: 500; font-size: 15px; }
+  .hero-card .mascot-time { font-size: 12px; color: var(--text-tertiary); font-weight: 300; }
+  .hero-card .insight-body {
+    background: var(--purple-100); border-radius: 16px; padding: 18px;
+    font-size: 15px; font-weight: 300; line-height: 1.55; color: var(--text-primary);
+  }
+  .hero-card .insight-body strong { font-weight: 500; }
+  .hero-card .cite { margin-top: 12px; font-size: 12px; color: var(--text-tertiary); font-style: italic; }
+  .hero-card .metrics-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+  .hero-card .metric { background: var(--bg-secondary); border-radius: 12px; padding: 14px; }
+  .hero-card .metric .m-label { font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 6px; }
+  .hero-card .metric .m-val { font-size: 24px; font-weight: 300; line-height: 1; }
+  .hero-card .metric .m-unit { font-size: 12px; color: var(--text-secondary); margin-left: 2px; }
+  .hero-card .metric .m-trend { font-size: 11px; color: var(--green-text); margin-top: 6px; }
+
+  /* ========== PROOF / SOURCES ========== */
+  .section { padding: clamp(56px, 8vw, 96px) 0; }
+  .section-eyebrow { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 16px; text-align: center; }
+  .section-title { font-size: clamp(28px, 4vw, 40px); font-weight: 100; letter-spacing: -0.02em; line-height: 1.15; text-align: center; max-width: 22ch; margin: 0 auto 16px; text-wrap: balance; }
+  .section-sub { font-size: 17px; font-weight: 300; color: var(--text-secondary); text-align: center; max-width: 58ch; margin: 0 auto 56px; line-height: 1.55; }
+
+  .sources { display: flex; gap: 40px; justify-content: center; flex-wrap: wrap; align-items: center; opacity: 0.7; filter: grayscale(1); }
+  .source-chip { font-size: 14px; font-weight: 500; color: var(--text-secondary); letter-spacing: 0.02em; }
+
+  /* ========== PATTERNS (3 INSIGHT CARDS) ========== */
+  .patterns-bg { background: var(--bg-secondary); }
+  .patterns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  @media (max-width: 880px) { .patterns { grid-template-columns: 1fr; } }
+  .pattern-card { background: var(--purple-100); border-radius: 20px; padding: 28px; }
+  .pattern-card.green { background: var(--green-100); }
+  .pattern-card.amber { background: var(--amber-tint); }
+  .pattern-card .p-label { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--purple-600); margin-bottom: 14px; }
+  .pattern-card.green .p-label { color: var(--green-text); }
+  .pattern-card.amber .p-label { color: #8a5e0a; }
+  .pattern-card .p-title { font-size: 22px; font-weight: 400; line-height: 1.3; color: var(--text-primary); margin-bottom: 12px; text-wrap: pretty; }
+  .pattern-card .p-body { font-size: 14px; font-weight: 300; line-height: 1.55; color: var(--text-secondary); }
+  .pattern-card .p-cite { margin-top: 16px; font-size: 12px; color: var(--text-tertiary); font-style: italic; }
+
+  /* ========== COMPARE TABLE ========== */
+  .compare { max-width: 860px; margin: 0 auto; background: var(--surface-primary); border-radius: 20px; overflow: hidden; box-shadow: var(--shadow-card); }
+  .compare-head, .compare-row { display: grid; grid-template-columns: 1.3fr 1fr 1fr; padding: 20px 24px; align-items: center; gap: 16px; }
+  .compare-head { background: var(--bg-secondary); border-bottom: 1px solid var(--bg-tertiary); }
+  .compare-row { border-bottom: 1px solid var(--bg-tertiary); }
+  .compare-row:last-child { border-bottom: none; }
+  .compare-head .label { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); }
+  .compare-head .meld { color: var(--purple-600); }
+  .compare .row-label { font-size: 15px; font-weight: 400; color: var(--text-primary); }
+  .compare .cell { font-size: 14px; font-weight: 300; color: var(--text-secondary); line-height: 1.5; }
+  .compare .cell.meld { color: var(--text-primary); font-weight: 400; }
+  .compare .check { color: var(--green-text); margin-right: 6px; font-weight: 500; }
+  .compare .ex { color: var(--status-error); margin-right: 6px; font-weight: 500; }
+
+  /* ========== JOURNAL ========== */
+  .journal { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  @media (max-width: 880px) { .journal { grid-template-columns: 1fr; } }
+  .entry { background: var(--surface-primary); border-radius: 16px; padding: 24px; box-shadow: var(--shadow-low); transition: all 300ms var(--ease-spring); text-decoration: none; color: inherit; display: block; }
+  .entry:hover { transform: translateY(-2px); box-shadow: var(--shadow-card); }
+  .entry .e-date { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 12px; }
+  .entry .e-title { font-size: 18px; font-weight: 500; line-height: 1.35; margin-bottom: 10px; color: var(--text-primary); }
+  .entry .e-excerpt { font-size: 14px; font-weight: 300; line-height: 1.55; color: var(--text-secondary); }
+  .entry .e-read { margin-top: 14px; font-size: 13px; font-weight: 500; color: var(--purple-600); }
+
+  /* ========== WAITLIST CTA ========== */
+  .cta-section { background: var(--purple-600); color: #fff; border-radius: 0; padding: clamp(56px, 8vw, 96px) 0; }
+  .cta-section .section-eyebrow { color: rgba(255,255,255,0.7); }
+  .cta-section h2 { color: #fff; font-size: clamp(28px, 4vw, 40px); font-weight: 100; letter-spacing: -0.02em; line-height: 1.15; text-align: center; max-width: 24ch; margin: 0 auto 16px; text-wrap: balance; }
+  .cta-section p { color: rgba(255,255,255,0.75); text-align: center; max-width: 52ch; margin: 0 auto 32px; font-size: 16px; font-weight: 300; line-height: 1.55; }
+  .cta-section .form-row { margin: 0 auto; }
+  .cta-section .form-row input { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.22); color: #fff; }
+  .cta-section .form-row input::placeholder { color: rgba(255,255,255,0.55); }
+  .cta-section .form-row input:focus { background: rgba(255,255,255,0.18); border-color: #fff; box-shadow: none; }
+  .cta-section .form-row button { background: #fff; color: var(--purple-600); }
+  .cta-section .form-row button:hover { background: var(--purple-50); }
+
+  /* ========== FOOTER ========== */
+  footer { padding: 40px 0 60px; border-top: 1px solid var(--bg-tertiary); }
+  .foot { display: flex; justify-content: space-between; align-items: center; gap: 24px; flex-wrap: wrap; }
+  .foot .fine { font-size: 12px; color: var(--text-tertiary); font-weight: 300; }
+  .foot-links { display: flex; gap: 24px; }
+  .foot-links a { font-size: 13px; color: var(--text-secondary); text-decoration: none; }
+  .foot-links a:hover { color: var(--purple-600); }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a class="logo" href="#"><img src="../../assets/favicon.svg" alt=""><span class="wordmark">Meld</span></a>
+    <div class="nav-links">
+      <a href="#how">How it works</a>
+      <a href="#patterns">Patterns</a>
+      <a href="#journal">Journal</a>
+      <a href="#compare">Vs. ChatGPT</a>
+    </div>
+    <a class="nav-cta" href="#waitlist">Join TestFlight</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="container hero-inner">
+    <div>
+      <div class="hero-eyebrow">Pre-launch · TestFlight open</div>
+      <h1>Your body sends signals every night. <em>Are you reading them?</em></h1>
+      <p class="lede">Meld pulls your Oura, Apple Health, Garmin and Peloton into one coach. It finds the patterns you would never spot, cites the research, and tells you what to do today.</p>
+      <form class="form-row" onsubmit="event.preventDefault()">
+        <input type="email" placeholder="you@example.com" aria-label="Email">
+        <button type="submit">Get invite</button>
+      </form>
+      <div class="hero-meta">No credit card. iOS 17+. Your data stays yours.</div>
+    </div>
+    <div class="hero-card">
+      <div class="insight-header">
+        <div class="mascot"><img src="../../assets/mascot.svg" alt=""></div>
+        <div>
+          <div class="mascot-name">Meld</div>
+          <div class="mascot-time">This morning · 6:42 AM</div>
+        </div>
+      </div>
+      <div class="insight-body">
+        Your <strong>deep sleep</strong> goes up <strong>22%</strong> on days you eat more protein. Lunch matters more than dinner here.
+        <div class="cite">From 21 days of Oura sleep + your food log.</div>
+      </div>
+      <div class="metrics-row">
+        <div class="metric">
+          <div class="m-label">Sleep</div>
+          <span class="m-val">7h 42m</span>
+          <div class="m-trend">↑ 32m vs avg</div>
+        </div>
+        <div class="metric">
+          <div class="m-label">HRV</div>
+          <span class="m-val">68<span class="m-unit">ms</span></span>
+          <div class="m-trend">↑ 14% vs baseline</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SOURCES -->
+<section class="section">
+  <div class="container">
+    <div class="section-eyebrow">Reads from</div>
+    <div class="sources">
+      <span class="source-chip">Oura</span>
+      <span class="source-chip">Apple Health</span>
+      <span class="source-chip">Garmin</span>
+      <span class="source-chip">Peloton</span>
+      <span class="source-chip">Whoop</span>
+      <span class="source-chip">Your food log</span>
+    </div>
+  </div>
+</section>
+
+<!-- PATTERNS -->
+<section class="section patterns-bg" id="patterns">
+  <div class="container">
+    <div class="section-eyebrow">What Meld finds</div>
+    <h2 class="section-title">Patterns no single app can see.</h2>
+    <p class="section-sub">Your ring knows your sleep. Your watch knows your workouts. Your food log knows your plate. None of them talk. Meld reads all of them at once.</p>
+    <div class="patterns">
+      <div class="pattern-card">
+        <div class="p-label">Sleep × Nutrition</div>
+        <div class="p-title">Deep sleep climbs 22% on higher-protein days.</div>
+        <div class="p-body">Front-loading at lunch correlates better than dinner. This is specific to your body over 21 days, not a general recommendation.</div>
+        <div class="p-cite">Oura + your food log</div>
+      </div>
+      <div class="pattern-card green">
+        <div class="p-label">Recovery × Training</div>
+        <div class="p-title">Your HRV needs 36 hours after hard rides, not 24.</div>
+        <div class="p-body">Three Peloton sessions in a row drop your readiness below baseline for the rest of the week. Two-on, one-off keeps you in the green zone.</div>
+        <div class="p-cite">Peloton + Oura, 6 weeks</div>
+      </div>
+      <div class="pattern-card amber">
+        <div class="p-label">Caffeine × Sleep</div>
+        <div class="p-title">Coffee after 1 PM costs you 40 minutes of REM.</div>
+        <div class="p-body">The pattern only shows up on rest days. On training days, exercise seems to clear the half-life faster. Drinkwater et al. 2018.</div>
+        <div class="p-cite">Apple Health + your log</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMPARE -->
+<section class="section" id="compare">
+  <div class="container">
+    <div class="section-eyebrow">Meld vs. ChatGPT</div>
+    <h2 class="section-title">Meld already knows your body.</h2>
+    <p class="section-sub">ChatGPT knows nothing about you until you paste screenshots. Meld connects once and stays current.</p>
+    <div class="compare">
+      <div class="compare-head">
+        <div class="label">Question</div>
+        <div class="label">ChatGPT</div>
+        <div class="label meld">Meld</div>
+      </div>
+      <div class="compare-row">
+        <div class="row-label">Reads your Oura and Apple Health?</div>
+        <div class="cell"><span class="ex">✕</span>No, you paste screenshots</div>
+        <div class="cell meld"><span class="check">✓</span>Direct, every hour</div>
+      </div>
+      <div class="compare-row">
+        <div class="row-label">Finds cross-source patterns?</div>
+        <div class="cell"><span class="ex">✕</span>Only what you tell it</div>
+        <div class="cell meld"><span class="check">✓</span>21+ days, automatically</div>
+      </div>
+      <div class="compare-row">
+        <div class="row-label">Cites research, not vibes?</div>
+        <div class="cell"><span class="ex">✕</span>Sometimes hallucinates</div>
+        <div class="cell meld"><span class="check">✓</span>Every claim linked</div>
+      </div>
+      <div class="compare-row">
+        <div class="row-label">Used to train other AI?</div>
+        <div class="cell"><span class="ex">✕</span>By default, yes</div>
+        <div class="cell meld"><span class="check">✓</span>Never. Full stop.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- JOURNAL -->
+<section class="section patterns-bg" id="journal">
+  <div class="container">
+    <div class="section-eyebrow">Journal</div>
+    <h2 class="section-title">Writing on the science.</h2>
+    <p class="section-sub">Short pieces on sleep, HRV, and the research behind what Meld finds in your data.</p>
+    <div class="journal">
+      <a class="entry" href="#">
+        <div class="e-date">Apr 12 · 4 min read</div>
+        <div class="e-title">Why HRV lags alcohol by 24 hours</div>
+        <div class="e-excerpt">Two drinks Friday night show up in your Sunday readiness score. The mechanism, and what your ring is actually measuring.</div>
+        <div class="e-read">Read →</div>
+      </a>
+      <a class="entry" href="#">
+        <div class="e-date">Apr 5 · 6 min read</div>
+        <div class="e-title">The protein-to-deep-sleep link is real</div>
+        <div class="e-excerpt">We looked at 1,400 nights of Meld data. The signal holds across body types, age, and training load. The mechanism is tryptophan.</div>
+        <div class="e-read">Read →</div>
+      </a>
+      <a class="entry" href="#">
+        <div class="e-date">Mar 29 · 3 min read</div>
+        <div class="e-title">Why Meld exists</div>
+        <div class="e-excerpt">The founder's note. Fragmented health data is the friction between you and better decisions. This is how we fix it.</div>
+        <div class="e-read">Read →</div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section" id="waitlist">
+  <div class="container">
+    <div class="section-eyebrow">TestFlight · iOS 17+</div>
+    <h2>Start reading your signals.</h2>
+    <p>Meld is free during TestFlight. Your data is never sold, never rented, never used to train generic AI models.</p>
+    <form class="form-row" onsubmit="event.preventDefault()">
+      <input type="email" placeholder="you@example.com" aria-label="Email">
+      <button type="submit">Get invite</button>
+    </form>
+  </div>
+</section>
+
+<footer>
+  <div class="container foot">
+    <div class="fine">© 2025 Meld Health, Inc. heymeld.com</div>
+    <div class="foot-links">
+      <a href="#">Privacy</a>
+      <a href="#">Terms</a>
+      <a href="#">Press</a>
+      <a href="mailto:hello@heymeld.com">hello@heymeld.com</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
