@@ -1,0 +1,51 @@
+---
+const sources = ['Oura', 'Apple Health', 'Garmin', 'Peloton', 'Whoop', 'Your food log'];
+---
+
+<section class="sources-strip" aria-label="Data sources Meld reads">
+  <div class="container">
+    <p class="sources-eyebrow">Meld reads from</p>
+    <div class="sources-list">
+      {sources.map((s) => <span class="source-name">{s}</span>)}
+    </div>
+  </div>
+</section>
+
+<style>
+  .sources-strip {
+    padding-block: clamp(2rem, 5vw, 3.5rem);
+    border-top: 1px solid var(--bg-tertiary);
+    border-bottom: 1px solid var(--bg-tertiary);
+    background: var(--bg-primary);
+  }
+
+  .sources-eyebrow {
+    font-size: var(--fs-label);
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    text-align: center;
+    margin-bottom: var(--sp-6);
+  }
+
+  .sources-list {
+    display: flex;
+    gap: clamp(var(--sp-6), 5vw, var(--sp-12));
+    justify-content: center;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .source-name {
+    font-size: 15px;
+    font-weight: var(--fw-medium);
+    color: var(--text-secondary);
+    opacity: 0.65;
+    transition: opacity var(--dur-base) var(--ease-out);
+  }
+
+  .source-name:hover {
+    opacity: 1;
+  }
+</style>

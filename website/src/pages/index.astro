@@ -2,17 +2,16 @@
 import Layout from '@/layouts/Layout.astro';
 import Nav from '@/components/Nav.astro';
 import Hero from '@/components/Hero.astro';
-import Problem from '@/components/Problem.astro';
-import Solution from '@/components/Solution.astro';
+import SourcesStrip from '@/components/SourcesStrip.astro';
 import HowItWorks from '@/components/HowItWorks.astro';
-import InsideApp from '@/components/InsideApp.astro';
-import ResearchGrounded from '@/components/ResearchGrounded.astro';
-import PatternDiscovery from '@/components/PatternDiscovery.astro';
-import DataSources from '@/components/DataSources.astro';
-import PrivacyTrust from '@/components/PrivacyTrust.astro';
+import Patterns from '@/components/Patterns.astro';
+import PhoneTour from '@/components/PhoneTour.astro';
+import VsChatGPT from '@/components/VsChatGPT.astro';
+import Science from '@/components/Science.astro';
 import FounderNote from '@/components/FounderNote.astro';
+import PrivacyTrust from '@/components/PrivacyTrust.astro';
 import FAQ from '@/components/FAQ.astro';
-import FinalCTA from '@/components/FinalCTA.astro';
+import CTA from '@/components/CTA.astro';
 import Footer from '@/components/Footer.astro';
 
 // SoftwareApplication schema for the home page (Meld = iOS HealthApplication)
@@ -23,7 +22,7 @@ const softwareAppSchema = {
   applicationCategory: 'HealthApplication',
   operatingSystem: 'iOS 17+',
   description:
-    'Meld connects Oura, Apple Health, Peloton, Garmin, and more into one synthesized view — and coaches you against it with literature-grounded insights.',
+    'Meld connects Oura, Apple Health, Peloton, Garmin, and Whoop into one coach. It finds cross-source patterns over 21+ days, cites the research, and tells you one thing to try today.',
   offers: {
     '@type': 'Offer',
     price: '0',
@@ -38,22 +37,21 @@ const softwareAppSchema = {
 ---
 
 <Layout
-  title="Meld — Your Health, Synthesized"
-  description="Meld quietly connects every signal from your body — sleep, workouts, food, recovery — and tells you what matters, what it means, and what to do next. Join the waitlist."
+  title="Meld · Your health, synthesized"
+  description="Meld pulls your Oura, Apple Health, Garmin, and Peloton into one coach. It finds patterns you would never spot, cites the research, and tells you what to do today."
   jsonLd={softwareAppSchema}
 >
   <Nav slot="nav" />
   <Hero />
-  <Problem />
-  <Solution />
+  <SourcesStrip />
   <HowItWorks />
-  <InsideApp />
-  <ResearchGrounded />
-  <PatternDiscovery />
-  <DataSources />
-  <PrivacyTrust />
+  <Patterns />
+  <PhoneTour />
+  <VsChatGPT />
+  <Science />
   <FounderNote />
+  <PrivacyTrust />
   <FAQ />
-  <FinalCTA />
+  <CTA />
   <Footer slot="footer" />
 </Layout>

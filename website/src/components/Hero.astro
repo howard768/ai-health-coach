@@ -1,91 +1,42 @@
 ---
 import WaitlistForm from './WaitlistForm.astro';
 import Mascot from './Mascot.astro';
+import InsightCardAnimated from './InsightCardAnimated.astro';
 ---
 
 <section class="hero" id="waitlist">
   <div class="hero-background" aria-hidden="true"></div>
+  <div class="hero-ambient" aria-hidden="true">
+    <Mascot size={72} tint={false} track={false} hoverable={false} />
+  </div>
 
   <div class="container hero-grid">
     <div class="hero-copy">
-      <p class="eyebrow">Meld · Pre-launch</p>
+      <p class="hero-eyebrow">
+        <span class="eyebrow-dot" aria-hidden="true"></span>
+        Pre-launch · TestFlight open
+      </p>
 
-      <h1 class="display hero-headline">
-        Your&nbsp;health,<br />synthesized.
+      <h1 class="hero-headline">
+        Your body sends signals every night.
+        <em>Are you reading them?</em>
       </h1>
 
-      <p class="subhead hero-subhead">
-        Meld quietly connects every signal from your body — sleep, workouts, food,
-        recovery — and tells you what matters, what it means, and what to do next.
+      <p class="hero-subhead">
+        Meld pulls your Oura, Apple Health, Garmin, and Peloton into one coach.
+        It finds patterns you would never spot, cites the research, and tells you
+        what to do today.
       </p>
 
-      <WaitlistForm source="hero" />
-
-      <p class="hero-trust">
-        <span class="dot"></span>
-        Built by Brock Howard · 15+ years in consumer health
-      </p>
+      <WaitlistForm
+        source="hero"
+        cta="Get early access"
+        finePrint="No credit card. iOS 17+. Your data stays yours."
+      />
     </div>
 
     <div class="hero-visual" aria-hidden="true">
-      <div class="phone-mockup">
-        <div class="phone-screen">
-          <div class="mock-time">8:42</div>
-          <div class="mock-greeting">Good morning, Brock</div>
-
-          <div class="mock-insight-card">
-            <div class="mock-insight-head">
-              <div class="mock-avatar">
-                <Mascot size={24} />
-              </div>
-              <div class="mock-insight-meta">
-                <strong>Your Coach</strong>
-                <span>Just now</span>
-              </div>
-            </div>
-            <p>
-              Sleep efficiency held at 91% last night and your HRV is 14% above baseline.
-              Today's a great day for intensity work.
-            </p>
-            <span class="mock-link">Continue in chat →</span>
-          </div>
-
-          <div class="mock-section-label">Today</div>
-
-          <div class="mock-metric-grid">
-            <div class="mock-metric">
-              <span class="mock-metric-label">Sleep Efficiency</span>
-              <span class="mock-metric-value">91<small>%</small></span>
-              <span class="mock-metric-sub">7h 12m total</span>
-            </div>
-            <div class="mock-metric">
-              <span class="mock-metric-label">HRV</span>
-              <span class="mock-metric-value">68<small>ms</small></span>
-              <span class="mock-metric-sub">↑ 14% vs baseline</span>
-            </div>
-            <div class="mock-metric">
-              <span class="mock-metric-label">Resting HR</span>
-              <span class="mock-metric-value">58<small>bpm</small></span>
-              <span class="mock-metric-sub">Stable this week</span>
-            </div>
-            <div class="mock-metric">
-              <span class="mock-metric-label">Consistency</span>
-              <span class="mock-metric-value">5<small>/7</small></span>
-              <span class="mock-metric-sub">On track</span>
-            </div>
-          </div>
-
-          <div class="mock-full-card">
-            <span class="mock-metric-label">Recovery readiness</span>
-            <span class="mock-ready-value">High</span>
-            <span class="mock-metric-sub">Good for intensity today</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="floating-mascot">
-        <Mascot size={72} />
-      </div>
+      <InsightCardAnimated />
     </div>
   </div>
 </section>
@@ -93,7 +44,7 @@ import Mascot from './Mascot.astro';
 <style>
   .hero {
     position: relative;
-    padding-block: clamp(2rem, 6vw, 5rem) clamp(2.5rem, 6vw, 5.5rem);
+    padding-block: clamp(2.5rem, 6vw, 5rem) clamp(3rem, 8vw, 7rem);
     overflow: hidden;
   }
 
@@ -104,17 +55,43 @@ import Mascot from './Mascot.astro';
     z-index: -1;
   }
 
+  /* Ambient background mascot floating slowly. */
+  .hero-ambient {
+    position: absolute;
+    top: 14%;
+    left: 3%;
+    opacity: 0.18;
+    animation: hero-float 8s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  @keyframes hero-float {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50%      { transform: translateY(-10px) rotate(-2deg); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-ambient { animation: none; }
+  }
+
+  @media (max-width: 600px) {
+    .hero-ambient { display: none; }
+  }
+
   .hero-grid {
+    position: relative;
     display: grid;
     grid-template-columns: 1fr;
-    gap: var(--sp-12);
+    gap: var(--sp-10);
     align-items: center;
+    z-index: 1;
   }
 
   @media (min-width: 980px) {
     .hero-grid {
-      grid-template-columns: 1.2fr 1fr;
-      gap: var(--sp-16);
+      grid-template-columns: 1.15fr 1fr;
+      gap: clamp(2rem, 6vw, 5rem);
     }
   }
 
@@ -122,240 +99,60 @@ import Mascot from './Mascot.astro';
     max-width: 620px;
   }
 
-  .hero-headline {
-    margin-bottom: var(--sp-5);
-    color: var(--text-primary);
-  }
-
-  .hero-subhead {
-    margin-bottom: var(--sp-8);
-  }
-
-  .hero-trust {
-    margin-top: var(--sp-6);
-    font-size: var(--fs-caption);
-    color: var(--text-tertiary);
-    display: flex;
+  .hero-eyebrow {
+    display: inline-flex;
     align-items: center;
     gap: var(--sp-2);
+    font-size: var(--fs-label);
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--purple-600);
+    margin-bottom: var(--sp-5);
   }
 
-  .hero-trust .dot {
-    display: inline-block;
+  .eyebrow-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: var(--green-500);
+    background: currentColor;
+    opacity: 0.8;
   }
 
-  /* ---------- Phone mockup ---------- */
+  .hero-headline {
+    font-family: var(--font-family);
+    font-size: clamp(2.5rem, 6vw, 4.25rem);
+    font-weight: var(--fw-thin);
+    line-height: 1.02;
+    letter-spacing: -0.028em;
+    color: var(--text-primary);
+    margin-bottom: var(--sp-5);
+    text-wrap: balance;
+  }
+
+  .hero-headline em {
+    font-style: italic;
+    color: var(--purple-600);
+    font-weight: inherit;
+  }
+
+  .hero-subhead {
+    font-size: var(--fs-body-lg);
+    font-weight: var(--fw-light);
+    line-height: 1.6;
+    color: var(--text-secondary);
+    max-width: 48ch;
+    margin-bottom: var(--sp-8);
+  }
+
   .hero-visual {
     position: relative;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
+    min-height: 0;
   }
 
-  .phone-mockup {
-    position: relative;
-    width: min(280px, 72vw);
-    aspect-ratio: 9 / 19;
-    background: #0a0a0f;
-    border-radius: 40px;
-    padding: 12px;
-    box-shadow:
-      0 20px 60px rgba(84, 56, 166, 0.18),
-      0 2px 6px rgba(0, 0, 0, 0.08),
-      inset 0 0 0 2px rgba(255, 255, 255, 0.1);
-    transform: rotate(-3deg);
-    transition: transform var(--dur-slow) var(--ease-out);
-  }
-
-  @media (min-width: 980px) {
-    .phone-mockup {
-      width: min(320px, 100%);
-      border-radius: 44px;
-      padding: 14px;
-    }
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .phone-mockup:hover {
-      transform: rotate(-1deg) translateY(-4px);
-    }
-  }
-
-  .phone-screen {
-    background: var(--bg-primary);
-    width: 100%;
-    height: 100%;
-    border-radius: 32px;
-    padding: var(--sp-5) var(--sp-4) var(--sp-4);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-3);
-  }
-
-  .mock-time {
-    font-size: 0.6875rem;
-    font-weight: var(--fw-medium);
-    color: var(--text-primary);
-    text-align: center;
-    margin-bottom: var(--sp-2);
-  }
-
-  .mock-greeting {
-    font-size: 1.375rem;
-    font-weight: var(--fw-light);
-    color: var(--text-primary);
-    line-height: 1.2;
-  }
-
-  .mock-insight-card {
-    background: var(--purple-100);
-    border-radius: 16px;
-    padding: var(--sp-3) var(--sp-4);
-    font-size: 0.6875rem;
-    line-height: 1.4;
-  }
-
-  .mock-insight-head {
-    display: flex;
-    gap: var(--sp-2);
-    align-items: center;
-    margin-bottom: var(--sp-2);
-  }
-
-  .mock-avatar {
-    background: #fff;
-    border-radius: 50%;
-    width: 32px;
-    height: 32px;
-    display: grid;
-    place-items: center;
-    flex-shrink: 0;
-  }
-
-  .mock-insight-meta {
-    display: flex;
-    flex-direction: column;
-    line-height: 1.1;
-  }
-
-  .mock-insight-meta strong {
-    font-size: 0.6875rem;
-    color: var(--text-primary);
-    font-weight: var(--fw-medium);
-  }
-
-  .mock-insight-meta span {
-    font-size: 0.5625rem;
-    color: var(--text-tertiary);
-  }
-
-  .mock-insight-card p {
-    color: var(--text-secondary);
-    margin-bottom: var(--sp-2);
-  }
-
-  .mock-link {
-    color: var(--green-text);
-    font-size: 0.625rem;
-    font-weight: var(--fw-medium);
-  }
-
-  .mock-section-label {
-    font-size: 0.9375rem;
-    font-weight: var(--fw-regular);
-    margin-top: var(--sp-1);
-  }
-
-  .mock-metric-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--sp-2);
-  }
-
-  .mock-metric {
-    background: var(--bg-primary);
-    border-radius: 12px;
-    padding: var(--sp-3);
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    box-shadow: 0 1px 8px rgba(0, 0, 0, 0.04);
-  }
-
-  .mock-metric-label {
-    font-size: 0.5rem;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    color: var(--text-tertiary);
-    font-weight: var(--fw-medium);
-  }
-
-  .mock-metric-value {
-    font-size: 1.5rem;
-    font-weight: var(--fw-thin);
-    line-height: 1.1;
-    color: var(--text-primary);
-  }
-
-  .mock-metric-value small {
-    font-size: 0.625rem;
-    font-weight: var(--fw-regular);
-    margin-left: 1px;
-  }
-
-  .mock-metric-sub {
-    font-size: 0.5rem;
-    color: var(--green-text);
-  }
-
-  .mock-full-card {
-    background: var(--bg-primary);
-    border-radius: 12px;
-    padding: var(--sp-3);
-    box-shadow: 0 1px 8px rgba(0, 0, 0, 0.04);
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .mock-ready-value {
-    font-size: 1.25rem;
-    font-weight: var(--fw-regular);
-    color: var(--green-500);
-  }
-
-  /* Mascot peeking from behind phone. Clamped so it can't force horizontal
-     overflow on narrow mobile viewports. */
-  .floating-mascot {
-    position: absolute;
-    top: clamp(-18px, -2vw, -8px);
-    right: clamp(4px, 2vw, 16px);
-    z-index: 2;
-    animation: float 4s ease-in-out infinite;
-    pointer-events: none;
-  }
-
-  @media (max-width: 479px) {
-    /* On phones, hide the floating mascot entirely — the phone mockup alone is
-       enough visual weight, and keeping the mascot creates layout jank. */
-    .floating-mascot {
-      display: none;
-    }
-  }
-
-  @keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-6px); }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .floating-mascot {
-      animation: none;
+  @media (max-width: 600px) {
+    .hero-subhead {
+      font-size: var(--fs-body);
     }
   }
 </style>

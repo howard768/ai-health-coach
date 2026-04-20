@@ -1,0 +1,116 @@
+---
+/*
+ * Science : every claim cited. Sticky left intro, right grid of 6 citations.
+ */
+const citations = [
+  { title: 'HRV-guided training improves fitness outcomes', author: 'Plews et al., 2017', tag: 'Training' },
+  { title: 'Dietary protein and sleep quality correlation', author: 'Lindseth et al., 2013', tag: 'Nutrition' },
+  { title: 'Caffeine half-life and REM suppression', author: 'Drickamer et al., 2018', tag: 'Sleep' },
+  { title: 'Alcohol reduces HRV for 24+ hours', author: 'Romanowicz et al., 2011', tag: 'Recovery' },
+  { title: 'Morning light exposure and circadian phase', author: 'Wright et al., 2013', tag: 'Light' },
+  { title: 'Resting heart rate as a stress biomarker', author: 'Jarczok et al., 2013', tag: 'Stress' },
+];
+---
+
+<section id="science" class="science-section">
+  <div class="container science-grid">
+    <div class="science-intro">
+      <p class="eyebrow reveal">Every claim cited</p>
+      <h2 class="display science-title reveal">Not vibes. Peer-reviewed.</h2>
+      <p class="subhead science-lede reveal">
+        When Meld says something about your body, it names where the claim comes
+        from. When it cites biology, it cites the paper. Hallucinations have
+        nowhere to hide.
+      </p>
+    </div>
+    <div class="science-cards">
+      {citations.map((c, i) => (
+        <article class="science-card reveal" style={`transition-delay: ${i * 60}ms;`}>
+          <p class="science-tag">{c.tag}</p>
+          <p class="science-title-line">{c.title}</p>
+          <p class="science-author">{c.author}</p>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .science-section {
+    padding-block: var(--section-pad-y);
+  }
+
+  .science-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--sp-10);
+    align-items: start;
+  }
+
+  @media (min-width: 900px) {
+    .science-grid {
+      grid-template-columns: 1fr 1.6fr;
+      gap: clamp(3rem, 6vw, 5rem);
+    }
+
+    .science-intro {
+      position: sticky;
+      top: 100px;
+    }
+  }
+
+  .science-title {
+    margin-top: var(--sp-4);
+    margin-bottom: var(--sp-4);
+    font-size: clamp(2rem, 4vw, 2.75rem);
+  }
+
+  .science-lede {
+    max-width: 36ch;
+  }
+
+  .science-cards {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  @media (min-width: 520px) {
+    .science-cards {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  .science-card {
+    background: #fff;
+    border: 1px solid var(--bg-tertiary);
+    border-radius: 14px;
+    padding: 18px;
+  }
+
+  .science-tag {
+    font-size: var(--fs-label);
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--purple-600);
+    margin-bottom: 10px;
+  }
+
+  .science-title-line {
+    font-size: var(--fs-body-sm);
+    font-weight: var(--fw-regular);
+    line-height: 1.4;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    max-width: none;
+  }
+
+  .science-author {
+    font-size: 12px;
+    font-weight: var(--fw-light);
+    color: var(--text-tertiary);
+    font-style: italic;
+    max-width: none;
+  }
+</style>

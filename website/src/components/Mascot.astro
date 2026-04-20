@@ -1,76 +1,284 @@
 ---
 /*
- * Meld mascot — Squat Blob (Variant B, primary)
+ * Meld mascot (Squat Blob) : v2, animatable.
  *
- * Genderless pixel-art character in Warm Amber (#E5A84B).
- * Rendered as inline SVG so it scales crisply at any size.
- * Pixel grid is preserved — never smoothed.
+ * Same 10×7 pixel silhouette as the iOS app, rendered into a 48×34 SVG
+ * viewBox so pixel math lines up with eye, smile, and thinking-dot slots.
  *
- * Matches Meld/DesignSystem/Icons/SquatBlobIcon.swift from the iOS app.
- * The body uses a simple 10×7 pixel grid. Eyes are 1×1 px each.
+ * Behaviors (gated on prefers-reduced-motion):
+ *   - idle breathe, thinking bob, celebrate hop, concerned shrink, greeting rise
+ *   - periodic blink (random 2.4s–5.2s interval)
+ *   - eye tracking toward the cursor (capped to ~1.6 svg units)
+ *   - hover: mouth smile pixels fade in + body squishes once
+ *   - thinking state: 3 purple dots pulse in the top-right
+ *
+ * All JS runs once per page; each mascot's state is scoped via data attrs.
  */
 
 interface Props {
-  /** Output size in pixels. Default 48. Common sizes: 26 nav, 32 chat, 48 card, 64 hero. */
+  /** Outer square size in px. Common: 28 nav, 40 card, 64 hero, 72+ ambient. */
   size?: number;
-  /** Optional accessible label. Defaults to decorative (aria-hidden). */
+  /** If true, render inside an amber-tint bubble (the standard coach avatar). */
+  tint?: boolean;
+  /** Animation state. */
+  state?: 'idle' | 'thinking' | 'celebrate' | 'concerned' | 'greeting';
+  /** Track the cursor with the eyes. Off for ambient / background mascots. */
+  track?: boolean;
+  /** Hover plays a squish + shows the smile. Off for ambient / background mascots. */
+  hoverable?: boolean;
+  /** Accessible label. Omit for purely decorative uses (aria-hidden). */
   label?: string;
-  /** Extra class names applied to the outer SVG. */
+  /** Extra classes on the outer span. */
   class?: string;
 }
 
-const { size = 48, label, class: className } = Astro.props;
+const {
+  size = 44,
+  tint = true,
+  state = 'idle',
+  track = true,
+  hoverable = true,
+  label,
+  class: className,
+} = Astro.props;
 
-// Each pixel in the 10×7 grid is rendered as a square of `unit` px.
-const unit = size / 10;
-const bodyColor = 'var(--amber-body)';
-const eyeColor = 'var(--amber-eye)';
-
-// The blob body silhouette — 10 columns × 7 rows.
-// Each row is a string of 0s (empty) and 1s (body pixel).
-// This matches the SquatBlobIcon.swift shape grid in the iOS app.
-const bodyGrid = [
-  '0011111100',
-  '0111111110',
-  '1111111111',
-  '1111111111',
-  '1111111111',
-  '0111111110',
-  '0011111100',
-];
-
-// Eyes: two dark pixels at row 3, cols 2 and 7
-const eyes: Array<[number, number]> = [
-  [2, 3],
-  [7, 3],
+// Body pixel positions inside the 48×34 viewBox. Each cell is 4.8 units wide.
+// This matches the iOS SquatBlobIcon grid and the Claude Design bundle layout.
+const BODY_PIXELS: Array<[number, number]> = [
+  [9.6, 0], [14.4, 0], [19.2, 0], [24, 0], [28.8, 0], [33.6, 0],
+  [4.8, 4.8], [9.6, 4.8], [14.4, 4.8], [19.2, 4.8], [24, 4.8], [28.8, 4.8], [33.6, 4.8], [38.4, 4.8],
+  [0, 9.6], [4.8, 9.6], [9.6, 9.6], [14.4, 9.6], [19.2, 9.6], [24, 9.6], [28.8, 9.6], [33.6, 9.6], [38.4, 9.6], [43.2, 9.6],
+  [0, 14.4], [4.8, 14.4], [14.4, 14.4], [19.2, 14.4], [24, 14.4], [28.8, 14.4], [38.4, 14.4], [43.2, 14.4],
+  [0, 19.2], [4.8, 19.2], [9.6, 19.2], [14.4, 19.2], [19.2, 19.2], [24, 19.2], [28.8, 19.2], [33.6, 19.2], [38.4, 19.2], [43.2, 19.2],
+  [4.8, 24], [9.6, 24], [14.4, 24], [19.2, 24], [24, 24], [28.8, 24], [33.6, 24], [38.4, 24],
+  [9.6, 28.8], [14.4, 28.8], [19.2, 28.8], [24, 28.8], [28.8, 28.8], [33.6, 28.8],
 ];
 ---
 
-<svg
-  width={size}
-  height={size * 0.7}
-  viewBox={`0 0 ${size} ${size * 0.7}`}
-  class={className}
+<span
+  class:list={['mascot', className]}
+  data-mascot
+  data-state={state}
+  data-tint={tint ? '' : undefined}
+  data-track={track ? '' : undefined}
+  data-hoverable={hoverable ? '' : undefined}
+  style={`--mascot-size: ${size}px;`}
   role={label ? 'img' : undefined}
   aria-label={label}
   aria-hidden={label ? undefined : 'true'}
-  shape-rendering="crispEdges"
-  xmlns="http://www.w3.org/2000/svg"
 >
-  {
-    /* Body pixels */
-    bodyGrid.map((row, y) =>
-      row.split('').map((cell, x) =>
-        cell === '1' ? (
-          <rect x={x * unit} y={y * unit} width={unit} height={unit} fill={bodyColor} />
-        ) : null
-      )
-    )
+  <svg viewBox="0 0 48 34" shape-rendering="crispEdges" class="mascot-svg">
+    {BODY_PIXELS.map(([x, y]) => (
+      <rect x={x} y={y} width="4.8" height="4.8" fill="var(--amber-body)" />
+    ))}
+
+    {/* Eyes : grouped so we can translate the pair with one CSS var. */}
+    <g class="mascot-eyes">
+      <rect class="eye" x="9.6" y="14.4" width="4.8" height="4.8" fill="var(--amber-eye)" />
+      <rect class="eye" x="33.6" y="14.4" width="4.8" height="4.8" fill="var(--amber-eye)" />
+    </g>
+
+    {/* Smile : hidden by default; reveals staggered on hover. */}
+    <g class="mascot-smile">
+      <rect x="14.4" y="21.6" width="4.8" height="2.4" fill="var(--amber-eye)" />
+      <rect x="19.2" y="23" width="9.6" height="2.4" fill="var(--amber-eye)" />
+      <rect x="28.8" y="21.6" width="4.8" height="2.4" fill="var(--amber-eye)" />
+    </g>
+
+    {/* Thinking dots : visible only when state=thinking. */}
+    <g class="mascot-think">
+      <circle cx="41" cy="6" r="0.9" fill="var(--purple-500)" />
+      <circle cx="43.6" cy="6" r="0.9" fill="var(--purple-500)" />
+      <circle cx="46.2" cy="6" r="0.9" fill="var(--purple-500)" />
+    </g>
+  </svg>
+</span>
+
+<script>
+  type MascotEl = HTMLElement;
+
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function initMascots() {
+    const mascots = Array.from(document.querySelectorAll<MascotEl>('[data-mascot]'));
+    if (mascots.length === 0) return;
+
+    // ── Blink loop ──────────────────────────────────────────────────
+    function blinkOnce(el: MascotEl) {
+      const eyes = el.querySelectorAll<SVGRectElement>('.eye');
+      eyes.forEach((e) => e.setAttribute('height', '0.6'));
+      window.setTimeout(() => {
+        eyes.forEach((e) => e.setAttribute('height', '4.8'));
+      }, 110);
+    }
+    if (!reduced) {
+      mascots.forEach((el) => {
+        const loop = () => {
+          if (!document.body.contains(el)) return;
+          blinkOnce(el);
+          window.setTimeout(loop, 2400 + Math.random() * 2800);
+        };
+        window.setTimeout(loop, 1200 + Math.random() * 1800);
+      });
+    }
+
+    // ── Eye tracking ────────────────────────────────────────────────
+    const tracked = mascots.filter((el) => el.hasAttribute('data-track'));
+    if (tracked.length > 0 && !reduced) {
+      let pending = false;
+      let lastX = 0;
+      let lastY = 0;
+      const handle = (e: PointerEvent) => {
+        lastX = e.clientX;
+        lastY = e.clientY;
+        if (pending) return;
+        pending = true;
+        requestAnimationFrame(() => {
+          pending = false;
+          for (const el of tracked) {
+            const r = el.getBoundingClientRect();
+            if (r.width === 0) continue;
+            const cx = r.left + r.width / 2;
+            const cy = r.top + r.height / 2;
+            const dx = lastX - cx;
+            const dy = lastY - cy;
+            const mag = Math.hypot(dx, dy) || 1;
+            const k = Math.min(mag, 140) / 140;
+            const max = 1.6;
+            const gx = (dx / mag) * max * k;
+            const gy = (dy / mag) * max * k;
+            el.style.setProperty('--gaze-x', `${gx.toFixed(2)}px`);
+            el.style.setProperty('--gaze-y', `${gy.toFixed(2)}px`);
+          }
+        });
+      };
+      window.addEventListener('pointermove', handle, { passive: true });
+    }
   }
-  {
-    /* Eye pixels on top of body */
-    eyes.map(([x, y]) => (
-      <rect x={x * unit} y={y * unit} width={unit} height={unit} fill={eyeColor} />
-    ))
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initMascots);
+  } else {
+    initMascots();
   }
-</svg>
+</script>
+
+<style>
+  .mascot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--mascot-size, 44px);
+    height: var(--mascot-size, 44px);
+    border-radius: 50%;
+    background: transparent;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+
+  .mascot[data-tint] {
+    background: var(--amber-tint);
+  }
+
+  .mascot[data-hoverable] {
+    cursor: pointer;
+  }
+
+  .mascot-svg {
+    width: calc(var(--mascot-size, 44px) * 0.66);
+    height: calc(var(--mascot-size, 44px) * 0.66);
+    transform-origin: center bottom;
+    overflow: visible;
+  }
+
+  /* ── Eye transforms ───────────────────────────────────────── */
+  .mascot-eyes {
+    transform: translate(var(--gaze-x, 0), var(--gaze-y, 0));
+    transition: transform 180ms var(--ease-out);
+  }
+  .eye {
+    transition: height 90ms ease-out;
+  }
+
+  /* ── Smile on hover ──────────────────────────────────────── */
+  .mascot-smile rect {
+    opacity: 0;
+    transition: opacity 220ms ease-out;
+  }
+  .mascot[data-hoverable]:hover .mascot-smile rect {
+    opacity: 1;
+  }
+  .mascot[data-hoverable]:hover .mascot-smile rect:nth-child(1) { transition-delay: 0ms; }
+  .mascot[data-hoverable]:hover .mascot-smile rect:nth-child(2) { transition-delay: 40ms; }
+  .mascot[data-hoverable]:hover .mascot-smile rect:nth-child(3) { transition-delay: 80ms; }
+
+  /* ── Thinking dots ───────────────────────────────────────── */
+  .mascot-think {
+    opacity: 0;
+  }
+  .mascot[data-state='thinking'] .mascot-think {
+    opacity: 1;
+  }
+
+  /* ── State animations ────────────────────────────────────── */
+  @keyframes mascot-breathe {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.035); }
+  }
+  @keyframes mascot-bob {
+    0%, 100% { transform: translateY(0) rotate(-1deg); }
+    50%      { transform: translateY(-3px) rotate(1deg); }
+  }
+  @keyframes mascot-hop {
+    0%, 100% { transform: translateY(0) scale(1, 1); }
+    30%      { transform: translateY(-6px) scale(0.96, 1.06); }
+    60%      { transform: translateY(0) scale(1.06, 0.94); }
+  }
+  @keyframes mascot-shrink {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(0.97); }
+  }
+  @keyframes mascot-rise {
+    from { transform: translateY(12px) scale(0.9); opacity: 0; }
+    to   { transform: translateY(0) scale(1); opacity: 1; }
+  }
+  @keyframes mascot-squish {
+    0%   { transform: scale(1, 1); }
+    40%  { transform: scale(1.12, 0.88); }
+    70%  { transform: scale(0.94, 1.06); }
+    100% { transform: scale(1, 1); }
+  }
+  @keyframes mascot-think {
+    0%, 100% { opacity: 0.2; transform: translateY(0); }
+    50%      { opacity: 1;   transform: translateY(-1px); }
+  }
+
+  .mascot[data-state='idle'] .mascot-svg       { animation: mascot-breathe 3.6s ease-in-out infinite; }
+  .mascot[data-state='thinking'] .mascot-svg   { animation: mascot-bob 1.4s ease-in-out infinite; }
+  .mascot[data-state='celebrate'] .mascot-svg  { animation: mascot-hop 0.7s var(--ease-spring) infinite; }
+  .mascot[data-state='concerned'] .mascot-svg  { animation: mascot-shrink 2.4s ease-in-out infinite; }
+  .mascot[data-state='greeting'] .mascot-svg   { animation: mascot-rise 800ms var(--ease-spring) both; }
+
+  .mascot[data-state='thinking'] .mascot-think circle {
+    animation: mascot-think 1.2s ease-in-out infinite;
+  }
+  .mascot[data-state='thinking'] .mascot-think circle:nth-child(2) { animation-delay: 0.18s; }
+  .mascot[data-state='thinking'] .mascot-think circle:nth-child(3) { animation-delay: 0.36s; }
+
+  /* Hover squish plays once, replacing the state loop for its duration. */
+  .mascot[data-hoverable]:hover .mascot-svg {
+    animation: mascot-squish 500ms var(--ease-spring);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mascot-svg,
+    .mascot[data-state] .mascot-svg,
+    .mascot[data-hoverable]:hover .mascot-svg,
+    .mascot[data-state='thinking'] .mascot-think circle {
+      animation: none !important;
+    }
+    .mascot-eyes {
+      transition: none !important;
+    }
+  }
+</style>

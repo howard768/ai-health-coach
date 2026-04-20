@@ -1,120 +1,330 @@
 ---
-const steps = [
-  {
-    num: 1,
-    title: 'Connect your sources',
-    body: 'Tap to link Oura, Apple Health, Peloton, Garmin, and more. We read only what you authorize. You can disconnect any source in one tap.',
-  },
-  {
-    num: 2,
-    title: 'We sync in the background',
-    body: 'Meld pulls your latest data every few hours. Sleep, workouts, steps, heart rate, HRV, food. No screenshots. No manual input.',
-  },
-  {
-    num: 3,
-    title: 'Your coach reaches out',
-    body: 'When something matters — a big recovery dip, a pattern across meals, a workout suggestion — your coach tells you. When you have a question, just ask.',
-  },
-  {
-    num: 4,
-    title: 'You get smarter over time',
-    body: "Meld discovers real patterns in your data: sleep vs nutrition, recovery vs training, HRV vs stress. It tests them statistically and only surfaces what holds up. The longer you use it, the sharper it gets.",
-  },
+/*
+ * How it works : three steps with mini animated visuals.
+ *
+ *   01 Connect : pulsing source pills
+ *   02 Patterns : SVG scatter + correlation line drawing itself
+ *   03 Action : small coach card with mascot + action + citation
+ */
+import Mascot from './Mascot.astro';
+
+const sources = [
+  { id: 'oura', label: 'Oura', initial: 'O', color: '#000000' },
+  { id: 'apple', label: 'Apple Health', initial: '♥', color: '#ff3b30' },
+  { id: 'garmin', label: 'Garmin', initial: 'G', color: '#007cc3' },
+  { id: 'peloton', label: 'Peloton', initial: 'P', color: '#df1e26' },
+];
+
+// Deterministic scatter dots for the pattern visual. 40 background dots +
+// 5 highlighted nodes along the fitted curve.
+const scatterDots = Array.from({ length: 40 }, (_, i) => ({
+  cx: (i * 37) % 260,
+  cy: ((i * 53) % 120) + 20,
+}));
+const highlightedNodes = [
+  { cx: 30, cy: 110 },
+  { cx: 90, cy: 80 },
+  { cx: 140, cy: 70 },
+  { cx: 200, cy: 55 },
+  { cx: 230, cy: 40 },
 ];
 ---
 
-<section class="section how-it-works" id="how-it-works">
-  <div class="container prose">
-    <header class="how-header">
-      <p class="eyebrow">How it works</p>
-      <h2 class="h1">Four steps. Nothing to configure.</h2>
-    </header>
+<section id="how" class="hiw-section">
+  <div class="container">
+    <p class="eyebrow reveal">How Meld works</p>
+    <h2 class="display hiw-title reveal">Three steps, no dashboards to read.</h2>
+    <p class="subhead hiw-lede reveal">
+      Meld is not another tracker. It sits on top of the ones you already wear,
+      and turns them into one voice.
+    </p>
 
-    <ol class="steps">
-      {
-        steps.map((s) => (
-          <li class="step reveal">
-            <div class="step-num" aria-hidden="true">
-              {s.num}
+    <div class="hiw-grid">
+      <article class="hiw-card reveal">
+        <p class="hiw-step">Step 01</p>
+        <div class="hiw-visual hiw-visual-connect">
+          {sources.map((s, i) => (
+            <div class="connect-pill" style={`animation-delay: ${i * 0.3}s;`}>
+              <span class="connect-tile" style={`color: ${s.color};`}>{s.initial}</span>
+              <span class="connect-label">{s.label}</span>
+              <span class="connect-ok" aria-hidden="true"></span>
             </div>
-            <div class="step-body">
-              <h3 class="h3">{s.title}</h3>
-              <p>{s.body}</p>
+          ))}
+        </div>
+        <h3 class="hiw-card-title">Connect once.</h3>
+        <p class="hiw-card-body">
+          Plug in Oura, Apple Health, Garmin, Peloton. Meld reads them every hour,
+          in the background.
+        </p>
+      </article>
+
+      <article class="hiw-card reveal">
+        <p class="hiw-step">Step 02</p>
+        <div class="hiw-visual hiw-visual-patterns">
+          <svg viewBox="0 0 260 160" preserveAspectRatio="xMidYMid meet" class="pattern-svg">
+            {scatterDots.map((d) => (
+              <circle cx={d.cx} cy={d.cy} r="1.8" fill="var(--text-disabled)" opacity="0.5" />
+            ))}
+            <path
+              class="pattern-line"
+              d="M 30 110 Q 90 60 140 70 T 230 40"
+              fill="none"
+              stroke="var(--purple-500)"
+              stroke-width="2"
+            />
+            {highlightedNodes.map((n, i) => (
+              <circle
+                class="pattern-node"
+                cx={n.cx}
+                cy={n.cy}
+                r="4"
+                fill="var(--purple-500)"
+                style={`animation-delay: ${1 + i * 0.2}s;`}
+              />
+            ))}
+            <text x="140" y="18" fill="var(--purple-600)" font-size="9" font-weight="500" letter-spacing="1" text-anchor="middle">
+              CORRELATION · r = 0.72
+            </text>
+          </svg>
+        </div>
+        <h3 class="hiw-card-title">Meld finds patterns.</h3>
+        <p class="hiw-card-body">
+          It correlates across sources over 21+ days. The signal has to hold on
+          your body, not a general population.
+        </p>
+      </article>
+
+      <article class="hiw-card reveal">
+        <p class="hiw-step">Step 03</p>
+        <div class="hiw-visual hiw-visual-action">
+          <div class="action-card">
+            <div class="action-head">
+              <Mascot size={28} track={false} hoverable={false} />
+              <span class="action-today">Today</span>
             </div>
-          </li>
-        ))
-      }
-    </ol>
+            <p class="action-body">
+              Try a harder ride today. Your readiness is in the top 15% this month.
+            </p>
+            <p class="action-cite">Oura HRV + Plews 2017 on HRV-guided training.</p>
+          </div>
+        </div>
+        <h3 class="hiw-card-title">You get one thing to do.</h3>
+        <p class="hiw-card-body">
+          Not a dashboard. One finding, one mechanism, one action, one citation.
+          Coach replies stay short on purpose.
+        </p>
+      </article>
+    </div>
   </div>
 </section>
 
 <style>
-  .how-it-works {
-    background: var(--bg-primary);
+  .hiw-section {
+    padding-block: var(--section-pad-y);
+    background: var(--bg-secondary);
   }
 
-  .how-header {
-    margin-bottom: var(--sp-10);
-    text-align: center;
+  .hiw-title {
+    margin-top: var(--sp-4);
+    margin-bottom: var(--sp-4);
+    max-width: 18ch;
   }
 
-  .steps {
-    list-style: none;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-8);
-    position: relative;
-    counter-reset: step-count;
+  .hiw-lede {
+    margin-bottom: clamp(var(--sp-8), 5vw, var(--sp-12));
   }
 
-  /* Vertical connecting line between steps (desktop only) */
-  @media (min-width: 680px) {
-    .steps::before {
-      content: '';
-      position: absolute;
-      left: 23px;
-      top: 28px;
-      bottom: 28px;
-      width: 2px;
-      background: linear-gradient(
-        180deg,
-        var(--purple-200) 0%,
-        var(--purple-100) 100%
-      );
+  .hiw-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: var(--sp-5);
+  }
+
+  @media (min-width: 900px) {
+    .hiw-grid {
+      grid-template-columns: repeat(3, 1fr);
     }
   }
 
-  .step {
-    display: grid;
-    grid-template-columns: 48px 1fr;
-    gap: var(--sp-5);
-    align-items: flex-start;
+  .hiw-card {
+    background: #fff;
+    border-radius: 20px;
+    padding: var(--sp-6);
+    box-shadow: var(--shadow-low);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .hiw-step {
+    font-size: var(--fs-label);
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--purple-600);
+    margin-bottom: var(--sp-4);
+  }
+
+  .hiw-visual {
+    height: 160px;
+    margin-bottom: var(--sp-5);
     position: relative;
   }
 
-  .step-num {
-    width: 48px;
-    height: 48px;
-    background: var(--bg-primary);
-    border: 2px solid var(--purple-300);
-    color: var(--purple-600);
-    border-radius: 50%;
-    display: grid;
-    place-items: center;
-    font-size: 1.125rem;
-    font-weight: var(--fw-medium);
-    flex-shrink: 0;
-    z-index: 1;
-  }
-
-  .step-body h3 {
+  .hiw-card-title {
+    font-size: 1.375rem;
+    font-weight: var(--fw-regular);
+    line-height: 1.25;
+    letter-spacing: -0.01em;
     margin-bottom: var(--sp-2);
     color: var(--text-primary);
   }
 
-  .step-body p {
+  .hiw-card-body {
+    font-size: var(--fs-body-sm);
+    font-weight: var(--fw-light);
+    line-height: 1.55;
     color: var(--text-secondary);
-    line-height: var(--lh-relaxed);
+    max-width: none;
+  }
+
+  /* ---------- Step 01: Connect ---------- */
+  .hiw-visual-connect {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    align-content: center;
+    height: 100%;
+  }
+
+  .connect-pill {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: connect-pulse 3s var(--ease-out) infinite;
+  }
+
+  .connect-tile {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    background: #fff;
+    border: 1px solid var(--bg-tertiary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .connect-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .connect-ok {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--green-500);
+    flex-shrink: 0;
+  }
+
+  @keyframes connect-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(84, 56, 166, 0); }
+    50%      { box-shadow: 0 0 0 4px rgba(84, 56, 166, 0.08); }
+  }
+
+  /* ---------- Step 02: Patterns ---------- */
+  .hiw-visual-patterns {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .pattern-svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .pattern-line {
+    stroke-dasharray: 400;
+    stroke-dashoffset: 400;
+    animation: pattern-draw 2.4s var(--ease-out) 0.3s forwards;
+  }
+
+  @keyframes pattern-draw {
+    to { stroke-dashoffset: 0; }
+  }
+
+  .pattern-node {
+    opacity: 0;
+    animation: pattern-node-in 400ms var(--ease-out) forwards;
+  }
+
+  @keyframes pattern-node-in {
+    to { opacity: 1; }
+  }
+
+  /* ---------- Step 03: Action ---------- */
+  .hiw-visual-action {
+    display: flex;
+    align-items: stretch;
+  }
+
+  .action-card {
+    background: var(--purple-100);
+    border-radius: 16px;
+    padding: 16px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .action-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .action-today {
+    font-size: 12px;
+    font-weight: var(--fw-medium);
+    color: var(--text-primary);
+  }
+
+  .action-body {
+    font-size: 13px;
+    font-weight: var(--fw-regular);
+    line-height: 1.45;
+    color: var(--text-primary);
+    max-width: none;
+  }
+
+  .action-cite {
+    margin-top: auto;
+    font-size: 10px;
+    font-style: italic;
+    color: var(--text-tertiary);
+    max-width: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .connect-pill,
+    .pattern-line,
+    .pattern-node {
+      animation: none !important;
+    }
+    .pattern-line { stroke-dashoffset: 0 !important; }
+    .pattern-node { opacity: 1 !important; }
   }
 </style>

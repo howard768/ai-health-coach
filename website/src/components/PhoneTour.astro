@@ -1,0 +1,872 @@
+---
+/*
+ * A day with Meld : interactive scrubber.
+ *
+ * Left: sticky iPhone frame showing 1 of 4 screens.
+ * Right: 4-dot timeline + moment title/body + Prev / Next buttons.
+ *
+ * Click a dot or Next/Prev to switch. CSS fades the phone screen.
+ */
+import Mascot from './Mascot.astro';
+
+const moments = [
+  {
+    time: '6:42 AM',
+    title: 'Meld wakes up before you do.',
+    body: "It reads last night's sleep, pairs it with yesterday's food and training, and has the finding ready for your first glance.",
+  },
+  {
+    time: '12:08 PM',
+    title: 'One pattern, cited.',
+    body: 'No dashboards. One finding, the mechanism behind it, one suggested action, and where the data came from.',
+  },
+  {
+    time: '6:15 PM',
+    title: 'Ask anything.',
+    body: 'The coach has the full context of your body. It replies in data, not adjectives. Short answers by design.',
+  },
+  {
+    time: '10:30 PM',
+    title: 'Wind-down that fits today.',
+    body: 'A protocol chosen from your HRV, training load, and what you ate. It changes every night.',
+  },
+];
+
+// Circumference of the Morning screen's readiness ring at r=26.
+const ringRadius = 26;
+const ringCirc = 2 * Math.PI * ringRadius;
+const readiness = 0.87; // 87 / 100
+const ringFilled = ringCirc * readiness;
+---
+
+<section id="tour" class="tour-section">
+  <div class="container">
+    <p class="tour-eyebrow reveal">
+      <span class="eyebrow-dot" aria-hidden="true"></span>
+      A day with Meld
+    </p>
+    <h2 class="display tour-title reveal">
+      Scrub through a day. The coach is there when you need it, quiet when you don't.
+    </h2>
+  </div>
+
+  <div class="container tour-grid">
+    <div class="phone-wrap">
+      <div class="phone-frame" data-phone data-active="0" role="group" aria-label="Phone preview">
+        <div class="phone-bezel">
+          <div class="phone-dynamic-island" aria-hidden="true"></div>
+          <div class="phone-status-bar" aria-hidden="true">
+            <span>9:41</span>
+            <span>••••</span>
+          </div>
+
+          <div class="phone-screens">
+            <article class="phone-screen" data-screen="0">
+              <p class="ps-date">TUE · APR 16</p>
+              <p class="ps-greet">Good morning.</p>
+              <div class="ps-readiness">
+                <div class="ps-ready-left">
+                  <p class="ps-label">Readiness</p>
+                  <div class="ps-ready-value-row">
+                    <span class="ps-ready-value">87</span>
+                    <span class="ps-ready-slash">/100</span>
+                  </div>
+                  <p class="ps-trend-up">↑ 14 vs 7-day avg</p>
+                </div>
+                <svg class="ps-ring" viewBox="0 0 62 62" aria-hidden="true">
+                  <circle cx="31" cy="31" r={ringRadius} fill="none" stroke="var(--purple-100)" stroke-width="5" />
+                  <circle
+                    cx="31"
+                    cy="31"
+                    r={ringRadius}
+                    fill="none"
+                    stroke="var(--purple-500)"
+                    stroke-width="5"
+                    stroke-linecap="round"
+                    stroke-dasharray={`${ringFilled} ${ringCirc}`}
+                    transform="rotate(-90 31 31)"
+                  />
+                </svg>
+              </div>
+              <p class="ps-note">
+                Your HRV bounced back overnight. Green light for a hard session today.
+              </p>
+              <div class="ps-mini-grid">
+                <div class="ps-mini">
+                  <p class="ps-label">Sleep</p>
+                  <p class="ps-mini-val">7h 42m</p>
+                  <p class="ps-trend-up">↑ 32m</p>
+                </div>
+                <div class="ps-mini">
+                  <p class="ps-label">HRV</p>
+                  <p class="ps-mini-val">68<small>ms</small></p>
+                  <p class="ps-trend-up">↑ 14%</p>
+                </div>
+              </div>
+            </article>
+
+            <article class="phone-screen" data-screen="1">
+              <p class="ps-label ps-insight-lead">Today's pattern</p>
+              <div class="ps-insight-card">
+                <div class="ps-insight-head">
+                  <Mascot size={32} track={false} hoverable={false} />
+                  <p class="ps-insight-meta">21 nights</p>
+                </div>
+                <p class="ps-insight-title">
+                  Deep sleep goes up 22% on higher-protein days.
+                </p>
+                <p class="ps-insight-body">
+                  Front-loading protein at lunch, not dinner, correlates best on your body.
+                </p>
+                <div class="ps-insight-divider"></div>
+                <p class="ps-insight-try-label">Try today</p>
+                <p class="ps-insight-try">
+                  Aim for 30g protein at lunch. See what tonight's sleep looks like.
+                </p>
+                <p class="ps-insight-cite">From Oura sleep + your food log.</p>
+              </div>
+            </article>
+
+            <article class="phone-screen" data-screen="2">
+              <div class="ps-chat-row ps-chat-row-coach">
+                <Mascot size={30} track={false} hoverable={false} />
+                <div class="ps-chat-bubble ps-chat-bubble-coach">
+                  Your HRV climbed to 68 ms, up from 51 the night before. That tracks
+                  with your earlier bedtime.
+                </div>
+              </div>
+              <div class="ps-chat-row ps-chat-row-user">
+                <div class="ps-chat-bubble ps-chat-bubble-user">What changed?</div>
+              </div>
+              <div class="ps-chat-row ps-chat-row-coach">
+                <Mascot size={30} state="thinking" track={false} hoverable={false} />
+                <div class="ps-chat-bubble ps-chat-bubble-coach">
+                  <p>Three things lined up:</p>
+                  <ul>
+                    <li><strong>Bedtime:</strong> 10:47 vs 11:52 PM.</li>
+                    <li><strong>Last meal:</strong> 3h before sleep, not 1h.</li>
+                    <li><strong>Alcohol:</strong> 0 drinks, not 2.</li>
+                  </ul>
+                </div>
+              </div>
+            </article>
+
+            <article class="phone-screen" data-screen="3">
+              <p class="ps-label">Wind down</p>
+              <div class="ps-night-card">
+                <p class="ps-night-label">Tonight's protocol</p>
+                <p class="ps-night-title">Dim lights by 10 PM. Skip late snack.</p>
+                <p class="ps-night-body">
+                  Your training load was high. Sleep efficiency drops 8% when you eat
+                  past 9.
+                </p>
+              </div>
+              <div class="ps-bedtime">
+                <div>
+                  <p class="ps-label">Target bedtime</p>
+                  <p class="ps-bedtime-val">10:45 PM</p>
+                </div>
+                <p class="ps-bedtime-window">8h window</p>
+              </div>
+            </article>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tour-timeline">
+      <div class="scrubber" role="tablist" aria-label="Moments in a day">
+        <div class="scrubber-track"></div>
+        <div class="scrubber-fill" data-scrub-fill></div>
+        {moments.map((m, i) => (
+          <button
+            type="button"
+            class="scrubber-dot"
+            data-scrub-dot
+            data-index={i}
+            role="tab"
+            aria-selected={i === 0 ? 'true' : 'false'}
+            aria-label={`${m.time} · ${m.title}`}
+            style={`--i: ${i}; --max: ${moments.length - 1};`}
+          >
+            <span class="scrubber-dot-circle" aria-hidden="true"></span>
+            <span class="scrubber-dot-time">{m.time}</span>
+          </button>
+        ))}
+      </div>
+
+      <div class="tour-content" data-tour-content>
+        {moments.map((m, i) => (
+          <div class="tour-panel" data-panel-index={i} data-active={i === 0 ? '' : undefined}>
+            <h3 class="tour-panel-title">{m.title}</h3>
+            <p class="tour-panel-body">{m.body}</p>
+          </div>
+        ))}
+
+        <div class="tour-controls">
+          <button type="button" class="tour-btn tour-btn-prev" data-tour-prev disabled>
+            ← Previous
+          </button>
+          <button type="button" class="tour-btn tour-btn-next" data-tour-next>
+            Next moment →
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  const phone = document.querySelector<HTMLElement>('[data-phone]');
+  const dots = document.querySelectorAll<HTMLButtonElement>('[data-scrub-dot]');
+  const fill = document.querySelector<HTMLElement>('[data-scrub-fill]');
+  const panels = document.querySelectorAll<HTMLElement>('[data-panel-index]');
+  const prev = document.querySelector<HTMLButtonElement>('[data-tour-prev]');
+  const next = document.querySelector<HTMLButtonElement>('[data-tour-next]');
+
+  if (phone && dots.length > 0 && fill) {
+    const total = dots.length;
+    let idx = 0;
+
+    const setIdx = (n: number) => {
+      idx = Math.max(0, Math.min(total - 1, n));
+      phone.setAttribute('data-active', String(idx));
+      fill.style.width = `${(idx / (total - 1)) * 100}%`;
+      dots.forEach((d, i) => {
+        d.setAttribute('aria-selected', i === idx ? 'true' : 'false');
+        d.classList.toggle('is-current', i === idx);
+        d.classList.toggle('is-past', i < idx);
+      });
+      panels.forEach((p) => {
+        const i = parseInt(p.getAttribute('data-panel-index') ?? '0', 10);
+        if (i === idx) p.setAttribute('data-active', '');
+        else p.removeAttribute('data-active');
+      });
+      if (prev) prev.disabled = idx === 0;
+      if (next) next.disabled = idx === total - 1;
+    };
+
+    dots.forEach((d) => {
+      d.addEventListener('click', () => {
+        const i = parseInt(d.getAttribute('data-index') ?? '0', 10);
+        setIdx(i);
+      });
+    });
+
+    prev?.addEventListener('click', () => setIdx(idx - 1));
+    next?.addEventListener('click', () => setIdx(idx + 1));
+
+    // Keyboard nav on dots: left/right arrows scrub
+    const scrubber = dots[0].parentElement;
+    scrubber?.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight') { e.preventDefault(); setIdx(idx + 1); }
+      if (e.key === 'ArrowLeft')  { e.preventDefault(); setIdx(idx - 1); }
+    });
+
+    setIdx(0);
+  }
+</script>
+
+<style>
+  .tour-section {
+    padding-block: clamp(4rem, 10vw, 8rem);
+    background: linear-gradient(180deg, var(--purple-50) 0%, #fff 100%);
+    overflow: hidden;
+  }
+
+  .tour-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    font-size: var(--fs-label);
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--purple-600);
+    margin-bottom: var(--sp-5);
+  }
+
+  .eyebrow-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.8;
+  }
+
+  .tour-title {
+    max-width: 22ch;
+    margin-bottom: clamp(var(--sp-10), 8vw, var(--sp-16));
+  }
+
+  .tour-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--sp-10);
+    align-items: start;
+  }
+
+  @media (min-width: 900px) {
+    .tour-grid {
+      grid-template-columns: 380px 1fr;
+      gap: clamp(3rem, 6vw, 5rem);
+      align-items: center;
+    }
+  }
+
+  /* ---- Phone frame ---- */
+  .phone-wrap {
+    display: flex;
+    justify-content: center;
+  }
+
+  @media (min-width: 900px) {
+    .phone-wrap {
+      position: sticky;
+      top: 100px;
+    }
+  }
+
+  .phone-frame {
+    width: 320px;
+    height: 660px;
+    background: #121217;
+    border-radius: 48px;
+    padding: 10px;
+    box-shadow:
+      0 40px 80px rgba(84, 56, 166, 0.2),
+      0 10px 30px rgba(0, 0, 0, 0.12);
+    position: relative;
+    max-width: 100%;
+  }
+
+  .phone-bezel {
+    width: 100%;
+    height: 100%;
+    background: var(--bg-secondary);
+    border-radius: 38px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .phone-dynamic-island {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 108px;
+    height: 30px;
+    background: #000;
+    border-radius: 20px;
+    z-index: 11;
+  }
+
+  .phone-status-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 44px;
+    padding: 0 26px 8px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    z-index: 10;
+  }
+
+  .phone-screens {
+    position: absolute;
+    inset: 0;
+    padding-top: 50px;
+  }
+
+  .phone-screen {
+    position: absolute;
+    inset: 50px 0 0;
+    padding: var(--sp-5) 18px;
+    opacity: 0;
+    transform: translateY(8px);
+    transition:
+      opacity 400ms var(--ease-out),
+      transform 400ms var(--ease-out);
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+  }
+
+  .phone-frame[data-active='0'] .phone-screen[data-screen='0'],
+  .phone-frame[data-active='1'] .phone-screen[data-screen='1'],
+  .phone-frame[data-active='2'] .phone-screen[data-screen='2'],
+  .phone-frame[data-active='3'] .phone-screen[data-screen='3'] {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  /* ---- Phone screen styles (shared) ---- */
+  .ps-label {
+    font-size: 10px;
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    max-width: none;
+  }
+
+  /* ---- Morning screen ---- */
+  .ps-date {
+    font-size: 10px;
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+  }
+
+  .ps-greet {
+    font-size: 22px;
+    font-weight: var(--fw-light);
+    letter-spacing: -0.015em;
+    margin-bottom: 6px;
+    color: var(--text-primary);
+  }
+
+  .ps-readiness {
+    background: #fff;
+    border-radius: 18px;
+    padding: 18px;
+    box-shadow: var(--shadow-card);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .ps-ready-left { }
+
+  .ps-ready-value-row {
+    display: flex;
+    align-items: baseline;
+    margin-top: 6px;
+    color: var(--text-primary);
+  }
+
+  .ps-ready-value {
+    font-size: 44px;
+    font-weight: var(--fw-thin);
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+
+  .ps-ready-slash {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-left: 2px;
+  }
+
+  .ps-trend-up {
+    font-size: 11px;
+    color: var(--green-text);
+    margin-top: 6px;
+    max-width: none;
+  }
+
+  .ps-ring { width: 62px; height: 62px; }
+
+  .ps-note {
+    background: #fff;
+    border-radius: 12px;
+    padding: 12px;
+    font-size: 12px;
+    font-weight: var(--fw-light);
+    color: var(--text-secondary);
+    line-height: 1.5;
+    box-shadow: var(--shadow-low);
+    max-width: none;
+  }
+
+  .ps-mini-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .ps-mini {
+    background: #fff;
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: var(--shadow-card);
+  }
+
+  .ps-mini-val {
+    font-size: 22px;
+    font-weight: var(--fw-light);
+    line-height: 1;
+    color: var(--text-primary);
+    margin-top: 4px;
+    max-width: none;
+  }
+
+  .ps-mini-val small {
+    font-size: 11px;
+    font-weight: var(--fw-regular);
+    color: var(--text-secondary);
+    margin-left: 2px;
+  }
+
+  /* ---- Insight screen ---- */
+  .ps-insight-lead { margin-bottom: 4px; }
+
+  .ps-insight-card {
+    background: var(--purple-100);
+    border-radius: 18px;
+    padding: 18px;
+  }
+
+  .ps-insight-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .ps-insight-meta {
+    font-size: 10px;
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--purple-600);
+    max-width: none;
+  }
+
+  .ps-insight-title {
+    font-size: 15px;
+    font-weight: var(--fw-medium);
+    color: var(--text-primary);
+    line-height: 1.3;
+    margin-bottom: 8px;
+    max-width: none;
+  }
+
+  .ps-insight-body {
+    font-size: 12px;
+    font-weight: var(--fw-light);
+    color: var(--text-secondary);
+    line-height: 1.5;
+    max-width: none;
+  }
+
+  .ps-insight-divider {
+    height: 1px;
+    background: rgba(84, 56, 166, 0.14);
+    margin: 14px 0;
+  }
+
+  .ps-insight-try-label {
+    font-size: 9px;
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--purple-600);
+    margin-bottom: 6px;
+    max-width: none;
+  }
+
+  .ps-insight-try {
+    font-size: 13px;
+    color: var(--text-primary);
+    max-width: none;
+  }
+
+  .ps-insight-cite {
+    font-size: 10px;
+    font-style: italic;
+    color: var(--text-tertiary);
+    margin-top: 10px;
+    max-width: none;
+  }
+
+  /* ---- Chat screen ---- */
+  .ps-chat-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .ps-chat-row-user {
+    justify-content: flex-end;
+  }
+
+  .ps-chat-bubble {
+    font-size: 12px;
+    line-height: 1.5;
+    padding: 10px 12px;
+    border-radius: 16px;
+    max-width: 80%;
+  }
+
+  .ps-chat-bubble-coach {
+    flex: 1;
+    background: var(--purple-100);
+    color: var(--text-primary);
+    border-top-left-radius: 4px;
+    font-weight: var(--fw-light);
+  }
+
+  .ps-chat-bubble-user {
+    background: var(--purple-600);
+    color: #fff;
+    border-top-right-radius: 4px;
+  }
+
+  .ps-chat-bubble-coach p { margin-bottom: 8px; max-width: none; }
+  .ps-chat-bubble-coach ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .ps-chat-bubble-coach li {
+    font-size: 11px;
+    line-height: 1.5;
+    padding-left: 10px;
+    position: relative;
+  }
+  .ps-chat-bubble-coach li::before {
+    content: '•';
+    position: absolute;
+    left: 0;
+    color: var(--purple-500);
+  }
+  .ps-chat-bubble-coach strong {
+    font-weight: var(--fw-medium);
+  }
+
+  /* ---- Night screen ---- */
+  .ps-night-card {
+    background: #121217;
+    color: #fff;
+    border-radius: 18px;
+    padding: 20px;
+  }
+
+  .ps-night-label {
+    font-size: 10px;
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--purple-300);
+    margin-bottom: 8px;
+    max-width: none;
+  }
+
+  .ps-night-title {
+    font-size: 18px;
+    font-weight: var(--fw-light);
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+    margin-bottom: 12px;
+    max-width: none;
+  }
+
+  .ps-night-body {
+    font-size: 12px;
+    font-weight: var(--fw-light);
+    color: rgba(255, 255, 255, 0.7);
+    line-height: 1.5;
+    max-width: none;
+  }
+
+  .ps-bedtime {
+    margin-top: 16px;
+    padding: 14px;
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: var(--shadow-card);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .ps-bedtime-val {
+    font-size: 18px;
+    font-weight: var(--fw-light);
+    margin-top: 2px;
+    color: var(--text-primary);
+    max-width: none;
+  }
+
+  .ps-bedtime-window {
+    font-size: 11px;
+    color: var(--green-text);
+    max-width: none;
+  }
+
+  /* ---- Scrubber ---- */
+  .scrubber {
+    position: relative;
+    height: 40px;
+    margin-bottom: var(--sp-10);
+  }
+
+  .scrubber-track,
+  .scrubber-fill {
+    position: absolute;
+    top: 18px;
+    height: 2px;
+    border-radius: 1px;
+  }
+
+  .scrubber-track {
+    left: 0;
+    right: 0;
+    background: var(--bg-tertiary);
+  }
+
+  .scrubber-fill {
+    left: 0;
+    width: 0;
+    background: var(--purple-500);
+    transition: width 500ms var(--ease-out);
+  }
+
+  .scrubber-dot {
+    position: absolute;
+    top: 0;
+    left: calc((var(--i) / var(--max)) * 100% - 20px);
+    width: 40px;
+    height: 40px;
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .scrubber-dot-circle {
+    display: block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid var(--text-disabled);
+    margin: 13px auto 0;
+    transition: all var(--dur-base) var(--ease-spring);
+  }
+
+  .scrubber-dot.is-past .scrubber-dot-circle,
+  .scrubber-dot.is-current .scrubber-dot-circle {
+    background: var(--purple-500);
+    border-color: transparent;
+  }
+
+  .scrubber-dot.is-current .scrubber-dot-circle {
+    width: 14px;
+    height: 14px;
+    margin-top: 11px;
+    box-shadow: 0 0 0 6px rgba(107, 82, 184, 0.15);
+  }
+
+  .scrubber-dot-time {
+    position: absolute;
+    top: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.04em;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+    transition: color var(--dur-base) var(--ease-out);
+  }
+
+  .scrubber-dot.is-current .scrubber-dot-time {
+    color: var(--purple-600);
+  }
+
+  /* ---- Tour content panels ---- */
+  .tour-content {
+    position: relative;
+  }
+
+  .tour-panel {
+    opacity: 0;
+    transform: translateY(10px);
+    position: absolute;
+    inset: 0;
+    transition:
+      opacity 500ms var(--ease-out),
+      transform 500ms var(--ease-out);
+    pointer-events: none;
+  }
+
+  .tour-panel[data-active] {
+    opacity: 1;
+    transform: translateY(0);
+    position: relative;
+    pointer-events: auto;
+  }
+
+  .tour-panel-title {
+    font-size: clamp(1.625rem, 3vw, 2.25rem);
+    font-weight: var(--fw-thin);
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    margin-bottom: var(--sp-4);
+    color: var(--text-primary);
+    max-width: 20ch;
+    text-wrap: balance;
+  }
+
+  .tour-panel-body {
+    font-size: var(--fs-body);
+    font-weight: var(--fw-light);
+    line-height: 1.6;
+    color: var(--text-secondary);
+    max-width: 46ch;
+  }
+
+  .tour-controls {
+    display: flex;
+    gap: var(--sp-3);
+    margin-top: var(--sp-8);
+  }
+
+  .tour-btn {
+    padding: 10px 18px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: var(--fw-medium);
+    cursor: pointer;
+    border: 1px solid var(--bg-tertiary);
+    background: #fff;
+    color: var(--text-primary);
+    transition: all var(--dur-base) var(--ease-spring);
+  }
+
+  .tour-btn-next {
+    background: var(--purple-600);
+    color: #fff;
+    border-color: transparent;
+  }
+
+  .tour-btn-next:hover:not(:disabled) {
+    background: var(--purple-500);
+  }
+
+  .tour-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .phone-screen,
+    .scrubber-fill,
+    .scrubber-dot-circle,
+    .tour-panel {
+      transition: none !important;
+    }
+  }
+</style>

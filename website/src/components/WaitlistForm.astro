@@ -24,6 +24,8 @@ interface Props {
   onDark?: boolean;
   /** CTA button label. Default: "Join the waitlist" */
   cta?: string;
+  /** Override the fine print under the form. Pass empty string to hide. */
+  finePrint?: string;
 }
 
 const {
@@ -31,6 +33,7 @@ const {
   heading,
   onDark = false,
   cta = 'Join the waitlist',
+  finePrint = "iOS first. You'll hear from us the week we ship. No spam.",
 } = Astro.props;
 
 // Same-origin Pages Function. In dev (`wrangler pages dev`) and in production
@@ -72,9 +75,7 @@ const endpoint = '/api/waitlist/subscribe';
     data-waitlist-status
   ></p>
 
-  <p class="form-fine-print">
-    iOS first. We'll email you the week we ship. No spam.
-  </p>
+  {finePrint && <p class="form-fine-print">{finePrint}</p>}
 </form>
 
 <script>
@@ -131,7 +132,7 @@ const endpoint = '/api/waitlist/subscribe';
         status.textContent = "You're on the list. We'll be in touch.";
         status.setAttribute('data-state', 'success');
         emailInput.value = '';
-        // TelemetryDeck conversion signal — includes source + UTM attribution
+        // TelemetryDeck conversion signal : includes source + UTM attribution
         // so the "WaitlistSignup" event in the TD dashboard can be broken
         // down by which section AND which campaign produced it.
         const utmForSignal = getUtmParams();
