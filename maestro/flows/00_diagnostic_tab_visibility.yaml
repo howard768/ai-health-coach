@@ -1,0 +1,98 @@
+appId: com.heymeld.app
+name: "DIAGNOSTIC: tab bar visibility (post PR #51)"
+---
+# Diagnoses why 15 of 16 Maestro flows started failing after PR #51 with
+# `Assertion is false: id: tab-home is visible`. This flow never fails,
+# it just captures screenshots and runs optional assertions so the
+# artifact upload shows what the accessibility tree actually contains
+# at each moment. Read the results from the maestro-debug artifact.
+#
+# Remove this flow once root cause is identified and fixed.
+
+- launchApp:
+    arguments:
+      uitesting-skip-auth: "true"
+
+# Screenshot 1: immediately after launch. If this shows a Welcome screen
+# the auth-bypass flag isn't being read. If it shows a Dashboard but no
+# tab bar the MeldTabBar is failing to render. If it shows a Dashboard
+# WITH a tab bar that Maestro just can't see, the accessibility tree is
+# the issue (glass material obscuring children, etc).
+- takeScreenshot: diag-01-just-launched
+
+- waitForAnimationToEnd:
+    timeout: 3000
+
+- takeScreenshot: diag-02-after-3s-settled
+
+# Every tab accessibility ID. `optional: true` means a miss does not
+# fail the flow; the pass/fail status goes in the junit XML.
+- assertVisible:
+    id: "tab-home"
+    optional: true
+- assertVisible:
+    id: "tab-trends"
+    optional: true
+- assertVisible:
+    id: "tab-coach"
+    optional: true
+- assertVisible:
+    id: "tab-log"
+    optional: true
+- assertVisible:
+    id: "tab-you"
+    optional: true
+
+# User-facing labels from the new tab bar.
+- assertVisible:
+    text: "Today"
+    optional: true
+- assertVisible:
+    text: "Trends"
+    optional: true
+- assertVisible:
+    text: "Coach"
+    optional: true
+- assertVisible:
+    text: "Log"
+    optional: true
+- assertVisible:
+    text: "You"
+    optional: true
+
+# Welcome / onboarding text. If any of these are visible the auth
+# bypass isn't working and the user is stuck pre-auth.
+- assertVisible:
+    text: "Welcome"
+    optional: true
+- assertVisible:
+    text: "Get started"
+    optional: true
+- assertVisible:
+    text: "Continue"
+    optional: true
+- assertVisible:
+    text: "Sign in"
+    optional: true
+
+# Dashboard markers to confirm the main screen rendered.
+- assertVisible:
+    text: "Readiness"
+    optional: true
+- assertVisible:
+    text: "Meld"
+    optional: true
+
+- waitForAnimationToEnd:
+    timeout: 5000
+
+- takeScreenshot: diag-03-after-8s-settled
+
+# Re-check tabs after extra settle time in case the UI was still
+# animating in during the first checks.
+- assertVisible:
+    id: "tab-home"
+    optional: true
+- assertVisible:
+    id: "tab-coach"
+    optional: true

@@ -268,7 +268,33 @@ jobs:
 
       - name: Run Maestro flows
         run: |
-          maestro test maestro/flows/ --format junit --output maestro-results.xml || true
+          # --debug-output dumps per-flow accessibility trees + screenshots
+          # so post-mortem artifact inspection can tell us what the
+          # screen actually looked like when an assertion failed. This
+          # is the diagnostic path for the PR #51 tab-bar regression.
+          maestro test maestro/flows/ \
+            --format junit \
+            --output maestro-results.xml \
+            --debug-output maestro-debug/ || true
+
+      - name: Pull auth-debug.txt from simulator
+        if: always()
+        run: |
+          # MeldApp writes this file at boot inside #if DEBUG with the
+          # state of its isUITesting flag + launch args + UserDefaults.
+          # If the flag is false, auth bypass didn't activate and the
+          # user is stuck on the Welcome screen (which is why tab-home
+          # never becomes visible).
+          set +e
+          CONTAINER=$(xcrun simctl get_app_container booted com.heymeld.app data 2>/dev/null)
+          if [ -n "$CONTAINER" ] && [ -f "$CONTAINER/Documents/auth-debug.txt" ]; then
+            echo "=== auth-debug.txt from simulator ==="
+            cat "$CONTAINER/Documents/auth-debug.txt"
+            echo "=== end ==="
+            cp "$CONTAINER/Documents/auth-debug.txt" auth-debug.txt
+          else
+            echo "::warning::auth-debug.txt not found in simulator container"
+          fi
 
       - name: Upload Maestro results
         if: always()
@@ -276,6 +302,16 @@ jobs:
         with:
           name: maestro-results
           path: maestro-results.xml
+          if-no-files-found: ignore
+
+      - name: Upload Maestro debug (screenshots + a11y dumps)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: maestro-debug
+          path: |
+            maestro-debug/
+            auth-debug.txt
           if-no-files-found: ignore
 
   swiftlint:
