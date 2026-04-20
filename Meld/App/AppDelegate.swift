@@ -7,6 +7,24 @@ import UserNotifications
 /// and notification tap actions.
 final class AppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUserNotificationCenterDelegate {
 
+    /// True when the app is running under any testing harness (XCTest,
+    /// XCUITest, or Maestro). Skips side-effectful auto-runs (push
+    /// registration, HealthKit sync, BGTaskScheduler.register) that
+    /// signal-trap when the app runs unsigned.
+    ///
+    /// XCTest + XCUITest set `XCTestConfigurationFilePath`. Maestro does
+    /// NOT, it just passes `-uitesting-skip-auth` as a launch argument,
+    /// so the XCTest-only guard used to let it through. On iOS 26 sim
+    /// that meant `HealthKitService.queryTodaySteps()` would crash the
+    /// app back to SpringBoard before `MainTabView` ever rendered,
+    /// breaking 15 of 16 Maestro flows with
+    /// `Assertion is false: id: tab-home is visible` (PR #56 diagnostic).
+    private static var isRunningUnderTestHarness: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+            || ProcessInfo.processInfo.arguments.contains("-uitesting-skip-auth")
+            || ProcessInfo.processInfo.environment["MELD_UI_TESTING"] == "1"
+    }
+
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
@@ -15,20 +33,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUser
         registerNotificationCategories()
         registerBackgroundTasks()
 
-        // Skip the side-effectful auto-runs (push registration + HealthKit
-        // sync) when launched under a test bundle. CI runs the Meld.app
-        // host unsigned (CODE_SIGNING_ALLOWED=NO for unit + snapshot tests),
-        // which means entitled APIs like HealthKit fail hard enough to
-        // signal-trap the app before tests execute.
-        // `XCTestConfigurationFilePath` is set by Xcode whenever the process
-        // is launched as a test host (XCTest or Swift Testing), so this
-        // guard is production-inert. Fixes "Early unexpected exit" +
-        // "Test crashed with signal trap before starting test execution"
-        // on the iOS CI test step.
-        let isRunningTests = ProcessInfo.processInfo
-            .environment["XCTestConfigurationFilePath"] != nil
-
-        if !isRunningTests {
+        if !Self.isRunningUnderTestHarness {
             // Always re-register for remote notifications on launch
             // (token may have changed, or permission was granted in a previous install)
             Task {
@@ -204,9 +209,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUser
     private static let modelUpdateTaskID = "com.heymeld.ranker.modelUpdate"
 
     private func registerBackgroundTasks() {
-        let isRunningTests = ProcessInfo.processInfo
-            .environment["XCTestConfigurationFilePath"] != nil
-        guard !isRunningTests else { return }
+        guard !Self.isRunningUnderTestHarness else { return }
 
         BGTaskScheduler.shared.register(
             forTaskWithIdentifier: Self.modelUpdateTaskID,
