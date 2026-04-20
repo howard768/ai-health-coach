@@ -4,7 +4,7 @@ name: "Meals — Search for a food item"
 - runFlow: ../helpers/auth_bypass.yaml
 
 - tapOn:
-    id: "tab-meals"
+    id: "tab-log"
 
 # Open the food logging sheet
 - tapOn:

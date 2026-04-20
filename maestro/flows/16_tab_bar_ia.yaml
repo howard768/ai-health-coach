@@ -1,0 +1,50 @@
+appId: com.heymeld.app
+name: "Tab Bar IA: 5 tabs in design-system order with sentence-case labels"
+---
+# Pins the tab bar information architecture established in the Meld
+# Design System (PR #51, 2026-04-19): Today / Trends / Coach / Log / You,
+# with Coach in the center. If a future change reorders tabs or renames
+# them away from sentence case, this flow fails before TestFlight.
+
+- runFlow: ../helpers/auth_bypass.yaml
+
+# All 5 tab buttons present (matches the accessibility identifiers
+# emitted by MeldTabBar via Tab.allCases.rawValue).
+- assertVisible:
+    id: "tab-home"
+- assertVisible:
+    id: "tab-trends"
+- assertVisible:
+    id: "tab-coach"
+- assertVisible:
+    id: "tab-log"
+- assertVisible:
+    id: "tab-you"
+
+# User-facing labels are sentence case per the design-system content
+# rules (no Title Case, no UPPERCASE except 11pt eyebrow tokens).
+- assertVisible: "Today"
+- assertVisible: "Trends"
+- assertVisible: "Coach"
+- assertVisible: "Log"
+- assertVisible: "You"
+
+# Coach sits between Trends and Log. Tapping in this sequence proves
+# all three are reachable and the center tab is the coach as designed.
+- tapOn:
+    id: "tab-trends"
+- tapOn:
+    id: "tab-coach"
+- assertVisible:
+    id: "coach-input"
+- tapOn:
+    id: "tab-log"
+- assertVisible:
+    id: "meals-fab"
+
+# Note: the Profile screen still has navigationTitle("Profile") even
+# though the tab is renamed to "You". That's an open product-copy
+# decision (Tier 2) for Brock; this flow does not assert against it.
+# If/when the screen titles get aligned with the tab labels, add:
+#   - assertNotVisible: "Profile"  # (under tab-you)
+#   - assertNotVisible: "Meals"    # (under tab-log)

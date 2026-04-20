@@ -4,7 +4,7 @@ name: "Meals — FAB opens LogFoodSheet with all input methods"
 - runFlow: ../helpers/auth_bypass.yaml
 
 - tapOn:
-    id: "tab-meals"
+    id: "tab-log"
 
 # Tap the floating action button
 - tapOn:

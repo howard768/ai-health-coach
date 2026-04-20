@@ -9,7 +9,9 @@ on:
       - 'Meld/**'
       - 'MeldTests/**'
       - 'MeldSnapshotTests/**'
+      - 'MeldUITests/**'
       - 'MeldNotificationServiceExtension/**'
+      - 'maestro/**'
       - 'project.yml'
       - '.github/workflows/ios.yml'
 
@@ -19,7 +21,9 @@ on:
       - 'Meld/**'
       - 'MeldTests/**'
       - 'MeldSnapshotTests/**'
+      - 'MeldUITests/**'
       - 'MeldNotificationServiceExtension/**'
+      - 'maestro/**'
       - 'project.yml'
       - '.github/workflows/ios.yml'
 
