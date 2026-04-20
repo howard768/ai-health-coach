@@ -296,6 +296,39 @@ jobs:
             echo "::warning::auth-debug.txt not found in simulator container"
           fi
 
+      - name: Diagnostic snapshot (a11y hierarchy + screenshot)
+        if: always()
+        run: |
+          # --debug-output didn't produce files on the previous PR #55 run,
+          # so grab the state directly. Launch the app fresh with the same
+          # auth-bypass args Maestro uses, wait for the UI to settle, then
+          # dump the accessibility tree + a PNG screenshot.
+          set +e
+          echo "=== Check if maestro-debug/ was written (from --debug-output) ==="
+          find maestro-debug/ -type f 2>/dev/null | head -20 \
+            || echo "maestro-debug/ empty or absent"
+
+          echo "=== Terminate any running app instance ==="
+          xcrun simctl terminate booted com.heymeld.app 2>/dev/null
+          sleep 1
+
+          echo "=== Launch fresh with auth-bypass ==="
+          xcrun simctl launch booted com.heymeld.app -uitesting-skip-auth true
+
+          # Wait for SwiftUI to render + any ambient animations to settle.
+          sleep 10
+
+          echo "=== Screenshot current screen ==="
+          xcrun simctl io booted screenshot diag-screen-after-bypass.png
+          ls -la diag-screen-after-bypass.png
+
+          echo "=== Dump accessibility hierarchy via Maestro ==="
+          maestro hierarchy > diag-hierarchy.json 2>&1
+          wc -l diag-hierarchy.json
+
+          echo "=== Head of hierarchy (first 100 lines) ==="
+          head -100 diag-hierarchy.json
+
       - name: Upload Maestro results
         if: always()
         uses: actions/upload-artifact@v7
@@ -312,6 +345,8 @@ jobs:
           path: |
             maestro-debug/
             auth-debug.txt
+            diag-screen-after-bypass.png
+            diag-hierarchy.json
           if-no-files-found: ignore
 
   swiftlint:
