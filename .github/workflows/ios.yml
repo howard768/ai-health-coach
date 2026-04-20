@@ -34,7 +34,14 @@ jobs:
     name: xcodebuild + test
     # macOS-15 ships Xcode 16.x which matches our project.yml xcodeVersion.
     runs-on: macos-15
-    timeout-minutes: 30
+    # Bumped from 30 to 45. The `-test-iterations 2 -retry-tests-on-failure`
+    # pattern added in PR #52 to dodge the macos-15 RunningBoard flake can
+    # push total job time to ~30 min when the first iteration hits the
+    # race. Observed on PR #53 validation (2026-04-20): 30m54s, cancelled
+    # by timeout with Test (UI) still in a retry iteration. 45 min gives
+    # clean headroom for build (~2m) + unit (~1m) + pre-warm (~10s) +
+    # up to two ~20 min UI iterations.
+    timeout-minutes: 45
 
     env:
       SCHEME: Meld
