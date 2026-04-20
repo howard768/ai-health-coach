@@ -4,7 +4,7 @@ name: "Profile — Delete account alert cancels correctly"
 - runFlow: ../helpers/auth_bypass.yaml
 
 - tapOn:
-    id: "tab-profile"
+    id: "tab-you"
 
 # Scroll until delete button is visible.
 # ProfileSettingsView has 160pt bottom padding so the button
@@ -27,4 +27,4 @@ name: "Profile — Delete account alert cancels correctly"
 
 # Should still be on profile screen
 - assertVisible:
-    id: "tab-profile"
+    id: "tab-you"

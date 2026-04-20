@@ -7,10 +7,10 @@ name: "Smoke Test — App launches and tabs visible"
 - assertVisible:
     id: "tab-home"
 - assertVisible:
-    id: "tab-coach"
-- assertVisible:
     id: "tab-trends"
 - assertVisible:
-    id: "tab-meals"
+    id: "tab-coach"
 - assertVisible:
-    id: "tab-profile"
+    id: "tab-log"
+- assertVisible:
+    id: "tab-you"

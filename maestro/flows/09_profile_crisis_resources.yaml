@@ -4,7 +4,7 @@ name: "Profile — Crisis resources visible and accessible"
 - runFlow: ../helpers/auth_bypass.yaml
 
 - tapOn:
-    id: "tab-profile"
+    id: "tab-you"
 
 # Scroll to find crisis section
 - scrollUntilVisible:

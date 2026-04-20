@@ -4,7 +4,7 @@ name: "Profile — Data sources section visible"
 - runFlow: ../helpers/auth_bypass.yaml
 
 - tapOn:
-    id: "tab-profile"
+    id: "tab-you"
 
 # Data sources section should list providers
 - assertVisible: "DATA SOURCES"

@@ -4,7 +4,7 @@ name: "Profile — Sign out alert cancels correctly"
 - runFlow: ../helpers/auth_bypass.yaml
 
 - tapOn:
-    id: "tab-profile"
+    id: "tab-you"
 
 # Scroll to sign out button
 - scrollUntilVisible:
@@ -24,4 +24,4 @@ name: "Profile — Sign out alert cancels correctly"
 
 # Should still be on profile screen (tabs visible)
 - assertVisible:
-    id: "tab-profile"
+    id: "tab-you"
