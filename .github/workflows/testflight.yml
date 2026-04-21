@@ -1,0 +1,252 @@
+name: TestFlight Release
+
+# Manual-trigger TestFlight upload. Click "Run workflow" from the Actions
+# tab to archive, sign, and upload a build to App Store Connect. Replaces
+# the manual Xcode Archive + Distribute App flow.
+#
+# One-time setup (see [[TestFlight Launch]] in Obsidian):
+#   - App Store Connect API key issued at
+#     https://appstoreconnect.apple.com/access/integrations/api
+#   - Distribution cert exported from Mac Keychain as .p12
+#   - 5 secrets set at repo Settings -> Secrets and variables -> Actions:
+#     APP_STORE_CONNECT_API_KEY_ID
+#     APP_STORE_CONNECT_API_KEY_ISSUER_ID
+#     APP_STORE_CONNECT_API_KEY_CONTENT  (base64 of AuthKey_*.p8)
+#     APPLE_DIST_CERT_P12                (base64 of .p12)
+#     APPLE_DIST_CERT_PASSWORD
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_notes:
+        description: "TestFlight 'What to Test' notes (optional). Defaults to last commit subject."
+        required: false
+        type: string
+
+# Avoid overlapping TestFlight uploads racing each other against the same
+# build number lookup. Queue; don't cancel (we want every explicit ship
+# click to land eventually).
+concurrency:
+  group: testflight-release
+  cancel-in-progress: false
+
+jobs:
+  archive-and-upload:
+    name: Archive + upload to TestFlight
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    env:
+      SCHEME: Meld
+      TEAM_ID: "8HA7S8AFF7"
+      BUNDLE_ID: "com.heymeld.app"
+      ARCHIVE_PATH: ./build/Meld.xcarchive
+      EXPORT_PATH: ./build/export
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 2  # need HEAD + HEAD^ for commit message
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Compute build number
+        id: build_number
+        # Use (100 + github.run_number) so we stay above the local range
+        # (last local build was 6) and every CI run gets a unique, monotonic
+        # build number. Apple requires each TestFlight build to have a
+        # CFBundleVersion strictly greater than the previous accepted build.
+        run: |
+          BUILD_NUMBER=$((100 + ${{ github.run_number }}))
+          echo "build=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "Using CURRENT_PROJECT_VERSION=$BUILD_NUMBER"
+
+      - name: Bump build number in project.yml (run-local, not committed)
+        run: |
+          # sed -i on macOS requires an empty string arg after -i.
+          sed -i '' -E \
+            's/CURRENT_PROJECT_VERSION: [0-9]+/CURRENT_PROJECT_VERSION: ${{ steps.build_number.outputs.build }}/' \
+            project.yml
+          grep "CURRENT_PROJECT_VERSION:" project.yml
+
+      - name: Regenerate project
+        run: xcodegen generate
+
+      - name: Switch aps-environment to production for release builds
+        # xcodegen writes aps-environment: development because that's what
+        # the Debug/simulator flow wants. Release TestFlight builds accept
+        # both, but Apple's expectation is `production` for anything headed
+        # to TestFlight or the store. PlistBuddy edits the .entitlements
+        # file in place before xcodebuild archives.
+        run: |
+          /usr/libexec/PlistBuddy -c "Set :aps-environment production" Meld/Meld.entitlements
+          /usr/libexec/PlistBuddy -c "Print :aps-environment" Meld/Meld.entitlements
+
+      - name: Install App Store Connect API key
+        env:
+          ASC_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+          ASC_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+        run: |
+          mkdir -p ~/private_keys
+          echo "$ASC_API_KEY_CONTENT" | base64 --decode > "$HOME/private_keys/AuthKey_${ASC_API_KEY_ID}.p8"
+          # Verify it decoded to a valid-looking key (starts with -----BEGIN)
+          head -1 "$HOME/private_keys/AuthKey_${ASC_API_KEY_ID}.p8"
+
+      - name: Install signing certificate into temp keychain
+        env:
+          CERT_P12: ${{ secrets.APPLE_DIST_CERT_P12 }}
+          CERT_PASSWORD: ${{ secrets.APPLE_DIST_CERT_PASSWORD }}
+        run: |
+          set -e
+          # Decode cert
+          echo "$CERT_P12" | base64 --decode > /tmp/dist_cert.p12
+
+          # Create ephemeral keychain so we don't pollute the runner default
+          KEYCHAIN_PATH="$RUNNER_TEMP/ci.keychain-db"
+          KEYCHAIN_PASSWORD="ci-$(openssl rand -hex 8)"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Import cert + make codesign the only tool that can access it
+          security import /tmp/dist_cert.p12 \
+            -P "$CERT_PASSWORD" \
+            -A -t cert -f pkcs12 \
+            -k "$KEYCHAIN_PATH"
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" \
+            "$KEYCHAIN_PATH"
+
+          # Put our keychain in front of the login keychain for the run
+          security list-keychain -d user -s "$KEYCHAIN_PATH" login.keychain
+
+          # Confirm the identity is now present
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+
+          rm -f /tmp/dist_cert.p12
+
+      - name: Archive
+        env:
+          ASC_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ASC_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project Meld.xcodeproj \
+            -scheme "$SCHEME" \
+            -sdk iphoneos \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -archivePath "$ARCHIVE_PATH" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$HOME/private_keys/AuthKey_${ASC_API_KEY_ID}.p8" \
+            -authenticationKeyID "$ASC_API_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_API_KEY_ISSUER_ID" \
+            archive 2>&1 | xcpretty
+
+      - name: Verify entitlements in archive
+        # From [[TestFlight Launch]] Obsidian doc: build 1.0 (1) was accepted
+        # by Apple but runtime-broken because xcodegen had clobbered the
+        # entitlements file. This check guards against a silent regression.
+        run: |
+          set -e
+          APP="$ARCHIVE_PATH/Products/Applications/Meld.app"
+          echo "=== Entitlements from $APP ==="
+          ENTITLEMENTS=$(codesign -d --entitlements - "$APP" 2>&1)
+          echo "$ENTITLEMENTS"
+
+          echo "$ENTITLEMENTS" | grep -q "healthkit" \
+            || { echo "::error::Missing HealthKit entitlement"; exit 1; }
+          echo "$ENTITLEMENTS" | grep -q "applesignin" \
+            || { echo "::error::Missing Sign in with Apple entitlement"; exit 1; }
+          echo "$ENTITLEMENTS" | grep -q "aps-environment" \
+            || { echo "::error::Missing APNs entitlement"; exit 1; }
+
+          echo "Entitlements verified"
+
+      - name: Export IPA
+        env:
+          ASC_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ASC_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
+        run: |
+          cat > ExportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>teamID</key>
+            <string>${TEAM_ID}</string>
+            <key>uploadSymbols</key>
+            <true/>
+            <key>signingStyle</key>
+            <string>automatic</string>
+            <key>destination</key>
+            <string>export</string>
+          </dict>
+          </plist>
+          EOF
+          xcodebuild \
+            -exportArchive \
+            -archivePath "$ARCHIVE_PATH" \
+            -exportPath "$EXPORT_PATH" \
+            -exportOptionsPlist ExportOptions.plist \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$HOME/private_keys/AuthKey_${ASC_API_KEY_ID}.p8" \
+            -authenticationKeyID "$ASC_API_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_API_KEY_ISSUER_ID"
+
+          ls -la "$EXPORT_PATH"
+
+      - name: Compose release notes
+        id: notes
+        run: |
+          if [ -n "${{ inputs.release_notes }}" ]; then
+            NOTES="${{ inputs.release_notes }}"
+          else
+            # Default: last commit subject + short sha
+            NOTES="$(git log -1 --pretty=%s) ($(git rev-parse --short HEAD))"
+          fi
+          echo "Release notes: $NOTES"
+          # Write to a file that altool can pass as --whats-new
+          printf "%s" "$NOTES" > /tmp/whats-new.txt
+
+      - name: Upload to TestFlight
+        env:
+          ASC_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ASC_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
+        run: |
+          set -e
+          IPA=$(find "$EXPORT_PATH" -name "*.ipa" | head -1)
+          if [ -z "$IPA" ]; then
+            echo "::error::No .ipa produced by exportArchive"
+            find "$EXPORT_PATH" -type f
+            exit 1
+          fi
+          echo "Uploading $IPA to App Store Connect"
+          xcrun altool --upload-app \
+            --file "$IPA" \
+            --type ios \
+            --apiKey "$ASC_API_KEY_ID" \
+            --apiIssuer "$ASC_API_KEY_ISSUER_ID"
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## TestFlight Release Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Build number**: ${{ steps.build_number.outputs.build }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Commit**: \`$(git rev-parse --short HEAD)\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Release notes**: $(cat /tmp/whats-new.txt 2>/dev/null || echo '(n/a)')" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Apple typically processes the build in 5-15 minutes, then auto-distributes to the Beta Family group." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Clean up keychain
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/ci.keychain-db" 2>/dev/null || true
+          rm -rf "$HOME/private_keys" 2>/dev/null || true
