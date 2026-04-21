@@ -1,0 +1,304 @@
+---
+/*
+ * Meld vs. a generic chatbot : side by side.
+ * Pick one of 3 questions, see both assistants' answers at once.
+ */
+import Mascot from './Mascot.astro';
+
+const questions = [
+  {
+    ask: 'Should I train hard today?',
+    gpt: "Great question. It depends on how you're feeling today. Listen to your body. If you're tired, consider rest. Make sure to hydrate and fuel properly before any workout. Would you like a sample routine?",
+    meld: {
+      claim: 'Yes, go hard.',
+      reason: 'Your HRV is 68 ms, top 15% this month. Sleep efficiency 94% last night.',
+      cite: 'Oura · 21 nights · Plews 2017',
+    },
+  },
+  {
+    ask: 'Why was my sleep bad last night?',
+    gpt: 'There are many reasons sleep quality can suffer. Common causes include stress, late caffeine, screen time, or an irregular schedule. Could you tell me more about your evening routine?',
+    meld: {
+      claim: 'Late caffeine and a 9:40 PM dinner.',
+      reason: 'Coffee after 1 PM costs you 40 min of REM. Eating within 2h of sleep drops efficiency 8%.',
+      cite: 'Your food log + Apple Health',
+    },
+  },
+  {
+    ask: 'What should I eat for better sleep?',
+    gpt: 'Foods rich in tryptophan, magnesium, and melatonin are often recommended, like turkey, nuts, or tart cherry juice. Avoid heavy meals and caffeine close to bedtime. Everyone is different.',
+    meld: {
+      claim: 'More protein at lunch.',
+      reason: 'On your body, higher-protein lunch days deliver +22% deep sleep. Dinner protein shows no effect.',
+      cite: 'Oura + food log · 21 days',
+    },
+  },
+];
+---
+
+<section id="compare" class="vs-section">
+  <div class="container">
+    <p class="eyebrow reveal">Meld vs. a generic chatbot</p>
+    <h2 class="display vs-title reveal">One already knows your body.</h2>
+    <p class="subhead vs-lede reveal">
+      Same question, two assistants. ChatGPT knows nothing about you until you
+      paste screenshots.
+    </p>
+
+    <div class="vs-picker" role="tablist" aria-label="Pick a question">
+      {questions.map((q, i) => (
+        <button
+          type="button"
+          class="vs-pill"
+          data-vs-pill
+          data-index={i}
+          role="tab"
+          aria-selected={i === 0 ? 'true' : 'false'}
+        >
+          {q.ask}
+        </button>
+      ))}
+    </div>
+
+    <div class="vs-grid" data-vs-grid>
+      <article class="vs-card vs-card-gpt" aria-labelledby="vs-gpt-heading">
+        <header class="vs-card-head">
+          <div class="vs-gpt-icon" aria-hidden="true">G</div>
+          <div id="vs-gpt-heading" class="vs-card-name">Generic chatbot</div>
+          <div class="vs-card-badge vs-card-badge-red">No context</div>
+        </header>
+        <p class="vs-gpt-answer" data-vs-gpt>{questions[0].gpt}</p>
+        <p class="vs-gpt-sources">Sources: none. Suggests you paste screenshots.</p>
+      </article>
+
+      <article class="vs-card vs-card-meld" aria-labelledby="vs-meld-heading">
+        <header class="vs-card-head">
+          <Mascot size={32} track={false} hoverable={false} />
+          <div id="vs-meld-heading" class="vs-card-name">Meld</div>
+          <div class="vs-card-badge vs-card-badge-green">Your data</div>
+        </header>
+        <p class="vs-meld-claim" data-vs-claim>{questions[0].meld.claim}</p>
+        <p class="vs-meld-reason" data-vs-reason>{questions[0].meld.reason}</p>
+        <p class="vs-meld-cite" data-vs-cite>{questions[0].meld.cite}</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<script is:inline type="application/json" id="vs-data" set:html={JSON.stringify(questions)}></script>
+
+<script>
+  const pills = document.querySelectorAll<HTMLButtonElement>('[data-vs-pill]');
+  const grid = document.querySelector<HTMLElement>('[data-vs-grid]');
+  const gptEl = document.querySelector<HTMLElement>('[data-vs-gpt]');
+  const claimEl = document.querySelector<HTMLElement>('[data-vs-claim]');
+  const reasonEl = document.querySelector<HTMLElement>('[data-vs-reason]');
+  const citeEl = document.querySelector<HTMLElement>('[data-vs-cite]');
+  const dataEl = document.querySelector<HTMLElement>('#vs-data');
+
+  type QSet = {
+    ask: string;
+    gpt: string;
+    meld: { claim: string; reason: string; cite: string };
+  };
+
+  let data: QSet[] = [];
+  try {
+    data = JSON.parse(dataEl?.textContent || '[]');
+  } catch { /* noop */ }
+
+  const setIdx = (n: number) => {
+    if (!data[n]) return;
+    pills.forEach((p, i) => {
+      p.classList.toggle('is-selected', i === n);
+      p.setAttribute('aria-selected', i === n ? 'true' : 'false');
+    });
+    if (grid) {
+      grid.setAttribute('data-flashing', '');
+      window.setTimeout(() => grid.removeAttribute('data-flashing'), 20);
+    }
+    if (gptEl)   gptEl.textContent = data[n].gpt;
+    if (claimEl) claimEl.textContent = data[n].meld.claim;
+    if (reasonEl) reasonEl.textContent = data[n].meld.reason;
+    if (citeEl)  citeEl.textContent = data[n].meld.cite;
+  };
+
+  pills.forEach((p) => {
+    p.addEventListener('click', () => {
+      const i = parseInt(p.getAttribute('data-index') ?? '0', 10);
+      setIdx(i);
+    });
+  });
+
+  if (pills[0]) pills[0].classList.add('is-selected');
+</script>
+
+<style>
+  .vs-section {
+    padding-block: var(--section-pad-y);
+    background: var(--bg-secondary);
+  }
+
+  .vs-title {
+    margin-top: var(--sp-4);
+    margin-bottom: var(--sp-4);
+    max-width: 20ch;
+  }
+
+  .vs-lede {
+    margin-bottom: var(--sp-10);
+  }
+
+  .vs-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-8);
+  }
+
+  .vs-pill {
+    background: #fff;
+    color: var(--text-primary);
+    border: 1px solid var(--bg-tertiary);
+    padding: 10px 16px;
+    border-radius: 9999px;
+    font-size: 13px;
+    font-weight: var(--fw-medium);
+    cursor: pointer;
+    transition: all var(--dur-base) var(--ease-spring);
+    font-family: inherit;
+  }
+
+  .vs-pill:hover {
+    border-color: var(--purple-300);
+  }
+
+  .vs-pill.is-selected {
+    background: var(--purple-600);
+    color: #fff;
+    border-color: transparent;
+  }
+
+  .vs-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--sp-5);
+  }
+
+  @media (min-width: 760px) {
+    .vs-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  .vs-card {
+    background: #fff;
+    border-radius: 20px;
+    padding: var(--sp-6);
+    animation: vs-fade-up 500ms var(--ease-out);
+  }
+
+  .vs-grid[data-flashing] .vs-card {
+    animation: vs-fade-up 500ms var(--ease-out);
+  }
+
+  @keyframes vs-fade-up {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .vs-card-gpt {
+    border: 1px solid var(--bg-tertiary);
+  }
+
+  .vs-card-meld {
+    border: 1px solid var(--purple-200);
+    box-shadow: var(--shadow-high);
+  }
+
+  .vs-card-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: var(--sp-5);
+  }
+
+  .vs-gpt-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: #0e0e10;
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-weight: 600;
+    font-size: 15px;
+  }
+
+  .vs-card-name {
+    font-size: 13px;
+    font-weight: var(--fw-medium);
+    color: var(--text-primary);
+  }
+
+  .vs-card-badge {
+    margin-left: auto;
+    font-size: 10px;
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .vs-card-badge-red {
+    color: var(--status-error);
+  }
+
+  .vs-card-badge-green {
+    color: var(--green-text);
+  }
+
+  .vs-gpt-answer {
+    font-size: var(--fs-body-sm);
+    font-weight: var(--fw-light);
+    line-height: 1.6;
+    color: var(--text-secondary);
+    max-width: none;
+  }
+
+  .vs-gpt-sources {
+    margin-top: var(--sp-5);
+    padding: 12px;
+    background: var(--bg-secondary);
+    border-radius: 10px;
+    font-size: 12px;
+    color: var(--text-tertiary);
+    max-width: none;
+  }
+
+  .vs-meld-claim {
+    font-size: 18px;
+    font-weight: var(--fw-medium);
+    color: var(--text-primary);
+    margin-bottom: var(--sp-3);
+    max-width: none;
+  }
+
+  .vs-meld-reason {
+    font-size: var(--fs-body-sm);
+    font-weight: var(--fw-light);
+    line-height: 1.6;
+    color: var(--text-primary);
+    max-width: none;
+  }
+
+  .vs-meld-cite {
+    margin-top: var(--sp-5);
+    padding: 12px;
+    background: var(--purple-100);
+    border-radius: 10px;
+    font-size: 12px;
+    color: var(--purple-600);
+    font-style: italic;
+    max-width: none;
+  }
+</style>

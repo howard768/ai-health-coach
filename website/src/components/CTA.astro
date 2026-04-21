@@ -1,0 +1,112 @@
+---
+/*
+ * Final CTA : full-bleed purple with ambient mascots.
+ * Replaces the old FinalCTA.astro.
+ */
+import Mascot from './Mascot.astro';
+import WaitlistForm from './WaitlistForm.astro';
+---
+
+<section class="cta-section" aria-label="Start reading your signals">
+  <div class="cta-ambient cta-ambient-1" aria-hidden="true">
+    <Mascot size={140} tint={false} track={false} hoverable={false} state="celebrate" />
+  </div>
+  <div class="cta-ambient cta-ambient-2" aria-hidden="true">
+    <Mascot size={110} tint={false} track={false} hoverable={false} />
+  </div>
+
+  <div class="container cta-inner">
+    <p class="cta-eyebrow">TestFlight · iOS 17+</p>
+    <h2 class="cta-title">Start reading your signals.</h2>
+    <p class="cta-lede">
+      Free during TestFlight. Your data is never sold, never rented, never used
+      to train generic AI.
+    </p>
+    <div class="cta-form">
+      <WaitlistForm
+        source="final_cta"
+        onDark={true}
+        cta="Get TestFlight invite"
+        finePrint="On iOS 17+? You get a TestFlight link. Otherwise you join the waitlist."
+      />
+    </div>
+  </div>
+</section>
+
+<style>
+  .cta-section {
+    position: relative;
+    overflow: hidden;
+    background: var(--purple-600);
+    color: #fff;
+    padding-block: clamp(4rem, 10vw, 8rem);
+    text-align: center;
+  }
+
+  .cta-ambient {
+    position: absolute;
+    pointer-events: none;
+  }
+
+  .cta-ambient-1 {
+    top: 20%;
+    left: 8%;
+    opacity: 0.18;
+  }
+
+  .cta-ambient-2 {
+    bottom: 18%;
+    right: 6%;
+    opacity: 0.14;
+  }
+
+  @media (max-width: 600px) {
+    .cta-ambient-1 { top: 8%; left: -20px; }
+    .cta-ambient-2 { bottom: 8%; right: -20px; }
+  }
+
+  .cta-inner {
+    position: relative;
+    max-width: 720px;
+  }
+
+  .cta-eyebrow {
+    font-size: var(--fs-label);
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: var(--sp-5);
+  }
+
+  .cta-title {
+    font-family: var(--font-family);
+    font-size: clamp(3rem, 7vw, 5rem);
+    font-weight: var(--fw-thin);
+    letter-spacing: -0.025em;
+    line-height: 1.04;
+    color: #fff;
+    margin-bottom: var(--sp-5);
+    text-wrap: balance;
+  }
+
+  .cta-lede {
+    font-size: var(--fs-body-lg);
+    font-weight: var(--fw-light);
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.8);
+    max-width: 48ch;
+    margin: 0 auto var(--sp-8);
+  }
+
+  .cta-form {
+    display: flex;
+    justify-content: center;
+  }
+
+  .cta-form :global(.waitlist-form) {
+    max-width: 480px;
+    width: 100%;
+    text-align: left;
+  }
+</style>

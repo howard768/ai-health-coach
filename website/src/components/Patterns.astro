@@ -1,0 +1,203 @@
+---
+/*
+ * Horizontal-scroll strip of example insights Meld finds.
+ * Snap-scrolls so each card centers cleanly on mobile.
+ */
+type Card = {
+  bg: string;
+  label: string;
+  labelColor: string;
+  title: string;
+  body: string;
+  cite: string;
+};
+
+const cards: Card[] = [
+  {
+    bg: 'var(--purple-100)',
+    label: 'Sleep × Nutrition',
+    labelColor: 'var(--purple-600)',
+    title: 'Deep sleep climbs 22% on higher-protein days.',
+    body: 'Front-loading at lunch correlates better than dinner.',
+    cite: 'Oura + your food log · 21 days',
+  },
+  {
+    bg: 'var(--green-100)',
+    label: 'Recovery × Training',
+    labelColor: 'var(--green-text)',
+    title: 'Your HRV needs 36 hours after hard rides, not 24.',
+    body: 'Three Peloton sessions in a row drop your readiness below baseline.',
+    cite: 'Peloton + Oura · 6 weeks',
+  },
+  {
+    bg: 'var(--amber-tint)',
+    label: 'Caffeine × Sleep',
+    labelColor: '#8a5e0a',
+    title: 'Coffee after 1 PM costs you 40 minutes of REM.',
+    body: 'Only on rest days. On training days, exercise clears it faster.',
+    cite: 'Apple Health + your log',
+  },
+  {
+    bg: 'var(--purple-100)',
+    label: 'Stress × Heart rate',
+    labelColor: 'var(--purple-600)',
+    title: 'Meeting-heavy days add 6 bpm to your resting heart rate.',
+    body: 'The spike lingers 4 hours after your last call.',
+    cite: 'Apple Health + Calendar · 8 weeks',
+  },
+  {
+    bg: 'var(--green-100)',
+    label: 'Light × Mood',
+    labelColor: 'var(--green-text)',
+    title: 'Walks before 10 AM lift your evening HRV.',
+    body: 'The effect holds even on low-step days. Morning light wins.',
+    cite: 'Apple Health + weather',
+  },
+];
+---
+
+<section id="patterns" class="patterns-section">
+  <div class="container">
+    <p class="eyebrow reveal">Real patterns Meld finds</p>
+    <h2 class="display patterns-title reveal">Patterns no single app can see.</h2>
+    <p class="subhead patterns-lede reveal">
+      Your ring knows your sleep. Your watch knows your workouts. Your food log
+      knows your plate. None of them talk to each other. Meld does.
+    </p>
+  </div>
+
+  <div class="patterns-scroll" role="region" aria-label="Example patterns">
+    <div class="patterns-track">
+      {cards.map((c) => (
+        <article class="pattern-card" style={`background: ${c.bg};`}>
+          <p class="pattern-label" style={`color: ${c.labelColor};`}>{c.label}</p>
+          <h3 class="pattern-title">{c.title}</h3>
+          <p class="pattern-body">{c.body}</p>
+          <p class="pattern-cite">{c.cite}</p>
+        </article>
+      ))}
+      <div class="patterns-end-spacer" aria-hidden="true"></div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .patterns-section {
+    padding-block: var(--section-pad-y);
+  }
+
+  .patterns-title {
+    margin-top: var(--sp-4);
+    margin-bottom: var(--sp-4);
+    max-width: 18ch;
+  }
+
+  .patterns-lede {
+    margin-bottom: clamp(var(--sp-8), 5vw, var(--sp-12));
+  }
+
+  .patterns-scroll {
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    /* Match the container's left edge so snap-align:start parks cards
+       under the section heading on every width. */
+    scroll-padding-inline-start: max(var(--sp-5), calc((100vw - var(--container-max)) / 2 + var(--sp-5)));
+    padding-bottom: var(--sp-6);
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: var(--bg-tertiary) transparent;
+  }
+
+  @media (min-width: 768px) {
+    .patterns-scroll {
+      scroll-padding-inline-start: max(var(--sp-8), calc((100vw - var(--container-max)) / 2 + var(--sp-8)));
+    }
+  }
+
+  .patterns-scroll::-webkit-scrollbar {
+    height: 8px;
+  }
+  .patterns-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .patterns-scroll::-webkit-scrollbar-thumb {
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+  }
+  .patterns-scroll::-webkit-scrollbar-thumb:hover {
+    background: var(--purple-200);
+  }
+
+  .patterns-track {
+    display: flex;
+    gap: var(--sp-5);
+    /* First card starts where the heading's container starts, so the
+       section visually aligns on every width (narrow, 1200px, ultrawide). */
+    padding-inline: max(var(--sp-5), calc((100vw - var(--container-max)) / 2 + var(--sp-5)));
+    width: max-content;
+  }
+
+  @media (min-width: 768px) {
+    .patterns-track {
+      padding-inline: max(var(--sp-8), calc((100vw - var(--container-max)) / 2 + var(--sp-8)));
+    }
+  }
+
+  .pattern-card {
+    width: 360px;
+    flex-shrink: 0;
+    scroll-snap-align: start;
+    border-radius: 20px;
+    padding: var(--sp-8);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .pattern-label {
+    font-size: var(--fs-label);
+    font-weight: var(--fw-medium);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: var(--sp-4);
+  }
+
+  .pattern-title {
+    font-size: 1.375rem;
+    font-weight: var(--fw-regular);
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+    margin-bottom: var(--sp-3);
+    text-wrap: pretty;
+  }
+
+  .pattern-body {
+    font-size: var(--fs-body-sm);
+    font-weight: var(--fw-light);
+    line-height: 1.55;
+    color: var(--text-secondary);
+    flex: 1;
+    max-width: none;
+  }
+
+  .pattern-cite {
+    margin-top: var(--sp-5);
+    font-size: var(--fs-caption);
+    color: var(--text-tertiary);
+    font-style: italic;
+    max-width: none;
+  }
+
+  .patterns-end-spacer {
+    width: 40px;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 600px) {
+    .pattern-card {
+      width: 86vw;
+      max-width: 340px;
+      padding: var(--sp-6);
+    }
+  }
+</style>

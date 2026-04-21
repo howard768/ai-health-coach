@@ -10,13 +10,15 @@ import Mascot from './Mascot.astro';
     </a>
 
     <nav class="nav-links" aria-label="Primary">
+      <a href="/#how" data-track="nav-hiw">How</a>
+      <a href="/#patterns" data-track="nav-patterns">Patterns</a>
+      <a href="/#tour" data-track="nav-tour">Tour</a>
+      <a href="/#science" data-track="nav-science">Science</a>
       <a href="/journal" data-track="nav-journal">Journal</a>
-      <a href="/#how-it-works" data-track="nav-hiw">How it works</a>
-      <a href="/#faq" data-track="nav-faq">FAQ</a>
     </nav>
 
     <a href="/#waitlist" class="btn btn-primary btn-nav" data-track="nav-cta">
-      Get early access
+      Join TestFlight
     </a>
 
     <button
@@ -40,12 +42,15 @@ import Mascot from './Mascot.astro';
     aria-hidden="true"
   >
     <nav aria-label="Mobile primary">
+      <a href="/#how" data-track="mobile-nav-hiw">How</a>
+      <a href="/#patterns" data-track="mobile-nav-patterns">Patterns</a>
+      <a href="/#tour" data-track="mobile-nav-tour">Tour</a>
+      <a href="/#science" data-track="mobile-nav-science">Science</a>
       <a href="/journal" data-track="mobile-nav-journal">Journal</a>
-      <a href="/#how-it-works" data-track="mobile-nav-hiw">How it works</a>
       <a href="/#faq" data-track="mobile-nav-faq">FAQ</a>
       <a href="/privacy" data-track="mobile-nav-privacy">Privacy</a>
       <a href="/terms" data-track="mobile-nav-terms">Terms</a>
-      <a href="/#waitlist" class="mobile-cta" data-track="mobile-nav-cta">Get early access</a>
+      <a href="/#waitlist" class="mobile-cta" data-track="mobile-nav-cta">Join TestFlight</a>
     </nav>
   </div>
 </header>
@@ -113,7 +118,7 @@ import Mascot from './Mascot.astro';
 
   ctaLinks.forEach((link) => {
     link.addEventListener('click', (event) => {
-      // Only intercept when already on the homepage — otherwise let the
+      // Only intercept when already on the homepage : otherwise let the
       // browser navigate to "/#waitlist" normally; the hash handler below
       // will focus the input after the homepage loads.
       if (window.location.pathname !== '/') return;
@@ -223,7 +228,7 @@ import Mascot from './Mascot.astro';
   /* ---- Desktop nav links ---- */
   .nav-links {
     display: none;
-    gap: var(--sp-8);
+    gap: var(--sp-6);
     font-size: var(--fs-body-sm);
   }
 
@@ -268,7 +273,7 @@ import Mascot from './Mascot.astro';
       visibility 0s linear var(--dur-base);
   }
 
-  /* On very narrow screens (phones), hide the inline CTA — the hamburger menu
+  /* On very narrow screens (phones), hide the inline CTA : the hamburger menu
      includes it at the bottom of the drawer instead. Keeps the top bar clean. */
   @media (max-width: 480px) {
     .btn-nav {

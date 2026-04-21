@@ -13,8 +13,8 @@ interface Props {
 }
 
 const {
-  title = 'Meld — Your Health, Synthesized',
-  description = 'Meld quietly connects every signal from your body — sleep, workouts, food, recovery — and tells you what matters, what it means, and what to do next. Join the waitlist.',
+  title = 'Meld · Your health, synthesized',
+  description = 'Meld pulls your Oura, Apple Health, Garmin, and Peloton into one coach. It finds patterns you would never spot, cites the research, and tells you what to do today.',
   canonical,
   ogImage = '/og-default.png',
   ogType = 'website',
@@ -27,7 +27,7 @@ const tdAppId = import.meta.env.PUBLIC_TELEMETRYDECK_APP_ID;
 const pageUrl = canonical ?? new URL(Astro.url.pathname, siteUrl).toString();
 const ogImageUrl = new URL(ogImage, siteUrl).toString();
 
-// Organization schema — site-wide
+// Organization schema : site-wide
 const orgSchema = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
@@ -35,7 +35,7 @@ const orgSchema = {
   url: siteUrl,
   logo: `${siteUrl}/favicon.svg`,
   description:
-    'Meld is an AI health coach that quietly connects every signal from your body and tells you what matters, what it means, and what to do next.',
+    'Meld is an AI health coach that reads your Oura, Apple Health, Garmin, and Peloton together. It finds cross-source patterns, cites the research, and tells you one thing to try today.',
   founder: {
     '@type': 'Person',
     name: 'Brock Howard',
@@ -89,6 +89,7 @@ if (jsonLd) {
     {/* --- Favicon --- */}
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="Meld" />
 
     {/* --- Fonts: Roboto (Thin 100, Light 300, Regular 400, Medium 500, Bold 700) --- */}
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -103,7 +104,7 @@ if (jsonLd) {
       href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;400;500;700&display=swap"
     />
 
-    {/* --- TelemetryDeck — privacy-first analytics --- */}
+    {/* --- TelemetryDeck : privacy-first analytics --- */}
     {tdAppId && (
       <script
         src="https://cdn.telemetrydeck.com/websdk/telemetrydeck.min.js"
@@ -127,7 +128,7 @@ if (jsonLd) {
     </main>
     <slot name="footer" />
 
-    {/* Reveal-on-scroll — progressive enhancement, zero-JS fallback = visible */}
+    {/* Reveal-on-scroll : progressive enhancement, zero-JS fallback = visible */}
     <script>
       if (typeof window !== 'undefined' && 'IntersectionObserver' in window) {
         const revealEls = document.querySelectorAll('.reveal');
@@ -148,7 +149,7 @@ if (jsonLd) {
       }
     </script>
 
-    {/* TelemetryDeck instrumentation — fires custom signals for scroll depth,
+    {/* TelemetryDeck instrumentation : fires custom signals for scroll depth,
         data-track click handlers, and UTM-tagged page views. No-op when
         PUBLIC_TELEMETRYDECK_APP_ID is not set. */}
     <script>
@@ -222,7 +223,7 @@ if (jsonLd) {
           { passive: true }
         );
 
-        // ── 3. Scroll depth (25/50/75/100) — fires each milestone once ──
+        // ── 3. Scroll depth (25/50/75/100) : fires each milestone once ──
         const milestones = [25, 50, 75, 100];
         const hit = new Set<number>();
         function checkScroll() {

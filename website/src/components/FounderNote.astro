@@ -1,109 +1,100 @@
 ---
 ---
 
-<section class="section founder">
-  <div class="container prose">
-    <div class="founder-card">
-      <p class="eyebrow">Why I'm building this</p>
-
-      <blockquote class="founder-quote">
-        <p>
-          Last year, I was screenshotting six health apps into ChatGPT every morning
-          to get advice. It worked — better than any single app. But the friction
-          was ridiculous.
-        </p>
-        <p>
-          Meld is what I wanted to exist. I'm building it for myself first.
-          If it works for you too, I'd love to hear about it.
-        </p>
-      </blockquote>
-
-      <div class="founder-signature">
-        <div class="avatar" aria-hidden="true">BH</div>
-        <div class="sig-text">
-          <strong>Brock Howard</strong>
-          <span>Founder, Meld · 15+ years building consumer health products</span>
-        </div>
+<section id="founder" class="founder-section">
+  <div class="container founder-inner">
+    <p class="eyebrow founder-eyebrow reveal">From the founder</p>
+    <h2 class="founder-pull-quote reveal">
+      "I spent ten years helping people build health products. The frustrating
+      part was never the data. It was that no single product could see across it."
+    </h2>
+    <div class="founder-body reveal">
+      <p>
+        Your ring sees your sleep. Your watch sees your workouts. Your scale sees
+        your weight. None of them talk. So you end up being the synthesizer,
+        squinting at four apps before breakfast.
+      </p>
+      <p>
+        Meld is the product I wanted. It reads all of it, finds what actually
+        moves your numbers, and tells you the one thing to try today. No
+        dashboards. No coaching speak. Just signal.
+      </p>
+    </div>
+    <div class="founder-sig reveal">
+      <div class="founder-avatar" aria-hidden="true">BH</div>
+      <div>
+        <div class="founder-name">Brock Howard</div>
+        <div class="founder-title">Founder · 15+ years in consumer health</div>
       </div>
-
-      <a href="/journal/why-meld" class="read-more">Read the full story →</a>
     </div>
   </div>
 </section>
 
 <style>
-  .founder {
-    background: var(--bg-primary);
+  .founder-section {
+    padding-block: var(--section-pad-y);
+    background: var(--purple-50);
   }
 
-  .founder-card {
-    background: var(--bg-secondary);
-    border-radius: var(--r-card-lg);
-    padding: clamp(2rem, 5vw, 3.5rem);
-    max-width: 760px;
-    margin-inline: auto;
-    text-align: left;
+  .founder-inner {
+    max-width: 820px;
   }
 
-  .founder-card .eyebrow {
-    margin-bottom: var(--sp-5);
+  .founder-eyebrow {
+    color: var(--purple-600);
   }
 
-  .founder-quote {
-    font-size: var(--fs-body-lg);
-    font-weight: var(--fw-light);
+  .founder-pull-quote {
+    font-family: var(--font-family);
+    font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+    font-weight: var(--fw-thin);
     font-style: italic;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
     color: var(--text-primary);
-    line-height: var(--lh-relaxed);
-    border-left: 3px solid var(--purple-300);
-    padding-left: var(--sp-5);
+    margin-top: var(--sp-4);
     margin-bottom: var(--sp-8);
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-4);
+    text-wrap: balance;
   }
 
-  .founder-signature {
+  .founder-body p {
+    font-size: var(--fs-body);
+    font-weight: var(--fw-light);
+    line-height: 1.7;
+    color: var(--text-secondary);
+    margin-bottom: var(--sp-4);
+    max-width: none;
+  }
+
+  .founder-sig {
+    margin-top: var(--sp-8);
     display: flex;
     align-items: center;
-    gap: var(--sp-4);
-    margin-bottom: var(--sp-4);
+    gap: 14px;
   }
 
-  .avatar {
-    width: 56px;
-    height: 56px;
+  .founder-avatar {
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--purple-400) 0%, var(--purple-600) 100%);
+    background: var(--purple-200);
     display: grid;
     place-items: center;
-    color: #fff;
     font-weight: var(--fw-medium);
-    font-size: 1.125rem;
-    letter-spacing: -0.02em;
+    color: var(--purple-600);
+    font-size: 15px;
     flex-shrink: 0;
   }
 
-  .sig-text {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .sig-text strong {
-    font-size: var(--fs-body);
+  .founder-name {
+    font-size: 14px;
     font-weight: var(--fw-medium);
     color: var(--text-primary);
   }
 
-  .sig-text span {
-    font-size: var(--fs-caption);
+  .founder-title {
+    font-size: 12px;
+    font-weight: var(--fw-light);
     color: var(--text-tertiary);
-  }
-
-  .read-more {
-    display: inline-block;
-    color: var(--purple-600);
-    font-weight: var(--fw-medium);
-    font-size: var(--fs-body-sm);
   }
 </style>
