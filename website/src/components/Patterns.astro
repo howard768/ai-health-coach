@@ -99,10 +99,19 @@ const cards: Card[] = [
   .patterns-scroll {
     overflow-x: auto;
     scroll-snap-type: x mandatory;
+    /* Match the container's left edge so snap-align:start parks cards
+       under the section heading on every width. */
+    scroll-padding-inline-start: max(var(--sp-5), calc((100vw - var(--container-max)) / 2 + var(--sp-5)));
     padding-bottom: var(--sp-6);
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
     scrollbar-color: var(--bg-tertiary) transparent;
+  }
+
+  @media (min-width: 768px) {
+    .patterns-scroll {
+      scroll-padding-inline-start: max(var(--sp-8), calc((100vw - var(--container-max)) / 2 + var(--sp-8)));
+    }
   }
 
   .patterns-scroll::-webkit-scrollbar {
@@ -122,8 +131,16 @@ const cards: Card[] = [
   .patterns-track {
     display: flex;
     gap: var(--sp-5);
-    padding-inline: clamp(var(--sp-5), 4vw, var(--sp-10));
+    /* First card starts where the heading's container starts, so the
+       section visually aligns on every width (narrow, 1200px, ultrawide). */
+    padding-inline: max(var(--sp-5), calc((100vw - var(--container-max)) / 2 + var(--sp-5)));
     width: max-content;
+  }
+
+  @media (min-width: 768px) {
+    .patterns-track {
+      padding-inline: max(var(--sp-8), calc((100vw - var(--container-max)) / 2 + var(--sp-8)));
+    }
   }
 
   .pattern-card {
