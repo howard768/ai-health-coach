@@ -45,8 +45,10 @@ def _run_alembic_migrations() -> None:
     alembic_cfg.set_main_option("sqlalchemy.url", db_url)
     alembic_cfg.set_main_option("script_location", str(alembic_ini.parent / "alembic"))
 
+    print("alembic: pre-upgrade (acquiring advisory lock + checking head)", flush=True)
     logger.info("Running Alembic migrations...")
     command.upgrade(alembic_cfg, "head")
+    print("alembic: upgrade returned", flush=True)
     logger.info("Alembic migrations complete")
 
 

@@ -40,12 +40,18 @@ def _init_sentry():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Sentry, DB, scheduler
+    # Startup: Sentry, DB, scheduler.
+    # WARNING-level prints with flush=True so each step appears in Railway
+    # logs even if the next step hangs. Diagnostic for prod cold-start hang.
+    print("lifespan: 1/4 entering", flush=True)
     _init_sentry()
+    print("lifespan: 2/4 sentry done", flush=True)
     await init_db()
+    print("lifespan: 3/4 init_db done", flush=True)
     start_scheduler()
+    print("lifespan: 4/4 scheduler started", flush=True)
     yield
-    # Shutdown: stop scheduler
+    print("lifespan: shutdown", flush=True)
     stop_scheduler()
 
 
