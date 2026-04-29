@@ -26,7 +26,18 @@ def _run_alembic_migrations() -> None:
 
     Called at app startup to ensure schema is always up-to-date before
     requests are served. Idempotent — no-op if already at head.
+
+    Set ``SKIP_ALEMBIC_AT_STARTUP=true`` to bypass startup migrations
+    when the upgrade itself is hanging (e.g. lock contention against a
+    long-running query). Operator must run ``alembic upgrade head``
+    out-of-band before flipping the flag back off.
     """
+    import os
+    if os.environ.get("SKIP_ALEMBIC_AT_STARTUP", "").lower() in ("1", "true", "yes"):
+        print("alembic: SKIPPED via SKIP_ALEMBIC_AT_STARTUP env flag", flush=True)
+        logger.warning("Alembic startup migrations skipped via env flag")
+        return
+
     from alembic.config import Config
     from alembic import command
 
