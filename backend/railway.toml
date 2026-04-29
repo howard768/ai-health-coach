@@ -5,3 +5,9 @@ dockerfilePath = "Dockerfile"
 [deploy]
 healthcheckPath = "/"
 restartPolicyType = "ON_FAILURE"
+# Run Alembic migrations once per deploy, BEFORE the app container starts
+# serving. This keeps lifespan startup fast (no migration risk inside the
+# 5-minute healthcheck window) and gives migrations their own log stream
+# and timeout. After this lands, SKIP_ALEMBIC_AT_STARTUP can be unset on
+# the Railway env so lifespan also stops trying (already a no-op via flag).
+preDeployCommand = "uv run alembic upgrade head"
