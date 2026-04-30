@@ -5,7 +5,6 @@ food database search (USDA + OFF), and barcode lookup.
 """
 
 import logging
-from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
@@ -14,6 +13,7 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from app.api.deps import CurrentUser
+from app.core.time import user_hour, user_today_iso
 from app.database import get_db
 from app.models.meal import MealRecord, FoodItemRecord
 from app.schemas.meal import (
@@ -35,8 +35,13 @@ limiter = Limiter(key_func=get_remote_address)
 
 
 def _meal_type_from_time() -> str:
-    """Auto-assign meal type based on current hour."""
-    hour = datetime.now().hour
+    """Auto-assign meal type based on the current hour in the user's timezone.
+
+    Pre-PR-G this read `datetime.now().hour` (naive = UTC on Railway), so
+    "breakfast" auto-classified at the wrong wall-clock hour for every
+    user not in UTC. Now binds to `settings.user_timezone`.
+    """
+    hour = user_hour()
     if 5 <= hour < 11:
         return "breakfast"
     elif 11 <= hour < 15:
@@ -87,10 +92,15 @@ async def create_meal(
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
-    """Log a new meal with food items."""
+    """Log a new meal with food items.
+
+    PR-G: meal date is computed in the user's timezone (settings.user_timezone)
+    rather than naive server time, so an EST user's 8pm dinner is dated to
+    today's date instead of tomorrow's UTC date.
+    """
     meal = MealRecord(
         user_id=current_user.apple_user_id,
-        date=datetime.now().strftime("%Y-%m-%d"),
+        date=user_today_iso(),
         meal_type=meal_data.meal_type or _meal_type_from_time(),
         source=meal_data.source,
         photo_hash=meal_data.photo_hash,
@@ -131,8 +141,8 @@ async def get_meals(
     date: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
-    """Get all meals for a date (defaults to today)."""
-    target_date = date or datetime.now().strftime("%Y-%m-%d")
+    """Get all meals for a date (defaults to today in user's timezone)."""
+    target_date = date or user_today_iso()
 
     result = await db.execute(
         select(MealRecord)
