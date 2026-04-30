@@ -12,6 +12,7 @@ import httpx
 from jose import jwt  # python-jose (already a dependency)
 
 from app.config import settings
+from app.core.pem import PemConfigError, normalize_pem, validate_pem_loads
 
 logger = logging.getLogger(__name__)
 
@@ -35,14 +36,19 @@ class APNsClient:
         2. `APNS_KEY_PATH` env var — on-disk .p8 file (local development)
 
         The image must NOT bake the .p8 file in. `.dockerignore` excludes `keys/`.
+
+        Normalizes CRLF and literal ``\\n`` sequences, ensures trailing
+        newline. The 2026-04-29 audit (scheduler_audit.md) traced six
+        recurring ``JWSError: MalformedFraming`` Sentry issues to env-var
+        mangling that survived the old single ``.replace("\\\\n", "\\n")``
+        call and got cached forever.
         """
         if self._private_key:
             return self._private_key
 
         # Production path: key injected via env var
         if settings.apns_key_content:
-            # Unescape newlines if the env var was set with literal \n (common Railway pattern)
-            self._private_key = settings.apns_key_content.replace("\\n", "\n")
+            self._private_key = normalize_pem(settings.apns_key_content)
             return self._private_key
 
         # Local dev path: read from on-disk file
@@ -50,7 +56,7 @@ class APNsClient:
             key_path = Path(settings.apns_key_path)
             if not key_path.exists():
                 raise FileNotFoundError(f"APNs .p8 key not found at {key_path}")
-            self._private_key = key_path.read_text()
+            self._private_key = normalize_pem(key_path.read_text())
             return self._private_key
 
         raise ValueError(
@@ -181,3 +187,27 @@ class APNsClient:
 
 # Singleton
 apns_client = APNsClient()
+
+
+def verify_apns_configured() -> None:
+    """Fail fast at app startup if the APNs key is missing or malformed.
+
+    Loads the key (which normalizes line endings) and asks `cryptography` to
+    actually parse it. Misconfigured prod fails healthcheck and rolls back
+    instead of waiting hours for the next scheduled morning brief to surface
+    a corrupt PEM (the 2026-04-29 ``JWSError: MalformedFraming`` issues).
+
+    No-op when neither APNS_KEY_CONTENT nor APNS_KEY_PATH is set —
+    push-disabled environments (CI, some dev flows) should still boot.
+    """
+    if not (settings.apns_key_content or settings.apns_key_path):
+        logger.info("APNs not configured (push disabled) — skipping verify")
+        return
+    pem = apns_client._load_private_key()
+    try:
+        validate_pem_loads(pem, label="APNs")
+    except PemConfigError:
+        # Drop the cached singleton so a subsequent fix + retry actually
+        # re-reads the env, instead of returning the corrupt cached value.
+        apns_client._private_key = None
+        raise

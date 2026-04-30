@@ -9,7 +9,9 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
+from app.core.apple import verify_siwa_configured
 from app.routers import auth, auth_apple, health, coach, notifications, meals, user, peloton_auth, garmin_auth, webhooks, waitlist, mascot, insights, privacy, experiments, ops, ml_ops
+from app.services.apns import verify_apns_configured
 from app.tasks.scheduler import start_scheduler, stop_scheduler
 
 
@@ -78,6 +80,13 @@ async def lifespan(app: FastAPI):
     # a hung migration here brings the whole app down, and a failed
     # preDeployCommand keeps the previous SUCCESS deploy serving instead.
     _init_sentry()
+    # PEM startup validation — APNs and SIWA private keys parse correctly,
+    # so a corrupt/CRLF-mangled env value fails the deploy here instead of
+    # surfacing as a JWSError on the next scheduled morning brief (see
+    # scheduler_audit.md, the 6 recurring Sentry JWSError issues from
+    # 2026-04-29). No-op in environments without the keys configured.
+    verify_apns_configured()
+    verify_siwa_configured()
     start_scheduler()
     yield
     stop_scheduler()

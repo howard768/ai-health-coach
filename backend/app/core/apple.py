@@ -156,9 +156,14 @@ def _load_siwa_private_key() -> str:
     Priority:
     1. `SIWA_KEY_CONTENT` env var — raw .p8 contents (production via Railway)
     2. `SIWA_KEY_PATH` env var — on-disk .p8 file (local development)
+
+    Normalizes CRLF and literal ``\\n`` sequences via ``normalize_pem`` —
+    same env-var-mangling failure modes as APNs (see core/pem.py).
     """
+    from app.core.pem import normalize_pem
+
     if settings.siwa_key_content:
-        return settings.siwa_key_content.replace("\\n", "\n")
+        return normalize_pem(settings.siwa_key_content)
     if settings.siwa_key_path:
         key_path = Path(settings.siwa_key_path)
         if not key_path.is_absolute():
@@ -166,11 +171,33 @@ def _load_siwa_private_key() -> str:
             key_path = Path(__file__).resolve().parent.parent.parent / key_path
         if not key_path.exists():
             raise FileNotFoundError(f"SIWA key not found at {key_path}")
-        return key_path.read_text()
+        return normalize_pem(key_path.read_text())
     raise ValueError(
         "Sign in with Apple key not configured — set SIWA_KEY_CONTENT (prod) "
         "or SIWA_KEY_PATH (local)"
     )
+
+
+def verify_siwa_configured() -> None:
+    """Fail fast at app startup if the SIWA key is missing or malformed.
+
+    Same shape as ``verify_apns_configured`` — load + parse via cryptography.
+    No-op when SIWA isn't configured (push-disabled / no-account-deletion
+    environments still boot).
+    """
+    from app.core.pem import PemConfigError, validate_pem_loads
+
+    if not (settings.siwa_key_content or settings.siwa_key_path):
+        return
+    if not settings.siwa_key_id or not settings.apple_team_id:
+        # Partially-configured: warn but don't fail (deletion endpoint will
+        # raise its own ValueError on first use, which is acceptable here).
+        return
+    pem = _load_siwa_private_key()
+    try:
+        validate_pem_loads(pem, label="SIWA")
+    except PemConfigError:
+        raise
 
 
 def generate_apple_client_secret() -> str:
