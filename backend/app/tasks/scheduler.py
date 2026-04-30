@@ -8,6 +8,7 @@ import logging
 from datetime import datetime
 
 import httpx
+import sentry_sdk
 from apscheduler.jobstores.base import JobLookupError
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -140,9 +141,33 @@ async def _send_notification(db, user_id: str, tokens: list, content: dict):
         if apns_result.get("success"):
             logger.info("%s sent to device %d", content["category"], token_row.id)
         else:
-            logger.error("%s failed for device %d: %s", content["category"], token_row.id, apns_result.get("error"))
-            if apns_result.get("status") == 410:
+            error_msg = apns_result.get("error")
+            status = apns_result.get("status")
+            logger.error(
+                "%s failed for device %d: %s",
+                content["category"], token_row.id, error_msg,
+            )
+            if status == 410:
+                # Expected when a user uninstalls; mark inactive, don't alert.
                 token_row.is_active = False
+            else:
+                # Other failures (5xx, JWT/PEM parse, network) signal systemic
+                # issues we want visible in Sentry alongside the log line. The
+                # 2026-04-30 APNs incident sat in logs for 1+ week before
+                # PR #80's startup verifier surfaced it; this catches the same
+                # class of issue at the runtime send path too.
+                try:
+                    with sentry_sdk.push_scope() as scope:
+                        scope.set_tag("apns_status", str(status))
+                        scope.set_extra("category", content["category"])
+                        scope.set_extra("device_token_id", token_row.id)
+                        scope.set_extra("error", error_msg)
+                        sentry_sdk.capture_message(
+                            f"APNs send failed: {error_msg}",
+                            level="error",
+                        )
+                except Exception:  # noqa: BLE001 -- never let Sentry crash a send
+                    logger.debug("Sentry capture failed (non-fatal)", exc_info=True)
 
     await db.commit()
 
