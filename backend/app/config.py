@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     oura_client_id: str = ""
     oura_client_secret: str = ""
     oura_redirect_uri: str = "http://localhost:8000/auth/oura/callback"
+    # Token Oura sends back during the GET handshake to verify the registrar
+    # owns our endpoint. Generate per-env via `openssl rand -hex 24`.
+    # Empty = handshake rejected (default-deny in dev). 2026-04-29 audit found
+    # a hardcoded value in source — that string is now revoked.
+    oura_webhook_verification_token: str = ""
 
     # App
     app_env: str = "development"
