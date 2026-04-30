@@ -358,11 +358,20 @@ async def rollback_model(
     target.rolled_back_at = utcnow_naive()
     await db.commit()
 
-    # Alert (best-effort).
+    # Alert (best-effort) — capture to Sentry so a recurring alert outage
+    # doesn't go unnoticed even though the rollback itself succeeds.
     try:
         await ml_api.send_rollback_alert(req.model_type, from_version, req.to_version)
-    except Exception:
-        pass  # non-fatal
+    except Exception as e:  # noqa: BLE001 -- alert failure must not abort rollback
+        logger.error("Rollback alert failed: %s", e)
+        try:
+            import sentry_sdk
+            with sentry_sdk.push_scope() as scope:
+                scope.set_tag("ml_action", "rollback_alert")
+                scope.set_tag("model_type", req.model_type)
+                sentry_sdk.capture_exception(e)
+        except Exception:  # noqa: BLE001 -- never let Sentry crash the rollback
+            logger.debug("Sentry capture failed (non-fatal)", exc_info=True)
 
     return RollbackResponse(
         ok=True,

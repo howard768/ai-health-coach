@@ -83,7 +83,17 @@ async def _maybe_refresh_oura(db: AsyncSession, user_id: str) -> None:
         # when Oura is broken, regardless of which exception sync_user_data
         # surfaces. P2-6 narrowed exceptions everywhere else; this single
         # call is kept broad because the safety net is the whole point.
+        # Capture to Sentry: in the 2026-04-29 incident era, Oura sync was
+        # broken for 10 days and only WARN logs surfaced it. Don't repeat.
         logger.warning("On-demand Oura sync failed, serving cached data: %s", e)
+        try:
+            import sentry_sdk
+            with sentry_sdk.push_scope() as scope:
+                scope.set_tag("oura_action", "on_demand_sync")
+                scope.set_tag("user_id_prefix", (user_id or "")[:12])
+                sentry_sdk.capture_exception(e)
+        except Exception:  # noqa: BLE001 -- never let Sentry crash the request
+            logger.debug("Sentry capture failed (non-fatal)", exc_info=True)
 
 
 router = APIRouter(prefix="/api", tags=["health"])

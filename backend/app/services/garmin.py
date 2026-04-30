@@ -65,6 +65,13 @@ class GarminClient:
             session_data = await asyncio.to_thread(self._client.garth.dumps)
         except (AttributeError, TypeError, ValueError) as e:
             logger.warning("Failed to serialize garth session: %s", e)
+            try:
+                import sentry_sdk
+                with sentry_sdk.push_scope() as scope:
+                    scope.set_tag("garmin_action", "session_serialize")
+                    sentry_sdk.capture_exception(e)
+            except Exception:  # noqa: BLE001 -- login flow continues
+                logger.debug("Sentry capture failed (non-fatal)", exc_info=True)
 
         return {
             "status": "connected",
