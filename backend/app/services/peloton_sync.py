@@ -1,24 +1,39 @@
 """Peloton data sync service.
 
-Follows the same pattern as oura_sync.py:
-ensure_valid_session → sync_user_data → write to WorkoutRecord + HealthMetricRecord.
+Status: BLOCKED on architecture rework (Linear MEL-44).
+
+`PelotonClient` is built on `pylotoncycle.PylotonCycle` which authenticates via
+username + password and does NOT expose a session token suitable for
+persistence. `PelotonToken.session_id` stores a literal "oauth" placeholder
+(see `peloton.py:51`), so the legacy call path here was passing
+`session_id="oauth"` into a `PelotonClient.__init__` that takes no arguments —
+every scheduled sync TypeError'd silently for any user who had connected.
+
+Until we add encrypted credential storage to `PelotonToken` (or replace
+pylotoncycle with a session-token-aware client), `sync_user_data` returns a
+clean ``needs_reauth`` status instead of attempting and failing. The legacy
+fetch + dedup + write logic is preserved in git history (last working shape:
+HEAD~1 of branch claude/audit-pra-peloton-typerror).
 """
 
 import logging
-from datetime import datetime, timedelta
 
 from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.peloton import PelotonToken, WorkoutRecord
-from app.models.health import HealthMetricRecord
-from app.services.peloton import PelotonClient, _PELOTON_FETCH_ERRORS
+from app.models.peloton import PelotonToken
 
 logger = logging.getLogger("meld.peloton_sync")
 
 
 async def ensure_valid_session(db: AsyncSession, user_id: str) -> tuple[str, str] | None:
-    """Get valid Peloton session. Returns (session_id, peloton_user_id) or None."""
+    """Get the most recent Peloton token row, if any.
+
+    Returns ``(session_id, peloton_user_id)`` or ``None``. Per the architecture
+    note above, ``session_id`` is currently always the literal "oauth"
+    placeholder; callers must NOT pass it to ``PelotonClient`` until the
+    rework lands.
+    """
     result = await db.execute(
         select(PelotonToken)
         .where(PelotonToken.user_id == user_id)
@@ -28,94 +43,29 @@ async def ensure_valid_session(db: AsyncSession, user_id: str) -> tuple[str, str
     token = result.scalar_one_or_none()
     if not token:
         return None
-
-    # Peloton sessions don't have explicit expiration — they just stop working
-    # We'll detect 401 during sync and prompt re-login
     return (token.session_id, token.peloton_user_id)
 
 
 async def sync_user_data(db: AsyncSession, user_id: str) -> dict:
-    """Sync Peloton workout data for a user."""
+    """Return a clean reauth status until the architecture rework lands.
+
+    Pre-rework, every scheduled call here raised `TypeError` because the
+    constructor signature changed but the call site didn't. That spammed
+    Sentry and produced no user-visible recovery path. Post-this-PR, scheduled
+    syncs short-circuit with a structured status the scheduler can log
+    without alerting.
+
+    See module docstring + Linear MEL-44 for the rework scope.
+    """
     session_info = await ensure_valid_session(db, user_id)
     if not session_info:
         return {"status": "error", "message": "No Peloton session. Connect your account."}
 
-    session_id, peloton_user_id = session_info
-    client = PelotonClient(session_id=session_id, user_id=peloton_user_id)
-
-    try:
-        workouts_response = await client.get_workouts(limit=20)
-    except _PELOTON_FETCH_ERRORS as e:
-        error_msg = str(e)
-        if "401" in error_msg:
-            return {"status": "error", "message": "Peloton session expired. Please re-login."}
-        logger.error("Peloton API error: %s", e)
-        return {"status": "error", "message": f"Peloton API error: {error_msg}"}
-    except (ValueError, TypeError) as e:
-        # Not authenticated / bad client state.
-        logger.error("Peloton client state error: %s", e)
-        return {"status": "error", "message": "Peloton session invalid. Please re-login."}
-
-    records_saved = 0
-    for workout in workouts_response.get("data", []):
-        parsed = client.parse_workout(workout)
-        workout_id = parsed.get("peloton_workout_id")
-
-        # Dedup by external_id
-        existing = await db.execute(
-            select(WorkoutRecord).where(
-                WorkoutRecord.user_id == user_id,
-                WorkoutRecord.external_id == workout_id,
-                WorkoutRecord.source == "peloton",
-            )
-        )
-        if existing.scalar_one_or_none():
-            continue
-
-        # Convert timestamp to date. P3-7: utcfromtimestamp is removed in
-        # Python 3.13 — use timezone-aware fromtimestamp.
-        from datetime import timezone
-        created_at = parsed.get("created_at", 0)
-        if created_at:
-            workout_date = datetime.fromtimestamp(created_at, tz=timezone.utc).strftime("%Y-%m-%d")
-        else:
-            workout_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-
-        record = WorkoutRecord(
-            user_id=user_id,
-            date=workout_date,
-            source="peloton",
-            external_id=workout_id,
-            workout_type=parsed["workout_type"],
-            duration_seconds=parsed["duration_seconds"],
-            calories=parsed.get("calories"),
-            avg_heart_rate=parsed.get("avg_heart_rate"),
-            max_heart_rate=parsed.get("max_heart_rate"),
-            avg_output=parsed.get("avg_output"),
-            instructor=parsed.get("instructor"),
-            title=parsed.get("title"),
-            raw_json=str(workout),
-        )
-        db.add(record)
-
-        # Also write to unified HealthMetricRecord for reconciliation
-        if parsed["duration_seconds"]:
-            db.add(HealthMetricRecord(
-                user_id=user_id, date=workout_date,
-                metric_type="workouts", value=parsed["duration_seconds"] / 60,
-                unit="minutes", source="peloton",
-            ))
-        if parsed.get("calories"):
-            db.add(HealthMetricRecord(
-                user_id=user_id, date=workout_date,
-                metric_type="active_calories", value=parsed["calories"],
-                unit="kcal", source="peloton",
-            ))
-
-        records_saved += 1
-
-    await db.commit()
-
-    result = {"status": "ok", "records_saved": records_saved}
-    logger.info("Peloton sync complete: %s", result)
-    return result
+    logger.info(
+        "Peloton sync deferred for user %s: legacy session unusable, reauth required",
+        user_id,
+    )
+    return {
+        "status": "needs_reauth",
+        "message": "Peloton needs reauthentication; reconnect in Settings.",
+    }
