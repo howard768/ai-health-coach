@@ -95,6 +95,19 @@ jobs:
                           re.IGNORECASE), "execute(DELETE/DROP/TRUNCATE)"),
           ]
           ENCRYPTED_PATTERN = re.compile(r"Encrypted", re.IGNORECASE)
+          # SQLite-only boolean default pattern. The 2026-04-29 incident
+          # surfaced 9 such bugs across 6 migrations: integer literals like
+          # sa.text("0")/sa.text("1") on Boolean columns. SQLite accepts
+          # them, Postgres-strict mode rejects with DatatypeMismatch.
+          # Catch via DOTALL multiline match within a single sa.Column(...)
+          # call. False positives possible if Boolean appears further than
+          # 200 chars from server_default in an oddly-formatted Column —
+          # acceptable for a warning, not a hard fail.
+          BOOL_INT_DEFAULT_PATTERN = re.compile(
+              r"sa\.Boolean\([^)]*\)[^)]{0,200}server_default\s*=\s*sa\.text\(['\"][01]['\"]\)|"
+              r"server_default\s*=\s*sa\.text\(['\"][01]['\"]\)[^)]{0,200}sa\.Boolean\(\)",
+              re.DOTALL,
+          )
           PR_AUTHOR = os.environ.get("PR_AUTHOR", "").strip()
 
           changed = [
@@ -202,6 +215,17 @@ jobs:
                       if pattern.search(line):
                           result["warnings"].append(
                               f"data-loss op '{label}' at line {i}: {line.strip()[:120]}")
+
+              # SQLite-only boolean default scan (multiline). HARD ERROR:
+              # this exact pattern broke prod on 2026-04-29.
+              for m in BOOL_INT_DEFAULT_PATTERN.finditer(src):
+                  line_no = src[:m.start()].count("\n") + 1
+                  snippet = m.group(0).replace("\n", " ").strip()[:120]
+                  result["errors"].append(
+                      f"SQLite-only boolean default at line {line_no}: "
+                      f"use sa.text('true')/sa.text('false') for Postgres "
+                      f"compatibility. Match: {snippet}"
+                  )
 
               # PHI table + encrypted column detection.
               touched_phi = sorted(t for t in PHI_TABLES
