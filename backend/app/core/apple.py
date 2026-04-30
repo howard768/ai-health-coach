@@ -184,54 +184,62 @@ def _load_siwa_private_key() -> str:
 def verify_siwa_configured() -> None:
     """Validate SIWA configuration at app startup. Warn-and-continue.
 
-    SIWA is optional. Only the account-deletion webhook path uses it. Three
-    legitimate states:
+    SIWA is opt-in (only the account-deletion webhook needs it). To distinguish
+    "SIWA disabled" from "SIWA partially configured", look at SIWA-specific env
+    vars only. APPLE_TEAM_ID and APPLE_BUNDLE_ID are shared with APNs and will
+    typically be set even when SIWA is not — counting them as SIWA indicators
+    is the bug fixed in PR #88.
 
-      1. Fully unset (count=0): SIWA disabled. Return cleanly, no logs.
-      2. Fully set (count=4 + valid PEM): all four of SIWA_KEY_CONTENT/PATH,
-         SIWA_KEY_ID, APPLE_TEAM_ID, APPLE_BUNDLE_ID present and the PEM
-         parses cleanly. Return cleanly.
-      3. Partially set (count=1..3) OR PEM malformed: log error so the misconfig
-         surfaces in Sentry. Don't crash startup (PR #86 stance: env-var fixes
-         take time and shouldn't gate the deploy queue). Account-deletion
-         endpoint will still raise its own error on first call, which is fine.
+    States:
+      1. SIWA-specific vars unset (no SIWA_KEY_CONTENT/SIWA_KEY_PATH AND no
+         SIWA_KEY_ID): SIWA disabled. Return cleanly, no logs. This is the
+         correct production state when only APNs is configured.
+      2. Exactly one of SIWA_KEY_CONTENT/SIWA_KEY_PATH/SIWA_KEY_ID set:
+         partial within SIWA itself. Log error.
+      3. Both SIWA-specific vars set, but APPLE_TEAM_ID or APPLE_BUNDLE_ID
+         missing: SIWA can't sign client secrets. Log error.
+      4. All four set, PEM malformed: log error.
+      5. All four set, PEM valid: clean.
 
-    Apple .p8 files are downloadable exactly once at creation, so coupling
-    deploy success to fixing a corrupt SIWA_KEY_CONTENT would mean a multi-day
-    Apple Developer revoke + recreate cycle just to ship unrelated code. Hence
-    warn-and-continue.
-
-    Pre-#86, this function silently returned on partial config (case 3a) — a
-    typo or env-var omission would only surface months later when a user
-    tried to delete their account. Now it logs at startup.
+    All error states log instead of raising — coupling deploy success to a
+    corrupt env var means a multi-day Apple Developer revoke + recreate
+    cycle for any single-shot rotation mistake (Apple .p8 files are
+    downloadable exactly once at creation). Account-deletion endpoint
+    still raises its own error at first use if config is wrong.
     """
     from app.core.pem import PemConfigError, validate_pem_loads
 
-    has_key = bool(settings.siwa_key_content or settings.siwa_key_path)
-    has_key_id = bool(settings.siwa_key_id)
-    has_team_id = bool(settings.apple_team_id)
-    has_bundle_id = bool(settings.apple_bundle_id)
-    configured_count = sum([has_key, has_key_id, has_team_id, has_bundle_id])
+    has_siwa_key = bool(settings.siwa_key_content or settings.siwa_key_path)
+    has_siwa_key_id = bool(settings.siwa_key_id)
 
-    if configured_count == 0:
-        return  # SIWA not used in this env, fine
+    if not has_siwa_key and not has_siwa_key_id:
+        return  # SIWA disabled in this env
 
-    if configured_count < 4:
+    if not (has_siwa_key and has_siwa_key_id):
         missing = []
-        if not has_key:
-            missing.append("SIWA_KEY_CONTENT|SIWA_KEY_PATH")
-        if not has_key_id:
+        if not has_siwa_key:
+            missing.append("SIWA_KEY_CONTENT or SIWA_KEY_PATH")
+        if not has_siwa_key_id:
             missing.append("SIWA_KEY_ID")
-        if not has_team_id:
-            missing.append("APPLE_TEAM_ID")
-        if not has_bundle_id:
-            missing.append("APPLE_BUNDLE_ID")
         logger.error(
-            "SIWA partially configured (%d/4 set). Missing: %s. The "
-            "account-deletion webhook will fail until all four are set "
-            "together. Set all or none.",
-            configured_count,
-            ", ".join(missing),
+            "SIWA partially configured: missing %s. Set both SIWA_KEY_CONTENT/"
+            "SIWA_KEY_PATH and SIWA_KEY_ID together. The account-deletion "
+            "webhook will fail until both are set.",
+            " and ".join(missing),
+        )
+        return
+
+    # SIWA-specific vars set: also require shared Apple IDs.
+    missing_shared = []
+    if not settings.apple_team_id:
+        missing_shared.append("APPLE_TEAM_ID")
+    if not settings.apple_bundle_id:
+        missing_shared.append("APPLE_BUNDLE_ID")
+    if missing_shared:
+        logger.error(
+            "SIWA enabled (key + key_id set) but missing shared Apple config: "
+            "%s. The account-deletion webhook will fail until these are set.",
+            ", ".join(missing_shared),
         )
         return
 
