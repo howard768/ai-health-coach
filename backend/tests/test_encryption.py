@@ -16,10 +16,12 @@ from cryptography.fernet import Fernet  # noqa: E402
 
 from app.config import settings  # noqa: E402
 from app.core.encryption import (  # noqa: E402
+    EncryptionConfigError,
     _get_cipher,
     _reset_for_tests,
     decrypt,
     encrypt,
+    verify_encryption_configured,
 )
 
 
@@ -148,3 +150,62 @@ def test_missing_key_warns_only_once(caplog):
 
     warn_records = [r for r in caplog.records if "ENCRYPTION_KEY not set" in r.message]
     assert len(warn_records) == 1, "warning should dedupe, not spam per call"
+
+
+# ── Production fail-closed (PR B) ─────────────────────────────────────────────
+
+
+def test_production_missing_key_fails_closed():
+    """In prod, encrypt() must raise instead of silently writing plaintext."""
+    settings.app_env = "production"
+    settings.encryption_key = ""
+    _reset_for_tests()
+
+    with pytest.raises(EncryptionConfigError):
+        encrypt("should-never-be-written")
+
+
+def test_production_invalid_key_fails_closed():
+    """Unparseable key in prod must raise on the lifespan startup verify."""
+    settings.app_env = "production"
+    settings.encryption_key = "not-a-real-fernet-key"
+    _reset_for_tests()
+
+    with pytest.raises(EncryptionConfigError):
+        verify_encryption_configured()
+
+
+def test_production_startup_verify_passes_when_configured():
+    """Happy path: prod with a valid key boots cleanly."""
+    settings.app_env = "production"
+    settings.encryption_key = _PRIMARY_KEY
+    _reset_for_tests()
+
+    verify_encryption_configured()  # must not raise
+    assert encrypt("ok") != "ok"  # ciphertext, not plaintext fallback
+
+
+def test_production_blank_key_list_fails_closed():
+    """A key string that's just commas (zero parsed keys) must also fail."""
+    settings.app_env = "production"
+    settings.encryption_key = ", , ,"
+    _reset_for_tests()
+
+    with pytest.raises(EncryptionConfigError):
+        verify_encryption_configured()
+
+
+def test_non_prod_invalid_key_keeps_falling_through(caplog):
+    """Dev/CI behavior is unchanged: bad key logs error, returns plaintext."""
+    import logging
+
+    caplog.set_level(logging.ERROR, logger="meld.encryption")
+    settings.app_env = "development"
+    settings.encryption_key = "still-not-a-real-fernet-key"
+    _reset_for_tests()
+
+    # Must NOT raise.
+    assert encrypt("plain") == "plain"
+    assert any("invalid" in r.message.lower() for r in caplog.records), (
+        "non-prod invalid key should log an error"
+    )

@@ -9,6 +9,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
+from app.core.encryption import verify_encryption_configured
 from app.routers import auth, auth_apple, health, coach, notifications, meals, user, peloton_auth, garmin_auth, webhooks, waitlist, mascot, insights, privacy, experiments, ops, ml_ops
 from app.tasks.scheduler import start_scheduler, stop_scheduler
 
@@ -71,13 +72,18 @@ def _init_sentry():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Sentry, scheduler. Migrations are NOT run here — Railway's
-    # preDeployCommand owns alembic upgrade head (see backend/railway.toml).
+    # Startup: Sentry, encryption check, scheduler. Migrations are NOT run
+    # here — Railway's preDeployCommand owns alembic upgrade head (see
+    # backend/railway.toml).
     # See ~/.claude/projects/.../memory/feedback_alembic_in_lifespan.md for
     # why: the 5-minute Railway healthcheck window is hostile to migrations,
     # a hung migration here brings the whole app down, and a failed
     # preDeployCommand keeps the previous SUCCESS deploy serving instead.
     _init_sentry()
+    # Fail-closed in prod if ENCRYPTION_KEY is missing or unparseable. Better
+    # to fail healthcheck and roll back than silently write plaintext PHI for
+    # hours waiting for the first OAuth refresh to surface the misconfig.
+    verify_encryption_configured()
     start_scheduler()
     yield
     stop_scheduler()
