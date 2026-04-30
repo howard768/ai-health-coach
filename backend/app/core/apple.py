@@ -21,6 +21,7 @@ References:
 from __future__ import annotations
 
 import hashlib
+import logging
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -30,6 +31,8 @@ import jwt
 from jwt import PyJWKClient
 
 from app.config import settings
+
+logger = logging.getLogger("meld.apple")
 
 # ── Constants ────────────────────────────────────────────────────────────────
 
@@ -179,31 +182,67 @@ def _load_siwa_private_key() -> str:
 
 
 def verify_siwa_configured() -> None:
-    """Validate SIWA key at startup; log + disable account-revoke if malformed.
+    """Validate SIWA configuration at app startup. Warn-and-continue.
 
-    Same shape as ``verify_apns_configured``: warn-and-continue on a
-    malformed PEM rather than fail-closed. See that function's docstring
-    for the rationale (Apple .p8 files are downloadable only once at
-    creation, so coupling deploy success to a multi-day Apple-Developer
-    dance is wrong). Account revoke / delete will fail loudly on first
-    use with the same error if the key never gets fixed.
+    SIWA is optional. Only the account-deletion webhook path uses it. Three
+    legitimate states:
+
+      1. Fully unset (count=0): SIWA disabled. Return cleanly, no logs.
+      2. Fully set (count=4 + valid PEM): all four of SIWA_KEY_CONTENT/PATH,
+         SIWA_KEY_ID, APPLE_TEAM_ID, APPLE_BUNDLE_ID present and the PEM
+         parses cleanly. Return cleanly.
+      3. Partially set (count=1..3) OR PEM malformed: log error so the misconfig
+         surfaces in Sentry. Don't crash startup (PR #86 stance: env-var fixes
+         take time and shouldn't gate the deploy queue). Account-deletion
+         endpoint will still raise its own error on first call, which is fine.
+
+    Apple .p8 files are downloadable exactly once at creation, so coupling
+    deploy success to fixing a corrupt SIWA_KEY_CONTENT would mean a multi-day
+    Apple Developer revoke + recreate cycle just to ship unrelated code. Hence
+    warn-and-continue.
+
+    Pre-#86, this function silently returned on partial config (case 3a) — a
+    typo or env-var omission would only surface months later when a user
+    tried to delete their account. Now it logs at startup.
     """
     from app.core.pem import PemConfigError, validate_pem_loads
 
-    if not (settings.siwa_key_content or settings.siwa_key_path):
+    has_key = bool(settings.siwa_key_content or settings.siwa_key_path)
+    has_key_id = bool(settings.siwa_key_id)
+    has_team_id = bool(settings.apple_team_id)
+    has_bundle_id = bool(settings.apple_bundle_id)
+    configured_count = sum([has_key, has_key_id, has_team_id, has_bundle_id])
+
+    if configured_count == 0:
+        return  # SIWA not used in this env, fine
+
+    if configured_count < 4:
+        missing = []
+        if not has_key:
+            missing.append("SIWA_KEY_CONTENT|SIWA_KEY_PATH")
+        if not has_key_id:
+            missing.append("SIWA_KEY_ID")
+        if not has_team_id:
+            missing.append("APPLE_TEAM_ID")
+        if not has_bundle_id:
+            missing.append("APPLE_BUNDLE_ID")
+        logger.error(
+            "SIWA partially configured (%d/4 set). Missing: %s. The "
+            "account-deletion webhook will fail until all four are set "
+            "together. Set all or none.",
+            configured_count,
+            ", ".join(missing),
+        )
         return
-    if not settings.siwa_key_id or not settings.apple_team_id:
-        # Partially-configured: warn but don't fail (deletion endpoint will
-        # raise its own ValueError on first use, which is acceptable here).
-        return
-    pem = _load_siwa_private_key()
+
+    # All four set: verify the PEM actually parses.
     try:
+        pem = _load_siwa_private_key()
         validate_pem_loads(pem, label="SIWA")
-    except PemConfigError as e:
-        logging.getLogger("meld.auth").error(
-            "SIWA key parse FAILED at startup: %s. Account revoke and "
-            "delete will fail until SIWA_KEY_CONTENT is set to the full "
-            ".p8 file contents.",
+    except (PemConfigError, ValueError, FileNotFoundError) as e:
+        logger.error(
+            "SIWA key parse FAILED at startup: %s. "
+            "Account deletion flow will fail until SIWA_KEY_CONTENT is fixed.",
             e,
         )
 
