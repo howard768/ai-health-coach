@@ -71,5 +71,11 @@ class Settings(BaseSettings):
     # Sentry — error tracking + AI debugging (Seer). Empty DSN disables.
     sentry_dsn: str = ""
 
+    # Admin Apple user IDs allowed to call /api/insights/admin/rollback and
+    # any other endpoints gated by `CurrentAdminUser`. Comma-separated list.
+    # Empty in dev (admin endpoints return 403). Production: set to Brock's
+    # apple_user_id via Railway env. Adding/removing requires a redeploy.
+    admin_user_ids: str = ""
+
 
 settings = Settings()
