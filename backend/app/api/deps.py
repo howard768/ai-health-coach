@@ -22,15 +22,20 @@ from __future__ import annotations
 
 from typing import Annotated
 
+import logging
+
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.core.security import decode_access_token
 from app.database import get_db
 from app.models.user import User
+
+logger = logging.getLogger("meld.auth")
 
 # `auto_error=True` → FastAPI returns 403 automatically if the header is missing.
 # We override that with our own 401 below so the error shape is consistent.
@@ -89,3 +94,38 @@ async def get_current_user(
 # Convenience type alias so routers can write `user: CurrentUser` in signatures
 # without importing Depends + the dependency function separately.
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+async def get_current_admin_user(
+    user: Annotated[User, Depends(get_current_user)],
+) -> User:
+    """Resolve the authenticated user AND require they're in ADMIN_USER_IDS.
+
+    Comma-separated allow-list lives in `settings.admin_user_ids`. Empty list
+    means no admin endpoints are reachable (returns 403 for everyone). In
+    production, set to Brock's apple_user_id only.
+
+    Why this dep exists: the 2026-04-29 audit found `/api/insights/admin/rollback`
+    accepted any signed-in user, meaning any beta tester could swap the active
+    CoreML ranker model. Now gated.
+    """
+    allow_list = [
+        uid.strip() for uid in (settings.admin_user_ids or "").split(",") if uid.strip()
+    ]
+    if user.apple_user_id not in allow_list:
+        # Log the attempt for forensics. Do not include token contents.
+        logger.warning(
+            "admin endpoint denied: user=%s allow_list_size=%d",
+            user.apple_user_id,
+            len(allow_list),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    return user
+
+
+# Same shape as CurrentUser, but only resolves for admins. Endpoints gated by
+# CurrentAdminUser must NEVER also accept CurrentUser as an alternate path.
+CurrentAdminUser = Annotated[User, Depends(get_current_admin_user)]

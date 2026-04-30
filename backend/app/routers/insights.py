@@ -27,7 +27,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import CurrentUser
+from app.api.deps import CurrentAdminUser, CurrentUser
 from app.core.time import utcnow_naive
 from app.database import get_db
 
@@ -309,7 +309,7 @@ class RollbackResponse(BaseModel):
 @router.post("/admin/rollback", response_model=RollbackResponse)
 async def rollback_model(
     req: RollbackRequest,
-    user: CurrentUser,
+    user: CurrentAdminUser,
     db: AsyncSession = Depends(get_db),
 ) -> RollbackResponse:
     """Roll back a model to a previous version.
