@@ -39,7 +39,7 @@ def upgrade() -> None:
         sa.Column("val_ndcg", sa.Float(), nullable=True),
         sa.Column("feature_names_json", sa.Text(), nullable=False),
         sa.Column("hyperparams_json", sa.Text(), nullable=True),
-        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("model_type", "model_version", name="uq_ml_models_type_version"),

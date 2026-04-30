@@ -30,7 +30,7 @@ def upgrade() -> None:
     op.create_table(
         "ml_cohort_consent",
         sa.Column("user_id", sa.String(length=255), nullable=False),
-        sa.Column("opted_in", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+        sa.Column("opted_in", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         sa.Column("opted_in_at", sa.DateTime(), nullable=True),
         sa.Column("opted_out_at", sa.DateTime(), nullable=True),
         sa.Column("deletion_requested_at", sa.DateTime(), nullable=True),
@@ -70,7 +70,7 @@ def upgrade() -> None:
         sa.Column("centroid_json", sa.Text(), nullable=False),
         sa.Column("archetype_name", sa.String(length=100), nullable=True),
         sa.Column("archetype_description", sa.Text(), nullable=True),
-        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         sa.Column("run_id", sa.String(length=36), nullable=False),
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.PrimaryKeyConstraint("id"),

@@ -39,7 +39,7 @@ def upgrade() -> None:
                 "directional_support",
                 sa.Boolean(),
                 nullable=False,
-                server_default=sa.text("0"),
+                server_default=sa.text("false"),
             )
         )
         batch_op.add_column(
@@ -47,7 +47,7 @@ def upgrade() -> None:
                 "causal_support",
                 sa.Boolean(),
                 nullable=False,
-                server_default=sa.text("0"),
+                server_default=sa.text("false"),
             )
         )
 

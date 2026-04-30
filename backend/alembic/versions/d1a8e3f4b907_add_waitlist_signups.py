@@ -38,7 +38,7 @@ def upgrade() -> None:
         sa.Column("referer", sa.String(length=512), nullable=True),
         sa.Column("ip_hash", sa.String(length=64), nullable=True),
         sa.Column("user_agent", sa.String(length=512), nullable=True),
-        sa.Column("notified", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+        sa.Column("notified", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         sa.Column("submissions", sa.Integer(), nullable=False, server_default=sa.text("1")),
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.Column("updated_at", sa.DateTime(), nullable=False),
