@@ -131,13 +131,24 @@ final class AppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUser
             }
         }
 
-        AppDelegate.pendingTab = tabName
+        AppDelegate.pendingTab.set(tabName)
         Log.notifications.debug("Set pendingTab to: \(tabName)")
         completionHandler()
     }
 
-    // Static storage for pending navigation — read by MainTabView
-    nonisolated(unsafe) static var pendingTab: String?
+    /// Static storage for pending navigation — written from the
+    /// UNUserNotificationCenter delegate callback (runs on UN's internal
+    /// queue, NOT MainActor) and read from `MainTabView.checkPendingTab()`
+    /// (runs on MainActor via SwiftUI lifecycle).
+    ///
+    /// Pre-followup #1 this was `nonisolated(unsafe) static var pendingTab:
+    /// String?` — racy under concurrent set/get, and Swift 6 only kept it
+    /// because the `unsafe` opt-out silenced the compiler. Now wrapped in
+    /// `PendingTabHolder` which provides lock-protected `set` and atomic
+    /// `consume` (read + nil-out in one critical section). The MainTabView
+    /// reader uses `consume()` which both reads and clears, eliminating the
+    /// previous "read then nil-out" two-call window.
+    static let pendingTab = PendingTabHolder()
 
     // MARK: - Notification Categories (Action Buttons)
 

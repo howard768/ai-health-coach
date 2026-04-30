@@ -187,16 +187,34 @@ final class HealthKitService {
         }
     }
 
+    /// Hard upper bound on a single HKStatisticsQuery. HealthKit usually
+    /// completes under 500ms; 10s is generous and bounds the worst case
+    /// (HK daemon stuck, store corruption) so scheduled syncs don't pile up
+    /// stuck tasks. Per followup #1 to MEL-43 audit.
+    private static let healthKitQueryTimeoutNanos: UInt64 = 10_000_000_000
+
     private func querySum(_ identifier: HKQuantityTypeIdentifier, from start: Date, to end: Date, unit: HKUnit) async -> Double? {
         let type = HKQuantityType(identifier)
         let predicate = HKQuery.predicateForSamples(withStart: start, end: end)
 
-        return await withCheckedContinuation { continuation in
-            let query = HKStatisticsQuery(quantityType: type, quantitySamplePredicate: predicate, options: .cumulativeSum) { _, result, error in
+        return await withCheckedContinuation { (continuation: CheckedContinuation<Double?, Never>) in
+            let guarded = ContinuationGuard<Double?>()
+            let query = HKStatisticsQuery(
+                quantityType: type,
+                quantitySamplePredicate: predicate,
+                options: .cumulativeSum
+            ) { _, result, _ in
                 let value = result?.sumQuantity()?.doubleValue(for: unit)
-                continuation.resume(returning: value)
+                guarded.tryResume(continuation: continuation, with: value)
             }
             store.execute(query)
+
+            // Timeout escape hatch: if HK never calls back, fail to nil
+            // after the budget expires. Whichever fires first wins.
+            Task {
+                try? await Task.sleep(nanoseconds: Self.healthKitQueryTimeoutNanos)
+                guarded.tryResume(continuation: continuation, with: nil)
+            }
         }
     }
 
@@ -208,12 +226,22 @@ final class HealthKitService {
         }
         let predicate = HKQuery.predicateForSamples(withStart: start, end: end)
 
-        return await withCheckedContinuation { continuation in
-            let query = HKStatisticsQuery(quantityType: type, quantitySamplePredicate: predicate, options: .discreteAverage) { _, result, error in
+        return await withCheckedContinuation { (continuation: CheckedContinuation<Double?, Never>) in
+            let guarded = ContinuationGuard<Double?>()
+            let query = HKStatisticsQuery(
+                quantityType: type,
+                quantitySamplePredicate: predicate,
+                options: .discreteAverage
+            ) { _, result, _ in
                 let value = result?.averageQuantity()?.doubleValue(for: unit)
-                continuation.resume(returning: value)
+                guarded.tryResume(continuation: continuation, with: value)
             }
             store.execute(query)
+
+            Task {
+                try? await Task.sleep(nanoseconds: Self.healthKitQueryTimeoutNanos)
+                guarded.tryResume(continuation: continuation, with: nil)
+            }
         }
     }
 }

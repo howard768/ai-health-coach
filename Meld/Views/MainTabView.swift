@@ -61,9 +61,11 @@ struct MainTabView: View {
     }
 
     /// Check if a notification action set a pending tab to navigate to.
+    /// `consume()` is atomic (read + clear in one critical section) — a new
+    /// notification arriving during the consume call waits and is preserved
+    /// for the next checkPendingTab() invocation.
     private func checkPendingTab() {
-        guard let tabName = AppDelegate.pendingTab else { return }
-        AppDelegate.pendingTab = nil
+        guard let tabName = AppDelegate.pendingTab.consume() else { return }
         if let tab = Tab(rawValue: tabName) {
             switchToTab(tab)
         }

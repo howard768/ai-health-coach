@@ -61,6 +61,19 @@ actor AuthManager {
 
     /// Force a refresh. Cached in-flight Task ensures concurrent callers
     /// share a single network round-trip.
+    ///
+    /// Followup #1: previously the task was cleared via
+    /// ``defer { Task { await self.clearRefreshTask() } }`` which scheduled
+    /// the clear ASYNCHRONOUSLY on the actor. That left a window where:
+    ///   1. Refresh task A completes (success or fail).
+    ///   2. Caller A returns its result.
+    ///   3. The deferred clear-task is queued but not yet run.
+    ///   4. Caller B enters refresh(), sees the still-set `refreshTask`,
+    ///      and awaits its value — getting A's already-resolved value.
+    /// On A's success this is harmless dedup; on A's failure B gets A's
+    /// error instead of a fresh attempt. Now we clear synchronously inside
+    /// the actor body before returning, so the cache reflects exactly
+    /// "is there a refresh in flight right now?".
     @discardableResult
     func refresh() async throws -> TokenPair {
         if let task = refreshTask {
@@ -68,18 +81,20 @@ actor AuthManager {
         }
 
         let task = Task<TokenPair, Error> {
-            defer { Task { await self.clearRefreshTask() } }
             let stored = try await KeychainStore.shared.readRefreshToken()
             let pair = try await APIClient.shared.refreshSession(refreshToken: stored)
             try await self.persistTokens(pair)
             return pair
         }
         self.refreshTask = task
-        return try await task.value
-    }
-
-    private func clearRefreshTask() {
-        refreshTask = nil
+        do {
+            let pair = try await task.value
+            self.refreshTask = nil
+            return pair
+        } catch {
+            self.refreshTask = nil
+            throw error
+        }
     }
 
     // MARK: - Sign in with Apple
