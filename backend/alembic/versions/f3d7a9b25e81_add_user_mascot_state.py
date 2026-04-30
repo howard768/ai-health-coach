@@ -43,7 +43,7 @@ def upgrade() -> None:
             "equipped",
             sa.Boolean(),
             nullable=False,
-            server_default=sa.text("0"),
+            server_default=sa.text("false"),
         ),
         sa.UniqueConstraint(
             "user_id", "accessory_id", name="uq_user_mascot_accessory"

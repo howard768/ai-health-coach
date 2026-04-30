@@ -53,10 +53,10 @@ def upgrade() -> None:
     # ── 1. New columns on users ─────────────────────────────────────────
     with op.batch_alter_table("users") as batch:
         batch.add_column(
-            sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("1"))
+            sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("true"))
         )
         batch.add_column(
-            sa.Column("is_private_email", sa.Boolean(), nullable=False, server_default=sa.text("0"))
+            sa.Column("is_private_email", sa.Boolean(), nullable=False, server_default=sa.text("false"))
         )
         batch.add_column(sa.Column("last_login_at", sa.DateTime(), nullable=True))
         batch.add_column(sa.Column("apple_refresh_token", sa.Text(), nullable=True))
@@ -92,7 +92,7 @@ def upgrade() -> None:
     op.execute(
         f"""
         INSERT INTO users (apple_user_id, is_active, is_private_email, created_at, updated_at)
-        SELECT 'default', 1, 0, '{now}', '{now}'
+        SELECT 'default', true, false, '{now}', '{now}'
         WHERE NOT EXISTS (SELECT 1 FROM users WHERE apple_user_id = 'default')
         """
     )
