@@ -147,10 +147,20 @@ async def ops_status(db: AsyncSession = Depends(get_db)) -> OpsStatusResponse:
 
     pipeline = await _get_pipeline_freshness(db)
 
-    # DB connectivity (same check as /readyz but non-throwing)
+    # DB connectivity + schema presence. Two non-obvious things:
+    # (1) `_get_pipeline_freshness` swallows per-table errors and returns
+    #     `None`. If a table doesn't exist (e.g. fresh Postgres pre-alembic),
+    #     asyncpg leaves the session in an aborted-transaction state that
+    #     fails every subsequent query until rollback. So we MUST roll back
+    #     before probing.
+    # (2) `SELECT 1` succeeds against an empty Postgres, which masked total
+    #     schema loss for 10 days during the 2026-04-29 incident. Probe
+    #     `alembic_version` instead — its presence confirms the schema chain
+    #     ran. See ~/.claude/projects/.../memory/feedback_db_ok_must_query_real_table.md.
     db_ok = True
     try:
-        await db.execute(text("SELECT 1"))
+        await db.rollback()
+        await db.execute(text("SELECT 1 FROM alembic_version LIMIT 1"))
     except Exception:
         db_ok = False
 

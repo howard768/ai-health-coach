@@ -10,7 +10,6 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from app.config import settings
-from app.database import init_db
 from app.routers import auth, auth_apple, health, coach, notifications, meals, user, peloton_auth, garmin_auth, webhooks, waitlist, mascot, insights, privacy, experiments, ops, ml_ops
 from app.tasks.scheduler import start_scheduler, stop_scheduler
 
@@ -40,18 +39,15 @@ def _init_sentry():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Sentry, DB, scheduler.
-    # WARNING-level prints with flush=True so each step appears in Railway
-    # logs even if the next step hangs. Diagnostic for prod cold-start hang.
-    print("lifespan: 1/4 entering", flush=True)
+    # Startup: Sentry, scheduler. Migrations are NOT run here — Railway's
+    # preDeployCommand owns alembic upgrade head (see backend/railway.toml).
+    # See ~/.claude/projects/.../memory/feedback_alembic_in_lifespan.md for
+    # why: the 5-minute Railway healthcheck window is hostile to migrations,
+    # a hung migration here brings the whole app down, and a failed
+    # preDeployCommand keeps the previous SUCCESS deploy serving instead.
     _init_sentry()
-    print("lifespan: 2/4 sentry done", flush=True)
-    await init_db()
-    print("lifespan: 3/4 init_db done", flush=True)
     start_scheduler()
-    print("lifespan: 4/4 scheduler started", flush=True)
     yield
-    print("lifespan: shutdown", flush=True)
     stop_scheduler()
 
 
@@ -133,15 +129,19 @@ async def healthz():
 
 @app.get("/readyz")
 async def readyz():
-    """Readiness probe — verifies DB connection. Used by Railway/uptime monitors
-    to gate traffic. Returns 503 if the DB is unreachable.
+    """Readiness probe — verifies DB *and schema* are healthy.
+
+    Querying alembic_version (rather than SELECT 1) ensures the schema
+    chain has run. SELECT 1 succeeds against an empty Postgres, which
+    masked total schema loss for 10 days during the 2026-04-29 incident.
+    See ~/.claude/projects/.../memory/feedback_db_ok_must_query_real_table.md.
     """
     from sqlalchemy import text
     from sqlalchemy.exc import SQLAlchemyError, DBAPIError
     from app.database import async_session
     try:
         async with async_session() as db:
-            await db.execute(text("SELECT 1"))
+            await db.execute(text("SELECT 1 FROM alembic_version LIMIT 1"))
         return {"status": "ready", "db": "ok"}
     except (SQLAlchemyError, DBAPIError, OSError) as e:
         from fastapi import HTTPException
