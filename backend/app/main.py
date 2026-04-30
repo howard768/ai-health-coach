@@ -1,5 +1,6 @@
+import os
+import re
 from contextlib import asynccontextmanager
-
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -57,17 +58,86 @@ limiter = Limiter(
 )
 
 
+_PHI_SCRUB_PATTERNS = [
+    # apple_user_id: opaque numeric.numeric.string format. We log it routinely
+    # for forensics but it's still user-identifying — scrub before Sentry.
+    (re.compile(r"\b\d{6}\.[0-9a-f]{32}\.\d{4}\b"), "[apple_user_id]"),
+    # bare email — only common shapes; private-relay addresses caught here too.
+    (re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"), "[email]"),
+    # bearer token — opaque ~200-char base64-ish JWT string after `Bearer`.
+    (re.compile(r"(?i)bearer\s+[A-Za-z0-9._-]{20,}"), "Bearer [token]"),
+]
+
+
+def _scrub_phi(value):
+    """Walk arbitrary nested data and apply scrub patterns to every str.
+
+    Sentry's `before_send` receives an event dict with arbitrary nesting
+    (extra, contexts, request body, breadcrumbs, exception values).
+    Recurse into dicts and lists; replace strings via the patterns.
+    """
+    if isinstance(value, str):
+        out = value
+        for pat, repl in _PHI_SCRUB_PATTERNS:
+            out = pat.sub(repl, out)
+        return out
+    if isinstance(value, dict):
+        return {k: _scrub_phi(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_scrub_phi(v) for v in value]
+    if isinstance(value, tuple):
+        return tuple(_scrub_phi(v) for v in value)
+    return value
+
+
+def _sentry_before_send(event, _hint):
+    """Sentry `before_send` callback: scrub PHI/PII before transmission.
+
+    Belt-and-suspenders against `send_default_pii=False`. The default
+    setting blocks Sentry from auto-attaching headers/cookies, but our own
+    code logs apple_user_ids and tokens routinely (auth flow, scheduler
+    job context). Scrub here so a stray log line doesn't leak.
+    """
+    return _scrub_phi(event)
+
+
 def _init_sentry():
     """Initialize Sentry if a DSN is configured. No-op otherwise."""
     if not settings.sentry_dsn:
         return
     import sentry_sdk
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+
+    # Release tag: Railway sets RAILWAY_GIT_COMMIT_SHA per deploy. Sentry
+    # uses this to attribute errors to specific releases — without it, every
+    # error in the dashboard says "release: unknown" and we can't tell
+    # which deploy regressed what. The 2026-04-29 audit (sentry-side) said
+    # this was the single missing knob preventing release-correlated
+    # alerting from working at all.
+    release = os.environ.get("RAILWAY_GIT_COMMIT_SHA") or "dev"
+
+    integrations = [FastApiIntegration()]
+    # APScheduler integration: surfaces scheduled job exceptions to Sentry
+    # with proper grouping and tags. Sentry adds it to `default_integrations`
+    # in v2.x but only if APScheduler is importable at sdk init time, which
+    # it always is for us (it's a runtime dep). Listing it explicitly so a
+    # future dep change can't silently disable cron error reporting.
+    try:
+        from sentry_sdk.integrations.apscheduler import ApschedulerIntegration
+        integrations.append(ApschedulerIntegration())
+    except ImportError:
+        # Older sentry-sdk without the integration — silently skip.
+        pass
+
     sentry_sdk.init(
         dsn=settings.sentry_dsn,
+        release=release,
         traces_sample_rate=0.1,  # 10% of requests traced (cost control)
         profiles_sample_rate=0.1,
         environment=settings.app_env,
         send_default_pii=False,  # Never send PHI/PII to Sentry
+        before_send=_sentry_before_send,
+        integrations=integrations,
     )
 
 
