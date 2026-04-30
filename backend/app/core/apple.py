@@ -31,6 +31,7 @@ import jwt
 from jwt import PyJWKClient
 
 from app.config import settings
+from app.core.http import DEFAULT_TIMEOUT
 
 logger = logging.getLogger("meld.apple")
 
@@ -303,7 +304,7 @@ async def revoke_apple_token(refresh_token: str) -> None:
         return  # No Apple refresh token captured — nothing to revoke server-side
 
     client_secret = generate_apple_client_secret()
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
         response = await client.post(
             APPLE_REVOKE_URL,
             data={

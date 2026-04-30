@@ -2,6 +2,7 @@ import httpx
 from datetime import date, timedelta
 
 from app.config import settings
+from app.core.http import DEFAULT_TIMEOUT
 
 OURA_AUTH_URL = "https://cloud.ouraring.com/oauth/authorize"
 OURA_TOKEN_URL = "https://api.ouraring.com/oauth/token"
@@ -22,7 +23,7 @@ class OuraClient:
         )
 
     async def exchange_code(self, code: str) -> dict:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
             response = await client.post(
                 OURA_TOKEN_URL,
                 data={
@@ -42,7 +43,7 @@ class OuraClient:
         if not end_date:
             end_date = date.today()
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
             response = await client.get(
                 f"{OURA_API_BASE}/daily_sleep",
                 headers={"Authorization": f"Bearer {self.access_token}"},
@@ -58,7 +59,7 @@ class OuraClient:
         if not end_date:
             end_date = date.today()
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
             response = await client.get(
                 f"{OURA_API_BASE}/sleep",
                 headers={"Authorization": f"Bearer {self.access_token}"},
@@ -73,7 +74,7 @@ class OuraClient:
         if not end_date:
             end_date = date.today()
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
             response = await client.get(
                 f"{OURA_API_BASE}/daily_readiness",
                 headers={"Authorization": f"Bearer {self.access_token}"},
@@ -84,7 +85,7 @@ class OuraClient:
 
     async def refresh_access_token(self, refresh_token: str) -> dict:
         """Refresh an expired Oura access token using OAuth2 refresh flow."""
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
             response = await client.post(
                 OURA_TOKEN_URL,
                 data={
@@ -103,7 +104,7 @@ class OuraClient:
         if not end_date:
             end_date = date.today()
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
             response = await client.get(
                 f"{OURA_API_BASE}/heartrate",
                 headers={"Authorization": f"Bearer {self.access_token}"},
