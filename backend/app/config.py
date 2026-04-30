@@ -19,6 +19,12 @@ class Settings(BaseSettings):
 
     # Anthropic
     anthropic_api_key: str = ""
+    # Model IDs centralized so a model deprecation is one env-var override
+    # rather than a grep-and-replace across services. Anthropic deprecates
+    # 12-month-old SKUs; the next rotation should be a single Railway change.
+    anthropic_model_haiku: str = "claude-haiku-4-5-20251001"
+    anthropic_model_sonnet: str = "claude-sonnet-4-20250514"
+    anthropic_model_opus: str = "claude-opus-4-20250514"
 
     # Oura
     oura_client_id: str = ""

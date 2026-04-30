@@ -21,7 +21,7 @@ Rules:
 - Never give medical advice. You are a wellness coach, not a doctor."""
 
         response = self.client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model=settings.anthropic_model_sonnet,
             max_tokens=200,
             system=system_prompt,
             messages=[

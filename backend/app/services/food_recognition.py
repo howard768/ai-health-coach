@@ -60,7 +60,7 @@ class FoodRecognitionService:
         """
         try:
             response = self.client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=settings.anthropic_model_sonnet,
                 max_tokens=1024,
                 messages=[{
                     "role": "user",
@@ -104,7 +104,7 @@ class FoodRecognitionService:
         """
         try:
             response = self.client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=settings.anthropic_model_sonnet,
                 max_tokens=512,
                 messages=[{
                     "role": "user",

@@ -630,9 +630,13 @@ class CoachEngine:
         )
 
     def _get_model(self, tier: ModelTier) -> str:
-        """Map tier to Anthropic model ID."""
+        """Map tier to Anthropic model ID.
+
+        IDs centralized in `Settings` (PR #95) so a model deprecation is
+        one Railway env-var override, not a grep across services.
+        """
         return {
-            ModelTier.HAIKU: "claude-haiku-4-5-20251001",
-            ModelTier.SONNET: "claude-sonnet-4-20250514",
-            ModelTier.OPUS: "claude-opus-4-20250514",
-        }.get(tier, "claude-sonnet-4-20250514")
+            ModelTier.HAIKU: settings.anthropic_model_haiku,
+            ModelTier.SONNET: settings.anthropic_model_sonnet,
+            ModelTier.OPUS: settings.anthropic_model_opus,
+        }.get(tier, settings.anthropic_model_sonnet)
