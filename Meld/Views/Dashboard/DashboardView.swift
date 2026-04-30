@@ -27,7 +27,7 @@ struct DashboardView: View {
 
             case .empty:
                 DashboardEmptyState {
-                    NotificationCenter.default.post(name: .init("MeldSwitchTab"), object: nil, userInfo: ["tab": "you"])
+                    NotificationCenter.default.post(name: .meldSwitchTab, object: nil, userInfo: ["tab": Tab.you.rawValue])
                     DSHaptic.light()
                 }
 

@@ -186,10 +186,10 @@ struct MealsView: View {
 
                 DSChip(title: "Ask coach about this") {
                     NotificationCenter.default.post(
-                        name: .init("MeldSwitchTab"),
+                        name: .meldSwitchTab,
                         object: nil,
                         userInfo: [
-                            "tab": "coach",
+                            "tab": Tab.coach.rawValue,
                             "message": "Tell me more about the connection between my dinner timing and deep sleep. My deep sleep was 22 min longer on days I ate dinner before 7pm this week.",
                         ]
                     )
