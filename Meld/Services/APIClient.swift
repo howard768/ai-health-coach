@@ -35,7 +35,12 @@ actor APIClient {
         // Use 127.0.0.1 instead of localhost — the simulator resolves
         // localhost to ::1 (IPv6) first, which fails when the backend
         // only listens on 0.0.0.0 (IPv4).
-        self.baseURL = URL(string: "http://127.0.0.1:8000/api")!
+        // PR-H: replace force-unwrap with explicit precondition so any
+        // future edit that breaks the literal fails with a readable trace.
+        guard let simURL = URL(string: "http://127.0.0.1:8000/api") else {
+            preconditionFailure("APIClient simulator base URL literal is malformed")
+        }
+        self.baseURL = simURL
         #else
         let plistURL = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String
         let resolvedURL: String = {
@@ -45,7 +50,12 @@ actor APIClient {
             // Fallback — should never hit in a properly configured build
             return "https://zippy-forgiveness-production-0704.up.railway.app/api"
         }()
-        self.baseURL = URL(string: resolvedURL)!
+        // PR-H: same pattern; the closure above only returns valid URL
+        // strings, so this guard documents the invariant.
+        guard let resolved = URL(string: resolvedURL) else {
+            preconditionFailure("APIClient resolved base URL is malformed: \(resolvedURL)")
+        }
+        self.baseURL = resolved
         #endif
         self.decoder = JSONDecoder()
         // P2-11: Custom timeout config. Default URLSession timeouts are 60s
@@ -455,9 +465,17 @@ actor APIClient {
 
     func fetchTrends(rangeDays: Int = 7) async throws -> APITrendsResponse {
         let url = serverRoot.appendingPathComponent("api/trends")
-        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
+        // PR-H: replace force-unwraps with guard-throw. URLComponents from a
+        // valid URL is documented to never fail, but a typo in `serverRoot`
+        // shouldn't crash the app — surface as a recoverable APIError.
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            throw APIError.serverError
+        }
         components.queryItems = [URLQueryItem(name: "range", value: "\(rangeDays)")]
-        return try await sendDecoding(URLRequest(url: components.url!))
+        guard let composed = components.url else {
+            throw APIError.serverError
+        }
+        return try await sendDecoding(URLRequest(url: composed))
     }
 
     func fetchTrendPatterns() async throws -> APITrendPatternsResponse {
@@ -539,9 +557,15 @@ actor APIClient {
     func fetchMeals(date: String) async throws -> APIDailyMealsResponse {
         let url = baseURL.deletingLastPathComponent()
             .appendingPathComponent("api/meals")
-        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
+        // PR-H: same guard pattern as fetchTrends.
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            throw APIError.serverError
+        }
         components.queryItems = [URLQueryItem(name: "date", value: date)]
-        return try await sendDecoding(URLRequest(url: components.url!))
+        guard let composed = components.url else {
+            throw APIError.serverError
+        }
+        return try await sendDecoding(URLRequest(url: composed))
     }
 
     func searchFood(_ query: String) async throws -> [FoodItem] {

@@ -242,7 +242,7 @@ struct TrendsView: View {
                 }
 
                 DSChip(title: "Ask coach about this") {
-                    NotificationCenter.default.post(name: .init("MeldSwitchTab"), object: nil, userInfo: ["tab": "coach"])
+                    NotificationCenter.default.post(name: .meldSwitchTab, object: nil, userInfo: ["tab": Tab.coach.rawValue])
                     DSHaptic.light()
                 }
             }

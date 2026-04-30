@@ -48,7 +48,7 @@ struct MainTabView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { checkPendingTab() }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .init("MeldSwitchTab"))) { notification in
+        .onReceive(NotificationCenter.default.publisher(for: .meldSwitchTab)) { notification in
             if let tabName = notification.userInfo?["tab"] as? String,
                let tab = Tab(rawValue: tabName) {
                 // If a message was passed (e.g. "Ask coach about this"), auto-send it

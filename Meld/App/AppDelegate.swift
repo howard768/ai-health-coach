@@ -103,24 +103,31 @@ final class AppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUser
     ) {
         let userInfo = response.notification.request.content.userInfo
 
-        // Determine which tab to open — action buttons take priority
+        // Determine which tab to open — action buttons take priority.
+        // PR-H: route through `NotificationActionID` + `Tab` rawValues so
+        // the registration site (registerNotificationCategories) and this
+        // matching site stay in lockstep at compile time.
         let tabName: String
-        switch response.actionIdentifier {
-        case "REVIEW":
-            tabName = "home"
-        case "ASK_COACH", "TELL_ME_MORE":
-            tabName = "coach"
-        case "WIND_DOWN", "LOG_NOW":
-            tabName = "home"
-        case "SEE_REVIEW":
-            tabName = "trends"
-        default:
+        switch NotificationActionID(rawValue: response.actionIdentifier) {
+        case .review:
+            tabName = Tab.home.rawValue
+        case .askCoach, .tellMeMore:
+            tabName = Tab.coach.rawValue
+        case .windDown, .logNow:
+            tabName = Tab.home.rawValue
+        case .seeReview:
+            tabName = Tab.trends.rawValue
+        case .none:
             if let deepLink = userInfo["deep_link"] as? String,
                let url = URL(string: deepLink),
                let host = url.host {
-                tabName = host == "dashboard" ? "home" : host
+                // The notification deep_link can carry "dashboard" (legacy
+                // alias for home) or any Tab.rawValue. Anything else falls
+                // through to home as the safe default.
+                tabName = (host == "dashboard") ? Tab.home.rawValue
+                    : (Tab(rawValue: host)?.rawValue ?? Tab.home.rawValue)
             } else {
-                tabName = "home"
+                tabName = Tab.home.rawValue
             }
         }
 
@@ -135,34 +142,36 @@ final class AppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUser
     // MARK: - Notification Categories (Action Buttons)
 
     private func registerNotificationCategories() {
+        // PR-H: identifiers are NotificationActionID rawValues. The matching
+        // site in userNotificationCenter(_:didReceive:) consumes the same enum.
         let reviewAction = UNNotificationAction(
-            identifier: "REVIEW",
+            identifier: NotificationActionID.review.rawValue,
             title: "Review",
             options: .foreground
         )
         let askCoachAction = UNNotificationAction(
-            identifier: "ASK_COACH",
+            identifier: NotificationActionID.askCoach.rawValue,
             title: "Ask Coach",
             options: .foreground
         )
         let tellMeMoreAction = UNNotificationAction(
-            identifier: "TELL_ME_MORE",
+            identifier: NotificationActionID.tellMeMore.rawValue,
             title: "Tell me more",
             options: .foreground
         )
         let windDownAction = UNNotificationAction(
-            identifier: "WIND_DOWN",
+            identifier: NotificationActionID.windDown.rawValue,
             title: "Wind down",
             options: .foreground
         )
 
         let logNowAction = UNNotificationAction(
-            identifier: "LOG_NOW",
+            identifier: NotificationActionID.logNow.rawValue,
             title: "Log now",
             options: .foreground
         )
         let seeReviewAction = UNNotificationAction(
-            identifier: "SEE_REVIEW",
+            identifier: NotificationActionID.seeReview.rawValue,
             title: "See full review",
             options: .foreground
         )
@@ -215,7 +224,18 @@ final class AppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUser
             forTaskWithIdentifier: Self.modelUpdateTaskID,
             using: nil
         ) { task in
-            self.handleModelUpdateTask(task as! BGProcessingTask)
+            // PR-H: replace `as!` force-cast with guard. The system should
+            // always hand us a `BGProcessingTask` for this identifier, but a
+            // future BGTaskScheduler API change could surprise us — fail
+            // soft (mark complete + log) rather than crashing the app.
+            guard let processingTask = task as? BGProcessingTask else {
+                Log.notifications.error(
+                    "BGTask handler received unexpected task type: \(type(of: task))"
+                )
+                task.setTaskCompleted(success: false)
+                return
+            }
+            self.handleModelUpdateTask(processingTask)
         }
 
         scheduleModelUpdateTask()
