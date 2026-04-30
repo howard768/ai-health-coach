@@ -11,6 +11,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.config import settings
 from app.core.apple import verify_siwa_configured
+from app.core.secrets import verify_secrets_configured
 from app.routers import auth, auth_apple, health, coach, notifications, meals, user, peloton_auth, garmin_auth, webhooks, waitlist, mascot, insights, privacy, experiments, ops, ml_ops
 from app.services.apns import verify_apns_configured
 from app.tasks.scheduler import start_scheduler, stop_scheduler
@@ -143,18 +144,27 @@ def _init_sentry():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: Sentry, scheduler. Migrations are NOT run here — Railway's
-    # preDeployCommand owns alembic upgrade head (see backend/railway.toml).
-    # See ~/.claude/projects/.../memory/feedback_alembic_in_lifespan.md for
+    # Startup: Sentry, secret validation, PEM verifiers, scheduler.
+    # Migrations are NOT run here — Railway's preDeployCommand owns
+    # `alembic upgrade head` (see backend/railway.toml). See
+    # ~/.claude/projects/.../memory/feedback_alembic_in_lifespan.md for
     # why: the 5-minute Railway healthcheck window is hostile to migrations,
     # a hung migration here brings the whole app down, and a failed
     # preDeployCommand keeps the previous SUCCESS deploy serving instead.
     _init_sentry()
+    # Production-grade secret validation. Fails fast (raises) in production
+    # when JWT_SECRET_KEY or ENCRYPTION_KEY are missing — those have
+    # seconds-to-recover profiles so coupling deploy success to them is
+    # correct. Non-critical secrets (Anthropic API key, app_secret_key,
+    # apns_environment) log + continue. See app/core/secrets.py.
+    verify_secrets_configured()
     # PEM startup validation — APNs and SIWA private keys parse correctly,
-    # so a corrupt/CRLF-mangled env value fails the deploy here instead of
+    # so a corrupt/CRLF-mangled env value surfaces here instead of
     # surfacing as a JWSError on the next scheduled morning brief (see
     # scheduler_audit.md, the 6 recurring Sentry JWSError issues from
-    # 2026-04-29). No-op in environments without the keys configured.
+    # 2026-04-29). Warn-and-continue (PR #86 stance: Apple .p8 has
+    # multi-day recovery, can't gate the deploy queue). No-op in
+    # environments without the keys configured.
     verify_apns_configured()
     verify_siwa_configured()
     start_scheduler()
