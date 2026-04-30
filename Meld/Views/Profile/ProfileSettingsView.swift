@@ -330,7 +330,11 @@ struct ProfileSettingsView: View {
             DSDivider()
 
             Button {
-                guard let url = URL(string: "sms:741741&body=HOME") else { return }
+                // PR-K: `?body=` not `&body=` — `sms:` URL syntax requires `?` for the
+                // first parameter. The pre-PR string parsed as a malformed query
+                // and the body wasn't pre-filled (Crisis Text Line opens but the
+                // user has to type "HOME" themselves — defeats the purpose).
+                guard let url = URL(string: "sms:741741?body=HOME") else { return }
                 UIApplication.shared.open(url)
             } label: {
                 DSListRow(
