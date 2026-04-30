@@ -7,6 +7,8 @@ Uses NOVA group for food quality classification.
 import logging
 import httpx
 
+from app.core.http import DEFAULT_TIMEOUT
+
 logger = logging.getLogger("meld.openfoodfacts")
 
 OFF_SEARCH = "https://world.openfoodfacts.org/cgi/search.pl"
@@ -19,7 +21,7 @@ class OpenFoodFactsClient:
     async def search(self, query: str, page_size: int = 10) -> list[dict]:
         """Text search for food items on Open Food Facts."""
         try:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
                 response = await client.get(
                     OFF_SEARCH,
                     params={
@@ -46,7 +48,7 @@ class OpenFoodFactsClient:
     async def get_by_barcode(self, barcode: str) -> dict | None:
         """Look up a product by barcode (EAN-13, UPC-A, etc.)."""
         try:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
                 response = await client.get(
                     f"{OFF_PRODUCT}/{barcode}",
                     params={"fields": "product_name,nutriments,serving_size,nova_group,brands"},

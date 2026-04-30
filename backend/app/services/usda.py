@@ -8,6 +8,7 @@ import logging
 import httpx
 
 from app.config import settings
+from app.core.http import DEFAULT_TIMEOUT
 
 logger = logging.getLogger("meld.usda")
 
@@ -28,8 +29,18 @@ WHOLE_KEYWORDS = {"raw", "fresh", "organic", "whole", "plain"}
 class USDAClient:
     """Searches the USDA FoodData Central database."""
 
-    def __init__(self):
-        self.api_key = getattr(settings, "usda_api_key", "DEMO_KEY") or "DEMO_KEY"
+    @property
+    def api_key(self) -> str:
+        """Read the API key lazily on each call.
+
+        Pre-PR-E this was captured at __init__ time, which meant the
+        module-level `usda_client = USDAClient()` instance held whatever
+        the env was at process import. An env change (mid-process or
+        between deploy hot-reloads) wouldn't propagate. Settings is
+        already singleton-cached in app/config.py, so this property is
+        cheap.
+        """
+        return getattr(settings, "usda_api_key", "DEMO_KEY") or "DEMO_KEY"
 
     async def search(self, query: str, page_size: int = 10) -> list[dict]:
         """Search USDA for food items.
@@ -38,7 +49,7 @@ class USDAClient:
         with SR Legacy (lab-analyzed) results first.
         """
         try:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
                 response = await client.post(
                     f"{USDA_BASE}/foods/search",
                     params={"api_key": self.api_key},

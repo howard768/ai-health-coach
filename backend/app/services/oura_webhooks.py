@@ -21,6 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core.http import DEFAULT_TIMEOUT
 from app.services.oura_sync import sync_user_data
 
 logger = logging.getLogger("meld.oura_webhooks")
@@ -58,7 +59,7 @@ def _webhook_headers() -> dict:
 
 async def list_subscriptions() -> list[dict]:
     """List all active webhook subscriptions."""
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
         response = await client.get(
             OURA_WEBHOOK_URL,
             headers=_webhook_headers(),
@@ -82,7 +83,7 @@ async def create_subscription(
     Returns:
         Subscription details including id and expiration_time
     """
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
         response = await client.post(
             OURA_WEBHOOK_URL,
             headers=_webhook_headers(),
@@ -101,7 +102,7 @@ async def create_subscription(
 
 async def delete_subscription(subscription_id: str) -> bool:
     """Delete a webhook subscription."""
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
         response = await client.delete(
             f"{OURA_WEBHOOK_URL}/{subscription_id}",
             headers=_webhook_headers(),
@@ -111,7 +112,7 @@ async def delete_subscription(subscription_id: str) -> bool:
 
 async def renew_subscription(subscription_id: str) -> dict:
     """Renew a subscription before it expires."""
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
         response = await client.put(
             f"{OURA_WEBHOOK_URL}/renew/{subscription_id}",
             headers=_webhook_headers(),

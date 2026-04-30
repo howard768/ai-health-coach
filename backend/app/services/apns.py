@@ -12,6 +12,7 @@ import httpx
 import jwt  # pyjwt — supports ES256 with the cryptography backend
 
 from app.config import settings
+from app.core.http import DEFAULT_TIMEOUT
 from app.core.pem import PemConfigError, normalize_pem, validate_pem_loads
 
 logger = logging.getLogger(__name__)
@@ -27,6 +28,19 @@ class APNsClient:
         self._jwt_token: str | None = None
         self._jwt_issued_at: float = 0
         self._private_key: str | None = None
+
+    def _reset_cache(self) -> None:
+        """Drop all cached state so the next call re-reads from env.
+
+        Both the parsed PEM and the JWT signed with it must be cleared
+        together — clearing only the PEM (as `verify_apns_configured`
+        previously did) left the cached JWT pointing at the now-evicted
+        key, so push sends used a stale token until the 50-minute JWT
+        rotation. After-this-PR, callers always invalidate as a pair.
+        """
+        self._private_key = None
+        self._jwt_token = None
+        self._jwt_issued_at = 0
 
     def _load_private_key(self) -> str:
         """Load the APNs .p8 private key.
@@ -156,7 +170,7 @@ class APNsClient:
             logger.warning("APNs payload exceeds 4KB limit: %d bytes", len(payload_bytes))
 
         try:
-            async with httpx.AsyncClient(http2=True) as client:
+            async with httpx.AsyncClient(http2=True, timeout=DEFAULT_TIMEOUT) as client:
                 response = await client.post(url, content=payload_bytes, headers=headers)
 
             if response.status_code == 200:
@@ -223,8 +237,10 @@ def verify_apns_configured() -> None:
         validate_pem_loads(pem, label="APNs")
     except PemConfigError as e:
         # Drop the cached singleton so a subsequent fix + retry actually
-        # re-reads the env. Do NOT raise — let the app boot.
-        apns_client._private_key = None
+        # re-reads the env. Both the PEM AND the JWT signed with it must
+        # be cleared together (PR E hygiene fix). Do NOT raise — let the
+        # app boot.
+        apns_client._reset_cache()
         logger.error(
             "APNs key parse FAILED at startup: %s. Push notifications will "
             "fail for every send. Set APNS_KEY_CONTENT to the full .p8 file "
