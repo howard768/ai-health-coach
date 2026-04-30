@@ -3,7 +3,13 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-healthcheckPath = "/"
+# /readyz queries alembic_version to confirm both DB connectivity AND
+# schema presence. Switching here from "/" (a static-string liveness probe
+# that always returns 200) means a deploy with a missing schema fails the
+# 5-minute healthcheck window and gets rolled back, instead of looking
+# healthy while serving 500s on every data query — exactly the silent
+# 10-day breakage shape from the 2026-04-29 incident.
+healthcheckPath = "/readyz"
 restartPolicyType = "ON_FAILURE"
 # Run Alembic migrations once per deploy, BEFORE the app container starts
 # serving. This keeps lifespan startup fast (no migration risk inside the
