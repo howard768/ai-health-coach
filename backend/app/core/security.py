@@ -27,6 +27,7 @@ from datetime import datetime, timedelta, timezone
 import jwt
 
 from app.config import settings
+from app.core.time import utcnow_naive
 
 # ── Constants ────────────────────────────────────────────────────────────────
 
@@ -98,11 +99,17 @@ def create_refresh_token() -> tuple[str, str, datetime]:
     - `hashed_id` is the SHA256 hex of the raw token — used as the primary key
       in `refresh_tokens`. Hashing means a DB breach doesn't yield usable
       tokens.
-    - `expires_at` is 30 days out.
+    - `expires_at` is 30 days out, **as a NAIVE UTC datetime**. Critical:
+      `RefreshToken.expires_at` is `DateTime` (no timezone) per the project
+      convention (SQLite doesn't support TZ-aware columns; we keep Postgres
+      consistent). Postgres-strict envs reject TZ-aware values bound to a
+      naive column — this was the cause of MELD-BACKEND-F (DBAPIError on
+      `/auth/apple` blocking sign-in). SQLite-permissive dev hides it. Use
+      ``utcnow_naive()`` so the column type matches the value bound.
     """
     raw = secrets.token_urlsafe(64)
     hashed_id = hash_refresh_token(raw)
-    expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    expires_at = utcnow_naive() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     return raw, hashed_id, expires_at
 
 
