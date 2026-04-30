@@ -341,6 +341,14 @@ async def delete_account(
             logger.info("Apple token revoked for user=%s", apple_id[:12] + "...")
         except (httpx.HTTPError, jwt.PyJWTError, ValueError) as e:
             logger.error("Apple token revocation failed for user=%s: %s", apple_id[:12], e)
+            try:
+                import sentry_sdk
+                with sentry_sdk.push_scope() as scope:
+                    scope.set_tag("apple_action", "revoke_token")
+                    scope.set_tag("user_id_prefix", apple_id[:12])
+                    sentry_sdk.capture_exception(e)
+            except Exception:  # noqa: BLE001 -- delete continues regardless
+                logger.debug("Sentry capture failed (non-fatal)", exc_info=True)
 
     # Delete the user — CASCADE handles all tenant data + refresh tokens.
     await db.delete(user)

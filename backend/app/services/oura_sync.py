@@ -50,6 +50,14 @@ async def ensure_valid_token(db: AsyncSession, user_id: str) -> str | None:
             logger.info("Oura token refreshed successfully")
         except (httpx.HTTPError, KeyError, ValueError, SQLAlchemyError) as e:
             logger.error("Oura token refresh failed: %s", e)
+            try:
+                import sentry_sdk
+                with sentry_sdk.push_scope() as scope:
+                    scope.set_tag("oura_action", "token_refresh")
+                    scope.set_tag("user_id_prefix", (user_id or "")[:12])
+                    sentry_sdk.capture_exception(e)
+            except Exception:  # noqa: BLE001 -- never let Sentry crash a sync
+                logger.debug("Sentry capture failed (non-fatal)", exc_info=True)
             return None
 
     return token.access_token
