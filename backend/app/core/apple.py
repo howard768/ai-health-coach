@@ -179,11 +179,14 @@ def _load_siwa_private_key() -> str:
 
 
 def verify_siwa_configured() -> None:
-    """Fail fast at app startup if the SIWA key is missing or malformed.
+    """Validate SIWA key at startup; log + disable account-revoke if malformed.
 
-    Same shape as ``verify_apns_configured`` — load + parse via cryptography.
-    No-op when SIWA isn't configured (push-disabled / no-account-deletion
-    environments still boot).
+    Same shape as ``verify_apns_configured``: warn-and-continue on a
+    malformed PEM rather than fail-closed. See that function's docstring
+    for the rationale (Apple .p8 files are downloadable only once at
+    creation, so coupling deploy success to a multi-day Apple-Developer
+    dance is wrong). Account revoke / delete will fail loudly on first
+    use with the same error if the key never gets fixed.
     """
     from app.core.pem import PemConfigError, validate_pem_loads
 
@@ -196,8 +199,13 @@ def verify_siwa_configured() -> None:
     pem = _load_siwa_private_key()
     try:
         validate_pem_loads(pem, label="SIWA")
-    except PemConfigError:
-        raise
+    except PemConfigError as e:
+        logging.getLogger("meld.auth").error(
+            "SIWA key parse FAILED at startup: %s. Account revoke and "
+            "delete will fail until SIWA_KEY_CONTENT is set to the full "
+            ".p8 file contents.",
+            e,
+        )
 
 
 def generate_apple_client_secret() -> str:
