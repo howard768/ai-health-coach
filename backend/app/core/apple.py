@@ -83,6 +83,61 @@ def verify_apple_identity_token(identity_token: str, raw_nonce: str | None) -> d
     return claims
 
 
+def verify_apple_server_notification(signed_payload: str) -> dict:
+    """Verify an Apple server-to-server notification and return its event payload.
+
+    Apple POSTs ``{"payload": "<JWT>"}`` to /auth/apple/revoked when a user
+    revokes Sign in with Apple, deletes their account, or toggles email-relay
+    forwarding. The outer JWT is RS256-signed by Apple (same JWKS as identity
+    tokens) and contains an ``events`` claim that is *itself* a JWT, also
+    RS256-signed by Apple. Both must be verified before any action is taken.
+
+    Reference:
+    https://developer.apple.com/documentation/technotes/tn3194-handling-account-deletions-and-revoking-tokens-for-sign-in-with-apple
+
+    Args:
+        signed_payload: The JWT string from the request body's ``payload`` field.
+
+    Raises:
+        jwt.InvalidTokenError: if signature, audience, issuer, or expiry fails
+            on either the outer or inner token.
+
+    Returns:
+        Dict of the inner events JWT claims:
+            - ``type``: "consent-revoked" | "email-disabled" | "email-enabled"
+              | "account-delete"
+            - ``sub``: Apple user ID (stable, use as source of truth)
+            - ``event_time``: int milliseconds since epoch
+            - ``email`` (optional): for email-* events
+    """
+    # Outer JWT — same signing infrastructure as identity tokens.
+    outer_signing_key = _jwks_client.get_signing_key_from_jwt(signed_payload)
+    outer_claims = jwt.decode(
+        signed_payload,
+        outer_signing_key.key,
+        algorithms=["RS256"],  # explicit — blocks algorithm confusion
+        audience=settings.apple_bundle_id,
+        issuer=APPLE_ISSUER,
+        options={"require": ["exp", "iat", "aud", "iss", "events"]},
+    )
+
+    events_jwt = outer_claims.get("events")
+    if not isinstance(events_jwt, str) or not events_jwt:
+        raise jwt.InvalidTokenError("Apple server notification missing events JWT")
+
+    # Inner events JWT — same JWKS, same algorithm, same audience/issuer.
+    inner_signing_key = _jwks_client.get_signing_key_from_jwt(events_jwt)
+    inner_claims = jwt.decode(
+        events_jwt,
+        inner_signing_key.key,
+        algorithms=["RS256"],
+        audience=settings.apple_bundle_id,
+        issuer=APPLE_ISSUER,
+        options={"require": ["aud", "iss", "type", "sub", "event_time"]},
+    )
+    return inner_claims
+
+
 def is_private_relay_email(email: str | None) -> bool:
     """Return True if the email is an Apple private relay address.
 
