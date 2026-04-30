@@ -166,6 +166,7 @@ async def _scalar_or_none(db: AsyncSession, sql: str, **params: Any) -> Any:
         row = await db.execute(text(sql), params)
         return row.scalar()
     except Exception:
+        await db.rollback()
         return None
 
 
@@ -199,6 +200,7 @@ async def _l2_counts_by_tier(db: AsyncSession) -> dict[str, int]:
             if tier in out:
                 out[tier] = int(cnt or 0)
     except Exception:
+        await db.rollback()
         return {}
     return out
 
@@ -227,6 +229,7 @@ async def _ranker_ndcg_p50(db: AsyncSession, days: int = 7) -> float | None:
         )
         ranks = [int(r[0]) for r in result.all() if r[0] is not None]
     except Exception:
+        await db.rollback()
         return None
     if not ranks:
         return None
@@ -255,12 +258,14 @@ async def _insight_ctr(db: AsyncSession, days: int = 7) -> float | None:
             since=since,
         )
     except Exception:
+        await db.rollback()
         return None
     if not shown:
         return None
     try:
         return round(float(thumbs or 0) / float(shown), 4)
     except Exception:
+        await db.rollback()
         return None
 
 
@@ -318,6 +323,7 @@ async def _source_freshness(
         last = _iso(val)
         stale = _days_between(last, now)
     except Exception:
+        await db.rollback()
         pass
 
     # row_count_last_30d
@@ -331,6 +337,7 @@ async def _source_freshness(
         if cnt is not None:
             count = int(cnt)
     except Exception:
+        await db.rollback()
         pass
 
     return DataSourceFreshness(
@@ -353,6 +360,7 @@ async def data_quality(db: AsyncSession = Depends(get_db)) -> DataQualityRespons
         )
         canonical_stale = _days_between(_iso(val), now)
     except Exception:
+        await db.rollback()
         pass
 
     return DataQualityResponse(
@@ -398,6 +406,7 @@ async def feature_drift(
             "ORDER BY computed_at DESC LIMIT 1",
         )
     except Exception:
+        await db.rollback()
         latest_run_id = None
 
     if latest_run_id is not None:
@@ -410,6 +419,7 @@ async def feature_drift(
             )
             last_computed = _iso(latest_ts)
         except Exception:
+            await db.rollback()
             last_computed = None
 
         try:
@@ -435,6 +445,7 @@ async def feature_drift(
                         )
                     )
         except Exception:
+            await db.rollback()
             features = []
             total = 0
             drifted_count = 0
@@ -492,6 +503,7 @@ async def experiments(db: AsyncSession = Depends(get_db)) -> ExperimentsResponse
         )
         rows = result.all()
     except Exception:
+        await db.rollback()
         rows = []
 
     for row in rows:
@@ -506,6 +518,7 @@ async def experiments(db: AsyncSession = Depends(get_db)) -> ExperimentsResponse
             )
             enrolled = int(cnt or 0)
         except Exception:
+            await db.rollback()
             enrolled = 0
         active.append(
             ActiveExperiment(
@@ -527,6 +540,7 @@ async def experiments(db: AsyncSession = Depends(get_db)) -> ExperimentsResponse
         )
         completed_30d = int(cnt or 0)
     except Exception:
+        await db.rollback()
         completed_30d = 0
 
     return ExperimentsResponse(
@@ -561,6 +575,7 @@ async def retrain_readiness(
         )
         last_iso = _iso(val)
     except Exception:
+        await db.rollback()
         last_iso = None
 
     days_since = _days_between(last_iso, now)
@@ -581,6 +596,7 @@ async def retrain_readiness(
             )
         labeled = int(cnt or 0)
     except Exception:
+        await db.rollback()
         labeled = 0
 
     ndcg_30 = await _ranker_ndcg_p50(db, days=30)
@@ -640,12 +656,14 @@ async def model_registry(
                 )
             )
     except Exception:
+        await db.rollback()
         models = []
 
     try:
         cnt = await _scalar_or_none(db, "SELECT COUNT(*) FROM ml_models")
         total = int(cnt or 0)
     except Exception:
+        await db.rollback()
         total = 0
 
     try:
@@ -668,6 +686,7 @@ async def model_registry(
             )
             latest_ranker = str(val2) if val2 is not None else None
     except Exception:
+        await db.rollback()
         latest_ranker = None
 
     return ModelRegistryResponse(
