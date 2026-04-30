@@ -163,6 +163,115 @@ jobs:
           name: backend-pytest-output
           path: backend/.pytest_cache
 
+  alembic-postgres:
+    # Real-Postgres alembic round-trip. The 2026-04-29 incident root cause
+    # was that the SQLite-only alembic round-trip above passes for migrations
+    # that fail on real Postgres (boolean defaults using sa.text("0/1") that
+    # SQLite accepts and Postgres-strict mode rejects, FK loops referencing
+    # columns that don't exist on the target table, etc.). Every migration
+    # in the chain must apply cleanly to a fresh Postgres or a future
+    # reprovisioning event will hang prod for hours and risk further data loss.
+    # See ~/.claude/projects/.../memory/feedback_postgres_dialect_parity.md
+    name: alembic round-trip on Postgres
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: meld
+          POSTGRES_PASSWORD: meld
+          POSTGRES_DB: meld_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U meld -d meld_ci"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync
+
+      - name: Wait for Postgres
+        run: |
+          for i in $(seq 1 20); do
+            if pg_isready -h localhost -p 5432 -U meld -d meld_ci 2>/dev/null; then
+              echo "postgres ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "postgres did not become ready in 20s" >&2
+          exit 1
+
+      - name: Alembic round-trip on real Postgres (upgrade -> downgrade -> upgrade)
+        working-directory: backend
+        env:
+          ANTHROPIC_API_KEY: "stub-for-tests"
+          JWT_SECRET_KEY: "test-jwt-secret-must-be-long-enough-for-hs256-aaaaaaaa"
+          ENCRYPTION_KEY: "T0TXLkHFSeZRYGIIejSFVkhQrvRE-bWLkwXSkkdWiKQ="
+          # app/database.py rewrites postgresql+asyncpg:// to postgresql:// for
+          # alembic's sync DBAPI (psycopg2-binary). Same path as prod.
+          DATABASE_URL: "postgresql+asyncpg://meld:meld@localhost:5432/meld_ci"
+        run: |
+          echo "::group::alembic upgrade head (from base)"
+          uv run python -m alembic upgrade head
+          echo "::endgroup::"
+          echo "::group::alembic downgrade one step (merge-aware)"
+          DOWN_TARGET=$(uv run python -c "
+          from alembic.config import Config
+          from alembic.script import ScriptDirectory
+          cfg = Config('alembic.ini')
+          sd = ScriptDirectory.from_config(cfg)
+          heads = sd.get_heads()
+          if len(heads) != 1:
+              raise SystemExit(f'expected single head, got: {heads}')
+          head = sd.get_revision(heads[0])
+          down = head.down_revision
+          if down is None:
+              raise SystemExit(f'head {heads[0]} has no down_revision')
+          target = down[0] if isinstance(down, tuple) else down
+          print(target)
+          ")
+          echo "downgrading head to parent: $DOWN_TARGET"
+          uv run python -m alembic downgrade "$DOWN_TARGET"
+          echo "::endgroup::"
+          echo "::group::alembic upgrade head (re-apply)"
+          uv run python -m alembic upgrade head
+          echo "::endgroup::"
+
+      - name: Verify expected tables exist
+        working-directory: backend
+        env:
+          PGPASSWORD: meld
+        # Spot-check: tables we know existed in prod must exist in CI after
+        # alembic upgrade head. If the chain ever stops creating one of these,
+        # this gate catches it before deploy. notification_templates and users
+        # were both reported missing during the 2026-04-29 outage.
+        run: |
+          MISSING=0
+          for tbl in users notification_templates oura_tokens chat_messages alembic_version; do
+            FOUND=$(psql -h localhost -U meld -d meld_ci -tAc "SELECT 1 FROM information_schema.tables WHERE table_name = '$tbl'")
+            if [ "$FOUND" != "1" ]; then
+              echo "::error::expected table '$tbl' not present after upgrade head"
+              MISSING=$((MISSING + 1))
+            else
+              echo "ok: $tbl"
+            fi
+          done
+          exit $MISSING
+
   ruff:
     name: ruff (lint + format check)
     runs-on: ubuntu-latest
