@@ -164,9 +164,15 @@ def test_refresh_token_is_random():
 
 
 def test_refresh_token_expiry_30_days():
-    """Refresh tokens should have a 30-day expiry."""
+    """Refresh tokens should have a 30-day expiry.
+
+    Per MELD-BACKEND-F fix: `expires_at` is now naive UTC to match the
+    `RefreshToken.expires_at` column type (DateTime, no timezone). Compare
+    naive-to-naive to avoid TypeError under the new contract.
+    """
     _, _, expires_at = create_refresh_token()
-    now = datetime.now(timezone.utc)
+    assert expires_at.tzinfo is None, "expires_at must be naive (matches DB column)"
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     # Should be close to 30 days out (within 1 min tolerance for test timing)
     delta = expires_at - now
     assert 29 * 24 * 60 * 60 < delta.total_seconds() < 31 * 24 * 60 * 60
