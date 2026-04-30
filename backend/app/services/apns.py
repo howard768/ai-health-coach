@@ -190,15 +190,30 @@ apns_client = APNsClient()
 
 
 def verify_apns_configured() -> None:
-    """Fail fast at app startup if the APNs key is missing or malformed.
+    """Validate APNs key at startup; log + disable push if malformed.
 
-    Loads the key (which normalizes line endings) and asks `cryptography` to
-    actually parse it. Misconfigured prod fails healthcheck and rolls back
-    instead of waiting hours for the next scheduled morning brief to surface
-    a corrupt PEM (the 2026-04-29 ``JWSError: MalformedFraming`` issues).
+    Loads the key (which normalizes line endings) and asks `cryptography`
+    to actually parse it. Three outcomes:
 
-    No-op when neither APNS_KEY_CONTENT nor APNS_KEY_PATH is set —
-    push-disabled environments (CI, some dev flows) should still boot.
+      - Key not configured -> info log, return. Push disabled.
+      - Key configured + parses -> info log, return. Push enabled.
+      - Key configured + fails to parse -> ERROR log + drop cached
+        singleton + return WITHOUT raising. App boots; push will fail
+        loudly on every send_push() with the same error, and Sentry
+        will see exactly one ERROR log per startup attribution.
+
+    Why warn-and-continue instead of fail-closed:
+      The 2026-04-30 incident demonstrated that fail-closed PEM verify
+      blocks every deploy until APNS_KEY_CONTENT is fixed. Apple's
+      .p8 file is downloadable only once at creation, so a corrupt env
+      var means a multi-day Apple-Developer dance to revoke + recreate
+      the key. Coupling deploy success to that timeline is wrong.
+      With warn-and-continue: the app keeps shipping non-APNs fixes
+      while push notifications stay disabled in a known + visible way.
+
+    Re-strict to fail-closed in a future PR once the env-var hygiene
+    has a separate startup-friendly automated check (or Pro-plan
+    secret rotation tooling).
     """
     if not (settings.apns_key_content or settings.apns_key_path):
         logger.info("APNs not configured (push disabled) — skipping verify")
@@ -206,8 +221,13 @@ def verify_apns_configured() -> None:
     pem = apns_client._load_private_key()
     try:
         validate_pem_loads(pem, label="APNs")
-    except PemConfigError:
+    except PemConfigError as e:
         # Drop the cached singleton so a subsequent fix + retry actually
-        # re-reads the env, instead of returning the corrupt cached value.
+        # re-reads the env. Do NOT raise — let the app boot.
         apns_client._private_key = None
-        raise
+        logger.error(
+            "APNs key parse FAILED at startup: %s. Push notifications will "
+            "fail for every send. Set APNS_KEY_CONTENT to the full .p8 file "
+            "contents (including BEGIN/END markers) to enable.",
+            e,
+        )
