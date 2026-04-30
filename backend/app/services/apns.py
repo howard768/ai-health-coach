@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 
 import httpx
-from jose import jwt  # python-jose (already a dependency)
+import jwt  # pyjwt — supports ES256 with the cryptography backend
 
 from app.config import settings
 from app.core.pem import PemConfigError, normalize_pem, validate_pem_loads
