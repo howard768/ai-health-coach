@@ -76,7 +76,11 @@ struct MeldApp: App {
                     Task {
                         do {
                             let pair = try await APIClient.shared.devLogin()
-                            print("[MELD-DEBUG] .task: dev-login success, token=\(pair.accessToken.prefix(20))...")
+                            // PR-K: don't log even a token prefix. A 20-char prefix
+                            // of an HS256 JWT leaks the algorithm + payload-prefix
+                            // and is sufficient for some replay scenarios on a
+                            // shared dev simulator. Log success without it.
+                            print("[MELD-DEBUG] .task: dev-login success")
                             await APIClient.shared.setTestToken(pair.accessToken)
                             try? await KeychainStore.shared.saveAccessToken(pair.accessToken)
                             try? await KeychainStore.shared.saveRefreshToken(pair.refreshToken)

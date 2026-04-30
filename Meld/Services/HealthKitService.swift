@@ -129,6 +129,12 @@ final class HealthKitService {
         let calendar = Calendar.current
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
+        // PR-K: pin to en_US_POSIX so devices with non-Gregorian default
+        // calendars (Persian/Buddhist) format ISO dates correctly. Without
+        // this the backend receives "1404-02-09" style dates from a Persian
+        // calendar device and rejects them.
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "UTC")
 
         for dayOffset in 0..<7 {
             // Skip the day if calendar arithmetic returns nil (DST/leap edge case)
