@@ -8,15 +8,31 @@ from app.core.time import utcnow_naive
 
 
 class PelotonToken(Base):
-    """Peloton session credentials. NOT OAuth — stores session cookie."""
+    """Peloton credentials.
+
+    `pylotoncycle.PylotonCycle` (the underlying client library) auths via
+    username + password and does NOT expose a session token suitable for
+    persistence. Pre-MEL-44, `session_id` stored a literal "oauth" placeholder
+    that was unusable for re-authentication; the sync flow short-circuited
+    with `needs_reauth` (PR #89). MEL-44 part 1 (this) adds the encrypted
+    `password` column; MEL-44 part 2 will rewire the sync to login fresh on
+    every sync cycle and deprecate the `session_id` placeholder.
+    """
     __tablename__ = "peloton_tokens"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[str] = mapped_column(String(255), index=True)
     peloton_user_id: Mapped[str] = mapped_column(String(255))
-    # Encrypted at rest with Fernet (P1-1)
+    # Encrypted at rest with Fernet (P1-1). Legacy from when the design was
+    # cookie-based; pre-MEL-44 it stored a literal "oauth" placeholder.
+    # Will be removed in a later cleanup migration once part 2 ships.
     session_id: Mapped[str] = mapped_column(EncryptedString(2000))
-    username: Mapped[str] = mapped_column(String(255))  # For display only, not auth
+    username: Mapped[str] = mapped_column(String(255))
+    # MEL-44 part 1: encrypted password for pylotoncycle re-auth on each sync.
+    # NULL until backfilled (existing connections stay in `needs_reauth` until
+    # user reconnects). EncryptedString uses Fernet AT-REST (see core/encryption).
+    # Part 2 will populate this on connect and consume it on each sync.
+    password: Mapped[str | None] = mapped_column(EncryptedString(2000), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
     last_used_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive)
 
