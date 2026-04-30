@@ -17,7 +17,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.database import get_db
 from app.services.oura_sync import sync_user_data
 from app.services.oura_webhooks import (
-    WEBHOOK_VERIFICATION_TOKEN,
+    _verification_token,
     register_all_webhooks,
     list_subscriptions,
 )
@@ -38,15 +38,32 @@ async def oura_webhook_verification(
 ):
     """Oura webhook verification handshake.
 
-    Oura sends GET with verification_token + challenge.
-    We verify the token matches ours, then echo back the challenge.
+    Oura sends GET with verification_token + challenge. We verify the token
+    matches our env-configured value, then echo back the challenge.
+
+    Both sides must be non-empty. If our configured token is empty (dev
+    default), the handshake is rejected so an attacker can't replay an
+    empty-token request and get our challenge endpoint to echo arbitrary
+    bytes back. Use timing-safe compare to avoid token-length leaks.
     """
-    if verification_token == WEBHOOK_VERIFICATION_TOKEN and challenge:
-        logger.info("Oura webhook verification successful, challenge=%s", challenge)
-        # Oura expects JSON response with the challenge value
-        return {"challenge": challenge}
-    logger.warning("Oura webhook verification failed — token=%s challenge=%s", verification_token, challenge)
-    return {"error": "Invalid verification"}
+    import hmac
+
+    expected = _verification_token()
+    if (
+        not expected
+        or not verification_token
+        or not challenge
+        or not hmac.compare_digest(verification_token, expected)
+    ):
+        logger.warning(
+            "Oura webhook verification failed: token_present=%s challenge_present=%s expected_configured=%s",
+            bool(verification_token),
+            bool(challenge),
+            bool(expected),
+        )
+        return {"error": "Invalid verification"}
+    logger.info("Oura webhook verification successful, challenge=%s", challenge)
+    return {"challenge": challenge}
 
 
 @router.post("/oura")
@@ -204,20 +221,27 @@ async def register_webhooks(
 
     Auth-gated to prevent attackers redirecting your webhooks to their servers (P1-3).
     """
-    # Validate base_url is one of our known domains to prevent SSRF-style abuse.
-    # P3-3: prefixes built from settings so we don't have to grep for the
-    # Railway slug when changing deploys.
+    # Validate base_url's host is one of our known hosts. Prevents SSRF —
+    # the prior `base_url.startswith("http://localhost")` accepted
+    # `http://localhost.attacker.com/` and let an attacker register webhooks
+    # pointing at their server. Use proper URL parsing + exact host match.
+    from urllib.parse import urlparse
     from app.config import settings as _settings
-    allowed_prefixes = (
-        "http://localhost",
-        "http://192.168.",
-        _settings.public_base_url,
-    )
-    if not any(base_url.startswith(p) for p in allowed_prefixes):
+    parsed = urlparse(base_url)
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="base_url malformed")
+    allowed_hosts = {"localhost"}
+    pub = urlparse(_settings.public_base_url)
+    if pub.hostname:
+        allowed_hosts.add(pub.hostname)
+    host = parsed.hostname.lower()
+    is_lan = host.startswith("192.168.") or host.startswith("10.") or host == "127.0.0.1"
+    if host not in allowed_hosts and not is_lan:
         from fastapi import HTTPException
         raise HTTPException(
             status_code=400,
-            detail=f"base_url must start with one of: {allowed_prefixes}",
+            detail=f"base_url host must be one of {sorted(allowed_hosts)} or LAN",
         )
 
     results = await register_all_webhooks(base_url)

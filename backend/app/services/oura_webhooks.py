@@ -27,8 +27,14 @@ logger = logging.getLogger("meld.oura_webhooks")
 
 OURA_WEBHOOK_URL = "https://api.ouraring.com/v2/webhook/subscription"
 
-# Verification token — Oura sends this back to verify our endpoint
-WEBHOOK_VERIFICATION_TOKEN = "meld-oura-verify-2026"
+# Verification token — Oura sends this back during the GET handshake to
+# prove the registrar owns this endpoint. Source-of-truth is the
+# OURA_WEBHOOK_VERIFICATION_TOKEN env var (Settings.oura_webhook_verification_token).
+# Empty = handshake rejected (dev default). The 2026-04-29 audit found a
+# hardcoded "meld-oura-verify-2026" value in source; that string is now
+# revoked and re-registration is required to install a fresh per-env token.
+def _verification_token() -> str:
+    return settings.oura_webhook_verification_token
 
 # Data types we want to subscribe to
 SUBSCRIBE_DATA_TYPES = [
@@ -82,7 +88,7 @@ async def create_subscription(
             headers=_webhook_headers(),
             json={
                 "callback_url": callback_url,
-                "verification_token": WEBHOOK_VERIFICATION_TOKEN,
+                "verification_token": _verification_token(),
                 "event_type": event_type,
                 "data_type": data_type,
             },
