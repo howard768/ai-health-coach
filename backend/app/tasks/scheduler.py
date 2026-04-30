@@ -33,7 +33,7 @@ from app.services.correlation_engine import compute_correlations
 from app.services.literature import literature_service
 from app.services.oura_webhooks import list_subscriptions, renew_subscription
 from app.services.offline_eval import run_offline_eval
-from app.core.constants import ReadinessThreshold, TEST_DEVICE_TOKEN
+from app.core.constants import ReadinessThreshold, StreakGoal, TEST_DEVICE_TOKEN, WeeklyReviewThreshold
 from app.core.time import utcnow_naive
 
 logger = logging.getLogger("meld.scheduler")
@@ -312,11 +312,11 @@ async def streak_saver_job():
             select(sqlfunc.count(SleepRecord.id)).where(
                 SleepRecord.user_id == user_id,
                 SleepRecord.date >= week_start.strftime("%Y-%m-%d"),
-                SleepRecord.readiness_score >= 50,
+                SleepRecord.readiness_score >= ReadinessThreshold.ACTIVE_DAY_MIN,
             )
         )
         active_days = result.scalar() or 0
-        streak_goal = 5
+        streak_goal = int(StreakGoal.DEFAULT_WEEKLY_TARGET)
 
         content = content_generator.generate_streak_saver(
             active_days, streak_goal, user_name=user_name
@@ -347,12 +347,24 @@ async def weekly_review_job():
         )
         records = result.scalars().all()
 
-        workout_days = sum(1 for r in records if r.readiness_score and r.readiness_score >= 50)
+        workout_days = sum(
+            1 for r in records
+            if r.readiness_score and r.readiness_score >= ReadinessThreshold.ACTIVE_DAY_MIN
+        )
         avg_sleep = sum(r.efficiency or 0 for r in records) / max(len(records), 1)
-        sleep_trend = "improving" if avg_sleep > 75 else "stable" if avg_sleep > 60 else "declining"
+        if avg_sleep > WeeklyReviewThreshold.SLEEP_TREND_IMPROVING_MIN:
+            sleep_trend = "improving"
+        elif avg_sleep > WeeklyReviewThreshold.SLEEP_TREND_STABLE_MIN:
+            sleep_trend = "stable"
+        else:
+            sleep_trend = "declining"
 
-        week_context = "positive_week" if sleep_trend == "improving" and workout_days >= 4 else \
-                       "tough_week" if workout_days < 3 else "neutral_week"
+        if sleep_trend == "improving" and workout_days >= WeeklyReviewThreshold.POSITIVE_WEEK_WORKOUTS:
+            week_context = "positive_week"
+        elif workout_days < WeeklyReviewThreshold.TOUGH_WEEK_WORKOUTS:
+            week_context = "tough_week"
+        else:
+            week_context = "neutral_week"
 
         template = await pick_template(db, "weekly_review", week_context, {
             "week_workout_days": str(workout_days),
