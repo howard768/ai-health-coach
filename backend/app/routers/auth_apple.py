@@ -32,6 +32,7 @@ from app.core.apple import (
     is_private_relay_email,
     revoke_apple_token,
     verify_apple_identity_token,
+    verify_apple_server_notification,
 )
 from app.core.security import (
     REFRESH_TOKEN_EXPIRE_DAYS,
@@ -356,15 +357,59 @@ async def delete_account(
 async def apple_server_notification(request: Request, db: AsyncSession = Depends(get_db)):
     """Handle Apple's server-to-server consent-revoked notifications.
 
-    When a user revokes Sign in with Apple from Settings, Apple POSTs a
-    signed JWT here so we can clean up. Full impl needs to verify the JWT
-    signature against Apple's JWKS and parse the `events` claim.
+    When a user revokes Sign in with Apple from Settings (or deletes their
+    Apple ID, or toggles email relay), Apple POSTs ``{"payload": "<JWT>"}``
+    here. We verify both the outer JWT and the inner ``events`` JWT against
+    Apple's JWKS, then act on the event type:
 
-    MVP: log and accept. Full verification in a follow-up.
+      - consent-revoked / account-delete → mark user inactive
+      - email-disabled / email-enabled   → log only (no action yet)
+
+    Always returns 200 to Apple regardless of whether a matching user was
+    found, because Apple's retry budget is scarce and a missing user is a
+    legitimate state (we may have already deleted them locally).
 
     Reference: https://developer.apple.com/documentation/technotes/tn3194-handling-account-deletions-and-revoking-tokens-for-sign-in-with-apple
     """
-    body = await request.body()
-    logger.info("Apple server notification received: %d bytes", len(body))
-    # TODO: verify signature, parse events, deactivate/delete affected users
-    return {"status": "received"}
+    try:
+        body_json = await request.json()
+    except (ValueError, UnicodeDecodeError):
+        logger.warning("Apple server notification with malformed body")
+        return {"status": "invalid_body"}
+
+    signed_payload = body_json.get("payload") if isinstance(body_json, dict) else None
+    if not isinstance(signed_payload, str) or not signed_payload:
+        logger.warning("Apple server notification missing payload field")
+        return {"status": "invalid_payload"}
+
+    try:
+        event = verify_apple_server_notification(signed_payload)
+    except jwt.InvalidTokenError as e:
+        # Forged or malformed notification. Return 400 so attackers can
+        # distinguish "we don't know who you are" from "we processed it";
+        # legitimate Apple retries would never produce this.
+        logger.warning("Apple server notification verification failed: %s", e)
+        raise HTTPException(status_code=400, detail="Invalid Apple JWT")
+
+    apple_user_id = event.get("sub")
+    event_type = event.get("type")
+    logger.info(
+        "Apple server notification: type=%s sub=%s event_time=%s",
+        event_type, apple_user_id, event.get("event_time"),
+    )
+
+    # consent-revoked + account-delete: mark user inactive. Full deletion
+    # of associated rows is owned by /auth/delete (which runs the same
+    # cleanup synchronously when the user requests it from inside the app);
+    # here we only flip is_active so the user can't sign back in until they
+    # explicitly re-consent.
+    if event_type in ("consent-revoked", "account-delete") and apple_user_id:
+        result = await db.execute(
+            select(User).where(User.apple_user_id == apple_user_id)
+        )
+        user = result.scalar_one_or_none()
+        if user is not None and user.is_active:
+            user.is_active = False
+            await db.commit()
+            logger.info("Deactivated user %s on %s notification", apple_user_id, event_type)
+    return {"status": "ok", "type": event_type}
