@@ -7,18 +7,50 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 
 from app.config import settings
 from app.routers import auth, auth_apple, health, coach, notifications, meals, user, peloton_auth, garmin_auth, webhooks, waitlist, mascot, insights, privacy, experiments, ops, ml_ops
 from app.tasks.scheduler import start_scheduler, stop_scheduler
 
 
-# Rate limiter — keyed by remote IP. Default limits apply to every endpoint
-# unless overridden with @limiter.limit("..."). Stricter limits applied to
-# auth + AI endpoints to prevent cost-exhaustion attacks (P1-4).
+def _real_remote_address(request: Request) -> str:
+    """Extract the real client IP, preferring trusted forwarded headers.
+
+    The default `slowapi.util.get_remote_address` returns
+    `request.client.host`, which on Railway behind Cloudflare is always
+    the CF edge IP. That collapses every rate-limit bucket to one shared
+    counter — any single user can exhaust the limit for everyone.
+
+    Trust order:
+      1. `cf-connecting-ip` (Cloudflare-injected, only present when traffic
+         actually transited Cloudflare; CF strips any client-supplied value)
+      2. First entry of `x-forwarded-for` (Railway's edge sets this; behaves
+         like an XFF chain so we take the leftmost = original client)
+      3. `request.client.host` (raw socket peer, last resort)
+
+    The 2026-04-29 audit (BLOCKER, backend_app_audit.md) flagged this as
+    rate-limit-bypass-via-shared-bucket. Fixing here applies to every
+    endpoint that uses the global limiter.
+    """
+    cf_ip = request.headers.get("cf-connecting-ip")
+    if cf_ip:
+        return cf_ip.strip()
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        first = xff.split(",", 1)[0].strip()
+        if first:
+            return first
+    if request.client and request.client.host:
+        return request.client.host
+    return "unknown"
+
+
+# Rate limiter — keyed by real client IP via _real_remote_address (above).
+# Default limits apply to every endpoint unless overridden with
+# @limiter.limit("..."). Stricter limits applied to auth + AI endpoints to
+# prevent cost-exhaustion attacks (P1-4).
 limiter = Limiter(
-    key_func=get_remote_address,
+    key_func=_real_remote_address,
     default_limits=["120/minute"],  # Generous baseline for normal app usage
 )
 
