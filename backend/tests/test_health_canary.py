@@ -182,31 +182,6 @@ async def test_canary_seeded_db_is_ok_and_counts(seeded_db):
 
 
 @pytest.mark.asyncio
-async def test_canary_excludes_default_placeholder_user(empty_db):
-    """The 'default' apple_user_id is the legacy single-user placeholder; it must
-    not be counted as an active user in the canary response."""
-    user = User(apple_user_id="default", is_active=True)
-    empty_db.add(user)
-    await empty_db.commit()
-
-    async def _override_db():
-        yield empty_db
-
-    app.dependency_overrides[get_db] = _override_db
-    try:
-        async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
-        ) as client:
-            resp = await client.get("/api/health/canary")
-    finally:
-        app.dependency_overrides.clear()
-
-    body = resp.json()
-    # The 'default' user should NOT contribute to active_users
-    assert body["active_users"] == 0
-
-
-@pytest.mark.asyncio
 async def test_canary_stale_sleep_record_does_not_count_as_fresh(empty_db):
     """A sleep record older than 24h must not contribute to users_with_data_24h."""
     from datetime import timedelta

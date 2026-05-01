@@ -368,11 +368,11 @@ async def health_canary(
 
     `status` is "ok" when fresh data is being written, "degraded" otherwise.
     """
-    # Count active users (excluding the soft-removed 'default' placeholder)
+    # Count active users. MEL-45 part 4: the 'default' placeholder row was
+    # dropped in migration e9c3f7b285a1, so we no longer need to filter it out.
     user_count_result = await db.execute(
         select(func.count(User.id)).where(
             User.is_active == True,  # noqa: E712 -- SQLAlchemy boolean comparison
-            User.apple_user_id != "default",
         )
     )
     active_user_count = user_count_result.scalar() or 0
