@@ -45,3 +45,15 @@ updates:
       - "type/maintenance"
     commit-message:
       prefix: "deps(actions):"
+
+  # Backend Dockerfile (Python base + uv pin)
+  - package-ecosystem: "docker"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 3
+    labels:
+      - "type/maintenance"
+    commit-message:
+      prefix: "deps(docker):"
