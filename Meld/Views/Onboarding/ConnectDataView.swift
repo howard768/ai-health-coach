@@ -9,6 +9,8 @@ import SwiftUI
 struct ConnectDataView: View {
     @Bindable var viewModel: OnboardingViewModel
     @Environment(\.scenePhase) private var scenePhase
+    @ObservedObject private var navigator = NotificationNavigator.shared
+    @State private var ouraErrorReason: String?
     private let M = OnboardingLayout.margin
 
     var body: some View {
@@ -92,6 +94,50 @@ struct ConnectDataView: View {
             if newPhase == .active && viewModel.pendingOuraConnect {
                 Task { await viewModel.refreshConnectionStatus() }
             }
+        }
+        .onChange(of: navigator.lastOuraOutcome) { _, outcome in
+            // Backend redirected Safari to meld://oura/connected (or
+            // meld://oura/error?reason=...). On success, the existing
+            // refreshConnectionStatus() picks up the new token. On error,
+            // show an alert so the user knows to retry instead of waiting.
+            guard let outcome else { return }
+            switch outcome {
+            case .connected:
+                Task { await viewModel.refreshConnectionStatus() }
+            case .error(let reason):
+                ouraErrorReason = reason
+            }
+            navigator.lastOuraOutcome = nil  // consume so we only react once
+        }
+        .alert(
+            "Couldn't connect Oura",
+            isPresented: Binding(
+                get: { ouraErrorReason != nil },
+                set: { if !$0 { ouraErrorReason = nil } }
+            ),
+            presenting: ouraErrorReason
+        ) { _ in
+            Button("OK", role: .cancel) {}
+        } message: { reason in
+            Text(ouraErrorMessage(for: reason))
+        }
+    }
+
+    /// Map a backend error reason code to user-facing copy.
+    /// Reasons come from `_oura_error_deeplink(...)` in `backend/app/routers/auth.py`,
+    /// plus standard OAuth error codes Oura passes through (RFC 6749 §4.1.2.1).
+    private func ouraErrorMessage(for reason: String) -> String {
+        switch reason {
+        case "access_denied":
+            return "Oura connection was cancelled. Tap Connect to try again."
+        case "invalid_state":
+            return "Your session expired before Oura could connect. Try connecting again."
+        case "exchange_failed":
+            return "Oura's servers couldn't complete the connection. Try again in a moment."
+        case "missing_code":
+            return "Oura didn't return a valid response. Try connecting again."
+        default:
+            return "Something went wrong. Try connecting again."
         }
     }
 
