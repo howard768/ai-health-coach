@@ -120,3 +120,8 @@ meld-*.html
 /coach_chat_loaded.png
 /dashboard_data_loaded.png
 /trends_data_loaded.png
+
+# GitNexus knowledge graph (local index + scan artifacts + ignore-config)
+.gitnexus
+.gitnexus-staging/
+.gitnexusignore
