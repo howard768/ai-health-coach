@@ -20,13 +20,15 @@ import Foundation
 ///
 /// `ContinuationGuard` solves both:
 ///
-/// - `tryResume(with:)` is lock-guarded — second call returns false silently.
+/// - `tryResume(with:)` is lock-guarded; second call returns false silently.
 /// - The caller arms a timeout Task that calls `tryResume(with: nil)` after
 ///   the budget expires. Whichever fires first wins; the other is a no-op.
 ///
 /// Generic over the continuation's value type so both `Double?` and other
 /// optional shapes work.
-final class ContinuationGuard<T>: @unchecked Sendable {
+// T: Sendable so `value: T` can cross the actor boundary into
+// `continuation.resume(returning:)` under Swift 6 strict concurrency.
+final class ContinuationGuard<T: Sendable>: @unchecked Sendable {
     private let lock = NSLock()
     private var fired = false
 
