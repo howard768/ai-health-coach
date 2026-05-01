@@ -53,6 +53,15 @@ dependencies = [
     "dowhy>=0.11.0",
     "econml>=0.15.0",
     "boto3>=1.35.0",
+    # Direct CVE pins on transitive deps. See docs/comprehensive-scan-2026-04-30.md
+    # and the per-CVE notes below for context.
+    "cryptography>=46.0.7",  # CVE-2026-39892: buffer overflow on non-contig buffers
+    "mako>=1.3.11",          # path traversal via // URI in TemplateLookup
+    # NOTE: lightgbm CVE-2024-43598 (RCE via crafted model file) cannot be patched
+    # right now: nannyml 0.13.1 (latest) caps lightgbm<4.6. Our usage is
+    # transitive only (no direct lightgbm imports anywhere in backend/), so the
+    # CVE has no exploit path in current code. Tracked as a separate Tier 2
+    # decision (drop nannyml or wait for upstream).
 ]
 
 [project.optional-dependencies]
