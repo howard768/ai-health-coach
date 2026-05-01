@@ -1,8 +1,13 @@
 """Peloton authentication endpoints.
 
-Session-cookie auth (NOT OAuth). User provides username/password,
-we exchange them for a session_id via Peloton's API and store ONLY
-the session token — never the password.
+Peloton has no OAuth. The pylotoncycle library only takes username + password
+(no persistable session token), so to keep syncing on a schedule we have to
+hold the credentials and re-login on each cycle.
+
+MEL-44 part 2: store the password (encrypted at rest via Fernet) on the token
+row so `sync_user_data` can call `client.login(username, password)` fresh on
+every scheduler tick. The legacy `session_id="oauth"` placeholder is kept on
+the column for now (NOT NULL legacy schema), but is no longer load-bearing.
 """
 
 import logging
@@ -33,7 +38,7 @@ async def login_peloton(
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
-    """Authenticate with Peloton and store the session token for the current user."""
+    """Authenticate with Peloton and persist credentials so scheduled syncs work."""
     client = PelotonClient()
 
     try:
@@ -52,7 +57,8 @@ async def login_peloton(
     token = PelotonToken(
         user_id=user_id,
         peloton_user_id=result["user_id"],
-        session_id=result["session_id"],
+        session_id=result["session_id"],  # legacy placeholder, kept for column NOT-NULL
+        password=request.password,  # encrypted at rest by EncryptedString TypeDecorator
         username=request.username,
     )
     db.add(token)
