@@ -3,12 +3,13 @@
 `iter_active_users` is the replacement for `_get_primary_user_id` across all
 multi-user-aware scheduler jobs. These tests pin its contract:
 
-- Returns active non-placeholder users in created_at order
-- Excludes the legacy 'default' placeholder when real users exist
-- Falls back to the placeholder if no real users exist (local dev)
-- Returns empty list on a fresh DB with neither real nor placeholder
+- Returns active users in created_at order
+- Excludes inactive users
+- Returns empty list on a fresh DB
+- One user's failure does not abort the rest of the tick
 
-Plus a fan-out smoke test on `oura_sync_job` to confirm jobs visit each user.
+The 'default' placeholder fallback was removed in MEL-45 part 4 (the
+placeholder row was dropped in migration e9c3f7b285a1).
 
 Run: cd backend && uv run python -m pytest tests/test_scheduler_iter_active_users.py -v
 """
@@ -63,30 +64,6 @@ async def db_session(test_engine):
 async def test_empty_db_returns_empty_list(db_session):
     users = await iter_active_users(db_session)
     assert users == []
-
-
-@pytest.mark.asyncio
-async def test_returns_only_default_placeholder_in_local_dev(db_session):
-    """No real users yet, only the legacy placeholder -> use it (dev fallback)."""
-    db_session.add(User(apple_user_id="default", is_active=True))
-    await db_session.commit()
-
-    users = await iter_active_users(db_session)
-    assert len(users) == 1
-    assert users[0].apple_user_id == "default"
-
-
-@pytest.mark.asyncio
-async def test_real_users_take_precedence_over_default(db_session):
-    """Once a real user signs in, the placeholder is excluded entirely."""
-    db_session.add(User(apple_user_id="default", is_active=True))
-    db_session.add(User(apple_user_id="apple-real-1", is_active=True))
-    await db_session.commit()
-
-    users = await iter_active_users(db_session)
-    ids = [u.apple_user_id for u in users]
-    assert ids == ["apple-real-1"]
-    assert "default" not in ids
 
 
 @pytest.mark.asyncio

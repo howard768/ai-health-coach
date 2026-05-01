@@ -31,7 +31,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 # Tables that own tenant data and need a FK to users.apple_user_id.
-# Keep this list in sync with `app/scripts/claim_default_user.py`.
+# (The companion `app/scripts/claim_default_user.py` script was removed in
+# MEL-45 part 4 once the 'default' placeholder was retired.)
 # food_item_records is intentionally NOT in this list: it has no user_id
 # column of its own and inherits tenancy through its meal_id FK to
 # meal_records, which IS in this list. Including it here errors on fresh

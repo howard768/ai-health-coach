@@ -44,39 +44,32 @@ scheduler = AsyncIOScheduler()
 # ── User discovery ──────────────────────────────────────────
 #
 # Scheduler jobs run outside request context — they can't use Depends(current_user).
-# For the current single-user model, we look up the first active non-placeholder
-# user and use its apple_user_id. After migration, we'd iterate all active users.
+# Multi-user fan-out runs through `iter_active_users`. The single-user helper
+# below is retained only for `timing_refresh_job`, which reschedules a single
+# global cron trigger and so cannot meaningfully fan out per-user without a
+# per-user cron design (separate piece of work).
 
 async def _get_primary_user_id(db) -> str | None:
-    """Return the apple_user_id of the primary active user.
+    """Return the apple_user_id of the primary active user, or None.
 
-    Skips the 'default' placeholder created by the auth migration. Returns
-    None if no real user exists yet (e.g. fresh deploy before first sign-in).
+    Used only by ``timing_refresh_job``. Multi-user notification timing is
+    deferred until per-user cron design lands.
     """
     from app.models.user import User
     result = await db.execute(
         select(User)
-        .where(User.is_active == True, User.apple_user_id != "default")
+        .where(User.is_active == True)  # noqa: E712 -- SQLAlchemy boolean
         .order_by(User.created_at)
         .limit(1)
     )
     user = result.scalar_one_or_none()
-    if user is None:
-        # Fall back to the 'default' row if it still exists — lets local dev
-        # work before any real user has signed in.
-        result = await db.execute(
-            select(User).where(User.apple_user_id == "default").limit(1)
-        )
-        user = result.scalar_one_or_none()
     return user.apple_user_id if user else None
 
 
 async def _get_primary_user(db):
-    """Return the primary User object (or None if no real user exists).
+    """Return the primary User object (or None if no active user exists).
 
-    Retained for ``timing_refresh_job`` which reschedules a single global
-    cron trigger and so cannot meaningfully fan out per-user without a
-    per-user cron design. All other jobs use ``iter_active_users`` instead.
+    Used only by ``timing_refresh_job``. See ``_get_primary_user_id`` note.
     """
     user_id = await _get_primary_user_id(db)
     if user_id is None:
@@ -87,33 +80,23 @@ async def _get_primary_user(db):
 
 
 async def iter_active_users(db) -> list:
-    """Return every active non-placeholder User in created_at order.
+    """Return every active User in created_at order.
 
-    MEL-45 part 3: the per-user fan-out replacement for ``_get_primary_user_id``.
-    Scheduler jobs call this and run their per-user work in a try/except so
-    one bad user doesn't abort the rest of the tick.
+    MEL-45 part 3: the per-user fan-out for scheduler jobs. Callers run their
+    per-user work in a try/except so one bad user doesn't abort the rest of
+    the tick.
 
-    Falls back to the legacy ``apple_user_id == "default"`` placeholder if no
-    real user exists yet, so local dev still works before any sign-in. Once
-    MEL-45 part 4 removes the placeholder, this fallback is dead code and
-    can be deleted with the placeholder.
+    The 'default' placeholder fallback was removed in MEL-45 part 4; the
+    placeholder row itself was dropped in migration e9c3f7b285a1, so this
+    query no longer needs to filter it out.
     """
     from app.models.user import User
     result = await db.execute(
         select(User)
-        .where(User.is_active == True, User.apple_user_id != "default")
+        .where(User.is_active == True)  # noqa: E712 -- SQLAlchemy boolean
         .order_by(User.created_at)
     )
-    users = list(result.scalars().all())
-    if users:
-        return users
-
-    # Local-dev fallback: no real users yet, but the placeholder row exists.
-    result = await db.execute(
-        select(User).where(User.apple_user_id == "default").limit(1)
-    )
-    default = result.scalar_one_or_none()
-    return [default] if default else []
+    return list(result.scalars().all())
 
 
 def _first_name_of(user) -> str:
