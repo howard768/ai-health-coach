@@ -98,6 +98,24 @@ class OuraClient:
             response.raise_for_status()
             return response.json()
 
+    async def get_personal_info(self) -> dict:
+        """Fetch the user's Oura account info (id, age, weight, etc.).
+
+        MEL-45 part 2: called from `oura_callback` to capture the Oura user ID
+        for `OuraToken.oura_user_id` so the webhook receiver can route incoming
+        events to the correct Meld user. Oura's webhook payload sends
+        `body["user_id"]` matching this endpoint's `id` field.
+
+        https://cloud.ouraring.com/v2/docs#operation/personal_info_v2_usercollection_personal_info_get
+        """
+        async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
+            response = await client.get(
+                f"{OURA_API_BASE}/personal_info",
+                headers={"Authorization": f"Bearer {self.access_token}"},
+            )
+            response.raise_for_status()
+            return response.json()
+
     async def get_heartrate(self, start_date: date | None = None, end_date: date | None = None) -> dict:
         if not start_date:
             start_date = date.today() - timedelta(days=1)
