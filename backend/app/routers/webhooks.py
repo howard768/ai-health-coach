@@ -119,15 +119,67 @@ async def oura_webhook_receiver(request: Request, db: AsyncSession = Depends(get
         return {"status": "throttled"}
     last_sync_map[user_oura_id] = now
 
-    # MVP: find the user who owns an Oura token. In multi-user mode we would
-    # match on the Oura user ID from the webhook body.
+    # MEL-45 part 2: route by oura_user_id match. The column was added in
+    # MEL-45 part 1 (PR #102) and is populated on connect via personal_info
+    # (or by the next sync after deploy if connect happened before the column
+    # existed). Routing logic:
+    #
+    # 1. Look up `OuraToken WHERE oura_user_id == body.user_id`. If found,
+    #    route to that token's apple_user_id. This is the correct multi-user
+    #    behavior.
+    # 2. If no match AND only one OuraToken row exists in the entire system,
+    #    fall back to that row. Single-user transition window: the legacy
+    #    user's token has NULL `oura_user_id` until backfilled, so the lookup
+    #    won't match. The fallback keeps webhooks working during the gap.
+    # 3. If no match AND multiple tokens exist, return 200 + Sentry capture.
+    #    Don't 4xx — Apple's retry budget is scarce, and a missing user is a
+    #    legitimate state (we may have just deleted them locally).
     from app.models.health import OuraToken
-    from sqlalchemy import select
-    token_result = await db.execute(select(OuraToken).limit(1))
-    token = token_result.scalar_one_or_none()
-    if not token:
-        logger.warning("Oura webhook received but no users have connected Oura — ignoring")
-        return {"status": "no_user"}
+    from sqlalchemy import select, func as sql_func
+
+    # Step 1: exact match on oura_user_id
+    matched = await db.execute(
+        select(OuraToken).where(OuraToken.oura_user_id == user_oura_id).limit(1)
+    )
+    token = matched.scalar_one_or_none()
+
+    # Step 2: single-user fallback (transition window)
+    if token is None:
+        count_result = await db.execute(select(sql_func.count(OuraToken.id)))
+        total_tokens = count_result.scalar() or 0
+        if total_tokens == 0:
+            logger.warning("Oura webhook received but no users have connected Oura — ignoring")
+            return {"status": "no_user"}
+        if total_tokens == 1:
+            single = await db.execute(select(OuraToken).limit(1))
+            token = single.scalar_one_or_none()
+            if token is not None:
+                logger.info(
+                    "Oura webhook routed via single-user fallback for body.user_id=%s "
+                    "(token has NULL oura_user_id; will backfill on next sync)",
+                    user_oura_id,
+                )
+
+    # Step 3: still no match in multi-user mode — log + Sentry, return 200
+    if token is None:
+        logger.warning(
+            "Oura webhook user_id=%s did not match any OuraToken.oura_user_id; "
+            "no single-user fallback available (multi-user mode). Ignoring.",
+            user_oura_id,
+        )
+        try:
+            import sentry_sdk
+            with sentry_sdk.push_scope() as scope:
+                scope.set_tag("oura_action", "webhook_unrouted")
+                scope.set_extra("oura_user_id_received", user_oura_id)
+                sentry_sdk.capture_message(
+                    "Oura webhook arrived for unmatched oura_user_id",
+                    level="warning",
+                )
+        except Exception:  # noqa: BLE001 -- never let Sentry crash the webhook handler
+            logger.debug("Sentry capture failed (non-fatal)", exc_info=True)
+        return {"status": "no_match"}
+
     meld_user_id = token.user_id
 
     # Trigger sync to pull latest data. Return 200 even on sync failure so

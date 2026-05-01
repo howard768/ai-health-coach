@@ -351,32 +351,54 @@ async def sync_apple_health(
 async def health_canary(
     db: AsyncSession = Depends(get_db),
 ):
-    """Synthetic health check: is the data pipeline returning non-empty data?
+    """Synthetic health check: is the data pipeline producing fresh data?
 
     No auth required — designed for uptime monitoring and CI canary checks.
-    Uses the first active user's data to verify the full pipeline works.
-    """
-    from app.models.user import User
-    result = await db.execute(
-        select(User)
-        .where(User.is_active == True, User.apple_user_id != "default")
-        .order_by(User.created_at)
-        .limit(1)
-    )
-    user = result.scalar_one_or_none()
-    if not user:
-        return {"status": "no_users", "checks": {}}
 
-    data = await get_latest_health_data(db, user.apple_user_id)
-    checks = {
-        "has_data": bool(data),
-        "has_sleep": data.get("sleep_efficiency", 0) > 0,
-        "has_deep_sleep": "deep_sleep_minutes" in data,
-        "has_sources": bool(data.get("data_sources")),
-    }
+    MEL-45 part 2: returns AGGREGATE counts only, NEVER per-user data.
+    Pre-PR-MEL-45 this endpoint returned the first active user's reconciled
+    health metrics, which was a PHI leak in multi-user mode (any unauthed
+    caller got an arbitrary user's sleep/HRV/RHR). Now the response is
+    aggregate signals only:
+
+      - users_with_data_24h: how many distinct users wrote a sleep record
+        in the last 24h (proves the pipeline is producing data for someone)
+      - active_oura_connections: how many OuraToken rows exist (proves the
+        sync infrastructure has connected accounts)
+
+    `status` is "ok" when fresh data is being written, "degraded" otherwise.
+    """
+    # Count active users (excluding the soft-removed 'default' placeholder)
+    user_count_result = await db.execute(
+        select(func.count(User.id)).where(
+            User.is_active == True,  # noqa: E712 -- SQLAlchemy boolean comparison
+            User.apple_user_id != "default",
+        )
+    )
+    active_user_count = user_count_result.scalar() or 0
+
+    # Users who wrote a sleep record in the last 24h (cheap freshness check).
+    # Pass a real datetime, not isoformat() — `synced_at` is a DateTime column
+    # and Postgres rejects implicit string-to-timestamp coercion (SQLite is
+    # lenient and would let a string compare slip through).
+    twenty_four_hrs_ago = utcnow_naive() - timedelta(hours=24)
+    fresh_users_result = await db.execute(
+        select(func.count(func.distinct(SleepRecord.user_id))).where(
+            SleepRecord.synced_at >= twenty_four_hrs_ago,
+        )
+    )
+    users_with_data_24h = fresh_users_result.scalar() or 0
+
+    # Connected Oura accounts
+    oura_count_result = await db.execute(select(func.count(OuraToken.id)))
+    active_oura_connections = oura_count_result.scalar() or 0
+
+    pipeline_healthy = users_with_data_24h > 0
     return {
-        "status": "ok" if all(checks.values()) else "degraded",
-        "checks": checks,
+        "status": "ok" if pipeline_healthy else "degraded",
+        "active_users": active_user_count,
+        "users_with_data_24h": users_with_data_24h,
+        "active_oura_connections": active_oura_connections,
     }
 
 
