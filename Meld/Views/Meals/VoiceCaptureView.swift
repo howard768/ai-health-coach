@@ -124,9 +124,15 @@ struct VoiceCaptureView: View {
 
     // Async permission gate: callback-based requestAuthorization returns
     // before the user decides, so the engine must wait on the result.
+    // Speech.framework does not auto-bridge requestAuthorization to async,
+    // so wrap the callback in a continuation.
     private func startListening() {
         Task { @MainActor in
-            let speechStatus = await SFSpeechRecognizer.requestAuthorization()
+            let speechStatus = await withCheckedContinuation { continuation in
+                SFSpeechRecognizer.requestAuthorization { status in
+                    continuation.resume(returning: status)
+                }
+            }
             guard speechStatus == .authorized else {
                 errorMessage = speechErrorMessage(for: speechStatus)
                 return
