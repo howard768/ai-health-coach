@@ -122,15 +122,28 @@ struct VoiceCaptureView: View {
 
     // MARK: - Speech Recognition
 
+    // Async permission gate: callback-based requestAuthorization returns
+    // before the user decides, so the engine must wait on the result.
     private func startListening() {
-        // Request permissions
-        SFSpeechRecognizer.requestAuthorization { status in
-            guard status == .authorized else {
-                errorMessage = "Speech recognition not authorized."
+        Task { @MainActor in
+            let speechStatus = await SFSpeechRecognizer.requestAuthorization()
+            guard speechStatus == .authorized else {
+                errorMessage = speechErrorMessage(for: speechStatus)
                 return
             }
-        }
 
+            let micGranted = await AVAudioApplication.requestRecordPermission()
+            guard micGranted else {
+                errorMessage = "Microphone access denied. Enable in Settings."
+                return
+            }
+
+            beginCapture()
+        }
+    }
+
+    @MainActor
+    private func beginCapture() {
         let audioSession = AVAudioSession.sharedInstance()
         do {
             try audioSession.setCategory(.record, mode: .measurement)
@@ -163,16 +176,18 @@ struct VoiceCaptureView: View {
             isListening = true
         } catch {
             errorMessage = "Audio engine failed to start."
+            return
         }
 
-        // Start recognition
+        // Recognition callback runs on a private SFSpeechRecognizer queue;
+        // every @State read or write must hop to MainActor.
         recognitionTask = speechRecognizer?.recognitionTask(with: recognitionRequest) { result, error in
             if let result {
+                let final = result.isFinal
+                let text = result.bestTranscription.formattedString
                 Task { @MainActor in
-                    transcribedText = result.bestTranscription.formattedString
-                }
-                if result.isFinal {
-                    Task { @MainActor in
+                    transcribedText = text
+                    if final {
                         stopListening()
                         await searchFood()
                     }
@@ -182,14 +197,14 @@ struct VoiceCaptureView: View {
                 Task { @MainActor in
                     stopListening()
                     if !transcribedText.isEmpty {
-                        Task { await searchFood() }
+                        await searchFood()
                     }
                 }
             }
         }
 
-        // Auto-stop after 10 seconds
-        Task {
+        // Auto-stop after 10 seconds. Reads + writes happen on MainActor.
+        Task { @MainActor in
             try? await Task.sleep(for: .seconds(10))
             if isListening {
                 stopListening()
@@ -197,6 +212,16 @@ struct VoiceCaptureView: View {
                     await searchFood()
                 }
             }
+        }
+    }
+
+    private func speechErrorMessage(for status: SFSpeechRecognizerAuthorizationStatus) -> String {
+        switch status {
+        case .denied: return "Speech recognition denied. Enable in Settings."
+        case .restricted: return "Speech recognition restricted on this device."
+        case .notDetermined: return "Speech recognition permission not yet granted."
+        case .authorized: return ""  // unreachable, guarded above
+        @unknown default: return "Speech recognition unavailable."
         }
     }
 
