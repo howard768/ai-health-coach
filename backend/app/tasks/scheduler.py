@@ -72,13 +72,48 @@ async def _get_primary_user_id(db) -> str | None:
 
 
 async def _get_primary_user(db):
-    """Return the primary User object (or None if no real user exists)."""
+    """Return the primary User object (or None if no real user exists).
+
+    Retained for ``timing_refresh_job`` which reschedules a single global
+    cron trigger and so cannot meaningfully fan out per-user without a
+    per-user cron design. All other jobs use ``iter_active_users`` instead.
+    """
     user_id = await _get_primary_user_id(db)
     if user_id is None:
         return None
     from app.models.user import User
     result = await db.execute(select(User).where(User.apple_user_id == user_id))
     return result.scalar_one_or_none()
+
+
+async def iter_active_users(db) -> list:
+    """Return every active non-placeholder User in created_at order.
+
+    MEL-45 part 3: the per-user fan-out replacement for ``_get_primary_user_id``.
+    Scheduler jobs call this and run their per-user work in a try/except so
+    one bad user doesn't abort the rest of the tick.
+
+    Falls back to the legacy ``apple_user_id == "default"`` placeholder if no
+    real user exists yet, so local dev still works before any sign-in. Once
+    MEL-45 part 4 removes the placeholder, this fallback is dead code and
+    can be deleted with the placeholder.
+    """
+    from app.models.user import User
+    result = await db.execute(
+        select(User)
+        .where(User.is_active == True, User.apple_user_id != "default")
+        .order_by(User.created_at)
+    )
+    users = list(result.scalars().all())
+    if users:
+        return users
+
+    # Local-dev fallback: no real users yet, but the placeholder row exists.
+    result = await db.execute(
+        select(User).where(User.apple_user_id == "default").limit(1)
+    )
+    default = result.scalar_one_or_none()
+    return [default] if default else []
 
 
 def _first_name_of(user) -> str:
@@ -203,27 +238,33 @@ async def _run_notification_job(
     """
     logger.info("Running %s", job_name)
     async with async_session() as db:
-        user = await _get_primary_user(db)
-        if user is None:
-            logger.info("No active user — skipping %s", job_name)
-            return
-        user_id = user.apple_user_id
-        user_name = _first_name_of(user)
-
-        if not await can_send(db, user_id, category):
+        users = await iter_active_users(db)
+        if not users:
+            logger.info("No active users — skipping %s", job_name)
             return
 
-        tokens = await _get_active_tokens(db, user_id)
-        if not tokens:
-            logger.info("No active tokens — skipping %s", job_name)
-            return
+        sent = 0
+        for user in users:
+            user_id = user.apple_user_id
+            user_name = _first_name_of(user)
+            try:
+                if not await can_send(db, user_id, category):
+                    continue
 
-        content = await content_fn(db, user_id, user_name)
-        if not content:
-            return
+                tokens = await _get_active_tokens(db, user_id)
+                if not tokens:
+                    logger.info("No active tokens for user %s — skipping %s", user_id[:12], job_name)
+                    continue
 
-        await _send_notification(db, user_id, tokens, content)
-    logger.info("%s complete", job_name)
+                content = await content_fn(db, user_id, user_name)
+                if not content:
+                    continue
+
+                await _send_notification(db, user_id, tokens, content)
+                sent += 1
+            except Exception:  # noqa: BLE001 -- one user's failure must not abort the rest
+                logger.exception("%s failed for user %s", job_name, user_id[:12])
+    logger.info("%s complete (sent=%d/%d)", job_name, sent, len(users))
 
 
 async def morning_brief_job():
@@ -410,44 +451,62 @@ async def health_alert_job():
 
 
 async def oura_sync_job():
-    """Automatically sync latest Oura data every 6 hours."""
+    """Sync latest Oura data every 6 hours, fanning out across all active users."""
     logger.info("Running oura_sync_job")
     async with async_session() as db:
-        user_id = await _get_primary_user_id(db)
-        if user_id is None:
+        users = await iter_active_users(db)
+        if not users:
+            logger.info("oura_sync_job: no active users yet")
             return
-        result = await oura_sync(db, user_id)
-        logger.info("Oura sync result: %s", result)
-        today = utcnow_naive().strftime("%Y-%m-%d")
-        await reconcile_day(db, user_id, today)
+        for user in users:
+            user_id = user.apple_user_id
+            try:
+                result = await oura_sync(db, user_id)
+                logger.info("oura_sync_job user=%s result=%s", user_id[:12], result)
+                today = utcnow_naive().strftime("%Y-%m-%d")
+                await reconcile_day(db, user_id, today)
+            except Exception:  # noqa: BLE001 -- isolate one user's failure
+                logger.exception("oura_sync_job failed for user %s", user_id[:12])
 
 
 async def peloton_sync_job():
-    """Sync Peloton workout data every 6 hours."""
+    """Sync Peloton workouts every 6 hours, fanning out across all active users."""
     logger.info("Running peloton_sync_job")
     async with async_session() as db:
-        user_id = await _get_primary_user_id(db)
-        if user_id is None:
+        users = await iter_active_users(db)
+        if not users:
+            logger.info("peloton_sync_job: no active users yet")
             return
-        result = await peloton_sync(db, user_id)
-        logger.info("Peloton sync result: %s", result)
-        if result.get("status") == "ok":
-            today = utcnow_naive().strftime("%Y-%m-%d")
-            await reconcile_day(db, user_id, today)
+        for user in users:
+            user_id = user.apple_user_id
+            try:
+                result = await peloton_sync(db, user_id)
+                logger.info("peloton_sync_job user=%s result=%s", user_id[:12], result)
+                if result.get("status") == "ok":
+                    today = utcnow_naive().strftime("%Y-%m-%d")
+                    await reconcile_day(db, user_id, today)
+            except Exception:  # noqa: BLE001
+                logger.exception("peloton_sync_job failed for user %s", user_id[:12])
 
 
 async def garmin_sync_job():
-    """Sync Garmin health data every 6 hours."""
+    """Sync Garmin health data every 6 hours, fanning out across all active users."""
     logger.info("Running garmin_sync_job")
     async with async_session() as db:
-        user_id = await _get_primary_user_id(db)
-        if user_id is None:
+        users = await iter_active_users(db)
+        if not users:
+            logger.info("garmin_sync_job: no active users yet")
             return
-        result = await garmin_sync(db, user_id)
-        logger.info("Garmin sync result: %s", result)
-        if result.get("status") == "ok":
-            today = utcnow_naive().strftime("%Y-%m-%d")
-            await reconcile_day(db, user_id, today)
+        for user in users:
+            user_id = user.apple_user_id
+            try:
+                result = await garmin_sync(db, user_id)
+                logger.info("garmin_sync_job user=%s result=%s", user_id[:12], result)
+                if result.get("status") == "ok":
+                    today = utcnow_naive().strftime("%Y-%m-%d")
+                    await reconcile_day(db, user_id, today)
+            except Exception:  # noqa: BLE001
+                logger.exception("garmin_sync_job failed for user %s", user_id[:12])
 
 
 async def webhook_renewal_job():
@@ -488,23 +547,28 @@ async def feature_refresh_job():
 
     logger.info("Running feature_refresh_job")
     async with async_session() as db:
-        user_id = await _get_primary_user_id(db)
-        if user_id is None:
-            logger.info("feature_refresh_job: no primary user yet, skipping")
+        users = await iter_active_users(db)
+        if not users:
+            logger.info("feature_refresh_job: no active users yet, skipping")
             return
-        try:
-            rows = await ml_api.refresh_features_for_user(
-                db, user_id, through_date=date.today(), lookback_days=30
-            )
-            await db.commit()
-            logger.info(
-                "feature_refresh_job: wrote %d rows for user %s",
-                rows,
-                user_id,
-            )
-        except SQLAlchemyError as e:
-            await db.rollback()
-            logger.exception("feature_refresh_job DB error: %s", e)
+        for user in users:
+            user_id = user.apple_user_id
+            try:
+                rows = await ml_api.refresh_features_for_user(
+                    db, user_id, through_date=date.today(), lookback_days=30
+                )
+                await db.commit()
+                logger.info(
+                    "feature_refresh_job: wrote %d rows for user %s",
+                    rows,
+                    user_id[:12],
+                )
+            except SQLAlchemyError as e:
+                await db.rollback()
+                logger.exception("feature_refresh_job DB error for user %s: %s", user_id[:12], e)
+            except Exception:  # noqa: BLE001
+                await db.rollback()
+                logger.exception("feature_refresh_job failed for user %s", user_id[:12])
 
 
 async def insight_candidate_job():
@@ -523,23 +587,29 @@ async def insight_candidate_job():
 
     logger.info("Running insight_candidate_job")
     async with async_session() as db:
-        user_id = await _get_primary_user_id(db)
-        if user_id is None:
-            logger.info("insight_candidate_job: no primary user yet, skipping")
+        users = await iter_active_users(db)
+        if not users:
+            logger.info("insight_candidate_job: no active users yet, skipping")
             return
-        try:
-            report = await ml_api.run_daily_insights(db, user_id)
-            await db.commit()
-            logger.info(
-                "insight_candidate_job done (shadow=%s): %d candidates, %d rankings, top=%s",
-                report.shadow_mode,
-                report.candidates_generated,
-                report.rankings_written,
-                report.top_candidate_id,
-            )
-        except SQLAlchemyError as e:
-            await db.rollback()
-            logger.exception("insight_candidate_job DB error: %s", e)
+        for user in users:
+            user_id = user.apple_user_id
+            try:
+                report = await ml_api.run_daily_insights(db, user_id)
+                await db.commit()
+                logger.info(
+                    "insight_candidate_job user=%s (shadow=%s): %d candidates, %d rankings, top=%s",
+                    user_id[:12],
+                    report.shadow_mode,
+                    report.candidates_generated,
+                    report.rankings_written,
+                    report.top_candidate_id,
+                )
+            except SQLAlchemyError as e:
+                await db.rollback()
+                logger.exception("insight_candidate_job DB error for user %s: %s", user_id[:12], e)
+            except Exception:  # noqa: BLE001
+                await db.rollback()
+                logger.exception("insight_candidate_job failed for user %s", user_id[:12])
 
 
 async def baselines_job():
@@ -556,22 +626,28 @@ async def baselines_job():
 
     logger.info("Running baselines_job")
     async with async_session() as db:
-        user_id = await _get_primary_user_id(db)
-        if user_id is None:
-            logger.info("baselines_job: no primary user yet, skipping")
+        users = await iter_active_users(db)
+        if not users:
+            logger.info("baselines_job: no active users yet, skipping")
             return
-        try:
-            report = await ml_api.run_discovery_pipeline(db, user_id)
-            await db.commit()
-            logger.info(
-                "baselines_job done (shadow=%s): layers=%s counts=%s",
-                report.shadow_mode,
-                report.layers_run,
-                report.tier_counts,
-            )
-        except SQLAlchemyError as e:
-            await db.rollback()
-            logger.exception("baselines_job DB error: %s", e)
+        for user in users:
+            user_id = user.apple_user_id
+            try:
+                report = await ml_api.run_discovery_pipeline(db, user_id)
+                await db.commit()
+                logger.info(
+                    "baselines_job user=%s (shadow=%s): layers=%s counts=%s",
+                    user_id[:12],
+                    report.shadow_mode,
+                    report.layers_run,
+                    report.tier_counts,
+                )
+            except SQLAlchemyError as e:
+                await db.rollback()
+                logger.exception("baselines_job DB error for user %s: %s", user_id[:12], e)
+            except Exception:  # noqa: BLE001
+                await db.rollback()
+                logger.exception("baselines_job failed for user %s", user_id[:12])
 
 
 async def correlation_engine_job():
@@ -585,23 +661,31 @@ async def correlation_engine_job():
 
     logger.info("Running correlation_engine_job (via ml.api.run_associations)")
     async with async_session() as db:
-        user_id = await _get_primary_user_id(db)
-        if user_id is None:
-            logger.info("correlation_engine_job: no primary user yet, skipping")
+        users = await iter_active_users(db)
+        if not users:
+            logger.info("correlation_engine_job: no active users yet, skipping")
             return
-        try:
-            report = await ml_api.run_associations(db, user_id, window_days=30)
-            await db.commit()
-            logger.info(
-                "correlation_engine_job done: tested=%d sig=%d dynamic=%d rows=%d",
-                report.pairs_tested,
-                report.significant_results,
-                report.dynamic_pairs_generated,
-                report.rows_written,
-            )
-        except SQLAlchemyError as e:
-            await db.rollback()
-            logger.exception("correlation_engine_job DB error: %s", e)
+        for user in users:
+            user_id = user.apple_user_id
+            try:
+                report = await ml_api.run_associations(db, user_id, window_days=30)
+                await db.commit()
+                logger.info(
+                    "correlation_engine_job user=%s: tested=%d sig=%d dynamic=%d rows=%d",
+                    user_id[:12],
+                    report.pairs_tested,
+                    report.significant_results,
+                    report.dynamic_pairs_generated,
+                    report.rows_written,
+                )
+            except SQLAlchemyError as e:
+                await db.rollback()
+                logger.exception(
+                    "correlation_engine_job DB error for user %s: %s", user_id[:12], e
+                )
+            except Exception:  # noqa: BLE001
+                await db.rollback()
+                logger.exception("correlation_engine_job failed for user %s", user_id[:12])
 
 
 async def granger_causal_job():
@@ -619,36 +703,42 @@ async def granger_causal_job():
 
     logger.info("Running granger_causal_job (L3 + L4)")
     async with async_session() as db:
-        user_id = await _get_primary_user_id(db)
-        if user_id is None:
-            logger.info("granger_causal_job: no primary user yet, skipping")
+        users = await iter_active_users(db)
+        if not users:
+            logger.info("granger_causal_job: no active users yet, skipping")
             return
-        try:
-            granger_report = await ml_api.run_granger(db, user_id, window_days=90)
-            logger.info(
-                "granger_causal_job L3: tested=%d significant=%d updated=%d",
-                granger_report.pairs_tested,
-                granger_report.pairs_significant,
-                granger_report.correlations_updated,
-            )
+        for user in users:
+            user_id = user.apple_user_id
+            try:
+                granger_report = await ml_api.run_granger(db, user_id, window_days=90)
+                logger.info(
+                    "granger_causal_job L3 user=%s: tested=%d significant=%d updated=%d",
+                    user_id[:12],
+                    granger_report.pairs_tested,
+                    granger_report.pairs_significant,
+                    granger_report.correlations_updated,
+                )
 
-            causal_report = await ml_api.run_causal(
-                db, user_id, window_days=90, max_pairs=10
-            )
-            logger.info(
-                "granger_causal_job L4: tested=%d passed=%d updated=%d",
-                causal_report.pairs_tested,
-                causal_report.pairs_passed,
-                causal_report.correlations_updated,
-            )
+                causal_report = await ml_api.run_causal(
+                    db, user_id, window_days=90, max_pairs=10
+                )
+                logger.info(
+                    "granger_causal_job L4 user=%s: tested=%d passed=%d updated=%d",
+                    user_id[:12],
+                    causal_report.pairs_tested,
+                    causal_report.pairs_passed,
+                    causal_report.correlations_updated,
+                )
 
-            await db.commit()
-        except SQLAlchemyError as e:
-            await db.rollback()
-            logger.exception("granger_causal_job DB error: %s", e)
-        except Exception as e:
-            await db.rollback()
-            logger.exception("granger_causal_job error: %s", e)
+                await db.commit()
+            except SQLAlchemyError as e:
+                await db.rollback()
+                logger.exception(
+                    "granger_causal_job DB error for user %s: %s", user_id[:12], e
+                )
+            except Exception:  # noqa: BLE001
+                await db.rollback()
+                logger.exception("granger_causal_job failed for user %s", user_id[:12])
 
 
 async def ranker_training_job():
