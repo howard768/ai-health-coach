@@ -24,6 +24,13 @@ class OuraToken(Base):
     # regardless of how many records were saved — the semantic is "we
     # talked to Oura", not "we got new rows". NULL = never synced.
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # MEL-45 part 1: Oura's user identifier (from /v2/usercollection/personal_info
+    # `id` field, also sent in webhook payload as `body["user_id"]`). NULL until
+    # backfilled on first sync. Indexed because the webhook receiver in MEL-45
+    # part 2 will look up by this column on every incoming event.
+    oura_user_id: Mapped[str | None] = mapped_column(
+        String(255), nullable=True, index=True
+    )
 
 
 class SleepRecord(Base):
