@@ -79,13 +79,20 @@ async def test_candidates_query_returns_todays_candidates(db: AsyncSession):
     )
     await db.flush()
 
-    # Simulate the query from the endpoint.
+    # Mirror the route's query EXACTLY. Pre-MELD-BACKEND-G this used
+    # `today.isoformat()` (a string), which SQLite happily compared against
+    # a DateTime column but Postgres rejected with
+    # `operator does not exist: timestamp without time zone >= character varying`.
+    # The fix uses a real datetime; this test must keep using the same
+    # pattern to catch any future regression.
+    from datetime import datetime, time
     from sqlalchemy import select
-    today = date.today()
+
+    today_start = datetime.combine(date.today(), time.min)
     result = await db.execute(
         select(MLInsightCandidate).where(
             MLInsightCandidate.user_id == USER,
-            MLInsightCandidate.generated_at >= today.isoformat(),
+            MLInsightCandidate.generated_at >= today_start,
         )
     )
     candidates = result.scalars().all()
@@ -93,6 +100,38 @@ async def test_candidates_query_returns_todays_candidates(db: AsyncSession):
     assert candidates[0].id == "cand-001"
     assert candidates[0].effect_size == 0.65
     assert candidates[0].literature_support is True
+
+
+@pytest.mark.asyncio
+async def test_candidates_route_uses_datetime_not_string_for_generated_at_compare():
+    """Regression: MELD-BACKEND-G fired 14 times in production because the
+    /api/insights/candidates handler compared a DateTime column against a
+    string. Postgres rejects that with UndefinedFunctionError; SQLite was
+    lenient.
+
+    This test scans the handler's source for the broken pattern. We strip
+    comments before checking so that a comment quoting the old pattern (for
+    historical context) doesn't false-positive.
+    """
+    import inspect
+    import re
+    from app.routers import insights as insights_module
+
+    src = inspect.getsource(insights_module.get_candidates)
+    # Drop comments — they may legitimately mention the old pattern.
+    no_comments = "\n".join(
+        line for line in src.splitlines() if not line.lstrip().startswith("#")
+    )
+    assert ".isoformat()" not in no_comments, (
+        "MELD-BACKEND-G regression: the candidates handler must NOT pass a "
+        "string into a `MLInsightCandidate.generated_at` comparison. Use a "
+        "real datetime (Postgres rejects timestamp-vs-string compares)."
+    )
+    # Positive assertion: confirm the new datetime is actually constructed.
+    assert "datetime.combine" in no_comments, (
+        "Expected `datetime.combine(...)` in the candidates handler. Refactored "
+        "to a different datetime construction? Update this assertion."
+    )
 
 
 # ---------------------------------------------------------------------------
