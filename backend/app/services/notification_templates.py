@@ -3,6 +3,20 @@
 DOVA principle: check templates before calling AI (40-60% cost savings).
 Templates use {variable} interpolation for personalization.
 Falls back to AI generation when no template matches the context.
+
+STATUS (2026-04-30 audit): UNWIRED. The `notification_templates` DB
+table exists (created by alembic 6edcb0a00c24) and `backend.yml` CI
+verifies it post-deploy, but `seed_templates` is never invoked at
+startup and `pick_template` is never queried by `notification_content`,
+which still hits Anthropic for every notification. The 40-60% cost
+savings haven't shipped.
+
+To wire it: call `seed_templates` from `lifespan()` in `app/main.py`
+once, then patch `notification_content` generators to try
+`pick_template` before constructing an Anthropic prompt. Seed data
+below is preserved so the wiring work doesn't have to re-author copy.
+See comprehensive scan recommendation 16 for the rest of the orphan
+triage.
 """
 
 import logging

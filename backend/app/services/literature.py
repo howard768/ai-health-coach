@@ -6,7 +6,19 @@ exercise, HRV, recovery, and circadian rhythm.
 Phase B (future): PubMed API for dynamic search.
 Phase C (future): RAG with embeddings for semantic search.
 
-Used by:
+STATUS (2026-04-30 audit): UNWIRED. The intended consumers below all
+import `app.services.coach_engine` directly without ever calling
+`literature.search` or `validate_correlation`. The seed data here is
+preserved so any future evidence-grounding work has a starting point
+without re-curating papers, but the module is dead code today.
+
+To wire it: `CoachEngine.process_query` would need to query
+`literature.search(topic=...)` after building its prompt and inject the
+top citations into the system message. Estimated 1-day surface change
+across coach_engine + 1-2 related callers; see comprehensive scan
+recommendation 16 for the rest of the orphan triage.
+
+Intended consumers (none active today):
 - CoachEngine: attach citations when making health claims
 - CorrelationValidator: check if discovered correlations match published research
 - Notification content: ground coaching nudges in evidence

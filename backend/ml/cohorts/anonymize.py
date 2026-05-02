@@ -4,6 +4,10 @@ Builds per-user pattern vectors from the feature store, pseudonymizes
 with HMAC-SHA256 (rotating monthly key), applies Laplace DP noise
 (epsilon=1.0), and persists to ``ml_anonymized_vectors``.
 
+Entry point: ``build_anonymized_vectors`` is imported by ``ml.api`` and
+invoked from ``run_cohort_pipeline``. Static call-graph analyzers may
+miss the cross-module import if the boundary is lazy-loaded.
+
 Privacy invariants:
 - No raw user_ids in the output. Only HMAC pseudonyms.
 - No raw health values. Only derived correlation strengths, catch22
