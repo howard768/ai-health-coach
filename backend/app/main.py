@@ -190,9 +190,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         settings.local_base_url,
-        "http://192.168.86.47:8000",
         settings.public_base_url,
-        # Marketing site (heymeld.com) — the Astro app posts to /api/waitlist/subscribe
+        # Marketing site (heymeld.com); the Astro app posts to /api/waitlist/subscribe
         "https://heymeld.com",
         "https://www.heymeld.com",
         # Cloudflare Pages preview deployments

@@ -125,3 +125,16 @@ meld-*.html
 .gitnexus
 .gitnexus-staging/
 .gitnexusignore
+
+# Local Python virtualenvs (uv default and conventional names)
+.venv/
+venv/
+
+# Logs (any tool, any location)
+*.log
+
+# OS cruft
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
