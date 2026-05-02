@@ -1,8 +1,13 @@
 """
 Phase 4: Weekly offline evaluation of production coach responses.
 
-Runs as a scheduled job — pulls recent coach responses from DB,
+Runs as a scheduled job: pulls recent coach responses from DB,
 evaluates reading level and data grounding, flags regressions.
+
+Entry point: `run_offline_eval` is registered as the
+`offline_eval_job` APScheduler task in `app/tasks/scheduler.py` and
+runs weekly. Static call-graph analyzers will report this module as
+orphan because the registration is via a decorator, not a direct call.
 
 Results are logged and stored for the analytics endpoint.
 """

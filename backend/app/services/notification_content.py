@@ -6,6 +6,12 @@ using the CoachEngine pipeline. All follow the wiki rules:
 - No emoji
 - 4th grade reading level
 - Evidence-bound: reference data patterns, not raw numbers
+
+Entry point: the module-level `content_generator` instance is imported
+by `app/routers/notifications.py` and `app/tasks/scheduler.py`. Each
+generator method (generate_health_alert, generate_weekly_review,
+generate_streak_saver, generate_bedtime_coaching, generate_coaching_nudge)
+is called by exactly one site in each.
 """
 
 import json
