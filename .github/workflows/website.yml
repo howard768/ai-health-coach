@@ -15,6 +15,12 @@ on:
       - 'website/**'
       - '.github/workflows/website.yml'
 
+# Cancel any in-flight run for the same workflow + ref. Saves runner
+# minutes when a PR pushes new commits faster than CI completes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: Astro Build
