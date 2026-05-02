@@ -145,3 +145,50 @@ async def test_notification_records_freshness_returns_iso_string(seeded_db):
     assert freshness["notification_records_latest"] is not None
     # Should parse as ISO-8601.
     assert "T" in freshness["notification_records_latest"]
+
+
+@pytest.mark.asyncio
+async def test_pipeline_freshness_logs_swallowed_exceptions(caplog):
+    """When a per-table freshness query raises, the exception is logged at
+    WARNING level on the ``meld.ops`` logger before being swallowed.
+
+    Regression test for MEL-39. Production was returning null for every
+    freshness field with no log trail, so we couldn't tell whether the
+    queries were actually failing or the tables were empty. The fix is to
+    log inline before swallowing; the API contract (null on failure) is
+    preserved.
+    """
+    import logging
+
+    from app.routers.ops import _get_pipeline_freshness
+
+    class FailingExecuteSession:
+        async def execute(self, *args, **kwargs):
+            raise RuntimeError("simulated relation does not exist")
+
+    fake_db = FailingExecuteSession()
+
+    with caplog.at_level(logging.WARNING, logger="meld.ops"):
+        result = await _get_pipeline_freshness(fake_db)  # type: ignore[arg-type]
+
+    # Contract preserved: every field is None on failure.
+    assert result.ml_features_latest is None
+    assert result.ml_baselines_latest is None
+    assert result.ml_insights_latest is None
+    assert result.ml_synth_runs_latest is None
+    assert result.user_correlations_latest is None
+    assert result.notification_records_latest is None
+
+    # Each of the six tables should have logged a warning.
+    warnings = [
+        r for r in caplog.records
+        if r.name == "meld.ops" and r.levelno == logging.WARNING
+    ]
+    assert len(warnings) == 6, (
+        f"expected 6 warnings (one per table), got {len(warnings)}: "
+        f"{[r.getMessage() for r in warnings]}"
+    )
+    # The exception text should appear in at least one warning so Sentry /
+    # Railway can display it.
+    joined = "\n".join(r.getMessage() for r in warnings)
+    assert "simulated relation does not exist" in joined
