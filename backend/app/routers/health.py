@@ -194,13 +194,21 @@ async def get_trends(
 async def get_trend_patterns(
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
+    days: int = 30,
 ):
-    """Cross-domain pattern insights derived from sleep and nutrition data over 30 days."""
-    thirty_days_ago = (date.today() - timedelta(days=30)).isoformat()
+    """Cross-domain pattern insights derived from sleep and nutrition data.
+
+    `days` controls the lookback window. The Trends tab passes 7, 30, or 90
+    based on the timeframe selector; without this param the coach insight
+    card was pinned to a 30-day default regardless of the user's view.
+    Clamped to [1, 365] so a malformed query can't run an unbounded scan.
+    """
+    days = max(1, min(days, 365))
+    window_start = (date.today() - timedelta(days=days)).isoformat()
 
     sleep_result = await db.execute(
         select(SleepRecord)
-        .where(SleepRecord.user_id == current_user.apple_user_id, SleepRecord.date >= thirty_days_ago)
+        .where(SleepRecord.user_id == current_user.apple_user_id, SleepRecord.date >= window_start)
         .order_by(SleepRecord.date)
     )
     sleep_records = list(sleep_result.scalars().all())
@@ -218,7 +226,7 @@ async def get_trend_patterns(
             func.sum(FoodItemRecord.calories).label("total_calories"),
         )
         .join(FoodItemRecord, FoodItemRecord.meal_id == MealRecord.id)
-        .where(MealRecord.user_id == current_user.apple_user_id, MealRecord.date >= thirty_days_ago)
+        .where(MealRecord.user_id == current_user.apple_user_id, MealRecord.date >= window_start)
         .group_by(MealRecord.date)
     )
     nutrition_by_date = {
