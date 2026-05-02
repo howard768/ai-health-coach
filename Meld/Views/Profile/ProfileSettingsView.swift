@@ -17,9 +17,21 @@ struct ProfileSettingsView: View {
     @State private var showDeleteAccountConfirmation2 = false  // Account deletion step 2
     @State private var showSignOutConfirmation = false
     @State private var profile: APIUserProfile?
+    @State private var profileLoadFailed = false  // Distinguish "still loading" from "fetch errored"
     @State private var isDeletingAccount = false
     @State private var deleteError: String?
+    @State private var showLicenses = false
+    @State private var showWhatWeCollect = false
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.openURL) private var openURL
     private let M: CGFloat = 20
+
+    // External links — kept as constants so they're easy to update from one
+    // place when the marketing site moves things around.
+    private static let privacyPolicyURL = URL(string: "https://heymeld.com/privacy")!
+    private static let termsURL = URL(string: "https://heymeld.com/terms")!
+    private static let helpMailto = URL(string: "mailto:hello@heymeld.com?subject=Meld%20Help")!
+    private static let exportMailto = URL(string: "mailto:hello@heymeld.com?subject=Data%20Export%20Request&body=Please%20send%20me%20a%20copy%20of%20all%20my%20Meld%20data.")!
 
     var body: some View {
         ScrollView {
@@ -66,12 +78,21 @@ struct ProfileSettingsView: View {
                     HealthKitService.shared.isAuthorized = true
                 }
             }
-            // Load profile from backend
-            do {
-                profile = try await APIClient.shared.fetchUserProfile()
-            } catch {
-                // Keep nil — shows "--" placeholders
+            await loadProfile()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // Re-fetch on app foreground: if the first load happened during a
+            // network blip the user gets the data on the next foreground
+            // without having to navigate away and back.
+            if phase == .active && (profile == nil || profileLoadFailed) {
+                Task { await loadProfile() }
             }
+        }
+        .sheet(isPresented: $showLicenses) {
+            OpenSourceLicensesView()
+        }
+        .sheet(isPresented: $showWhatWeCollect) {
+            WhatWeCollectView()
         }
         .navigationBarTitleDisplayMode(.large)
         .alert("Sign out?", isPresented: $showSignOutConfirmation) {
@@ -104,6 +125,20 @@ struct ProfileSettingsView: View {
         }
     }
 
+    // MARK: - Profile Load
+
+    private func loadProfile() async {
+        do {
+            profile = try await APIClient.shared.fetchUserProfile()
+            profileLoadFailed = false
+        } catch {
+            profileLoadFailed = true
+            // We deliberately don't surface the raw error string in the header —
+            // it's just noise to users. The retry-on-foreground handles the
+            // transient cases; the dash placeholders signal "no data yet".
+        }
+    }
+
     // MARK: - Account Deletion
 
     private func performAccountDeletion() async {
@@ -126,11 +161,15 @@ struct ProfileSettingsView: View {
             DSAvatar(size: .xl, initials: profile?.initials ?? "?")
 
             VStack(alignment: .leading, spacing: DSSpacing.xs) {
-                Text(profile?.name ?? "Loading...")
+                // Show real name once loaded; show "—" not "Loading..." so a
+                // failed fetch (network blip) doesn't strand the user staring
+                // at a permanent spinner. scenePhase re-fetch will pick up the
+                // real name on next foreground.
+                Text(profile?.name ?? "—")
                     .font(DSTypography.h2)
                     .foregroundStyle(DSColor.Text.primary)
 
-                Text(profile?.goalsString ?? "--")
+                Text(profile?.goalsString ?? "—")
                     .font(DSTypography.bodySM)
                     .foregroundStyle(DSColor.Text.secondary)
 
@@ -138,6 +177,12 @@ struct ProfileSettingsView: View {
                     Text("Member since \(since)")
                         .font(DSTypography.caption)
                         .foregroundStyle(DSColor.Text.tertiary)
+                } else if profileLoadFailed {
+                    Button("Retry") {
+                        Task { await loadProfile() }
+                    }
+                    .font(DSTypography.caption)
+                    .foregroundStyle(DSColor.Purple.purple500)
                 }
             }
         }
@@ -159,7 +204,9 @@ struct ProfileSettingsView: View {
             DSDivider()
             settingsRow(title: "Height", value: profile?.heightString ?? "--")
             DSDivider()
-            navigationRow(title: "Goals", subtitle: profile?.goalsString ?? "--")
+            // TODO: native Goals editor — for now no-op (this row was already
+            // a stub pre-fix, just keeping the signature aligned).
+            navigationRow(title: "Goals", subtitle: profile?.goalsString ?? "—") {}
         }
     }
 
@@ -359,9 +406,13 @@ struct ProfileSettingsView: View {
         settingsCard {
             DSSectionHeader(title: "PRIVACY & DATA")
 
-            navigationRow(title: "What We Collect", subtitle: "See all data we store about you")
+            navigationRow(title: "What We Collect", subtitle: "See all data we store about you") {
+                showWhatWeCollect = true
+            }
             DSDivider()
-            navigationRow(title: "Export My Data", subtitle: "Download your health data")
+            navigationRow(title: "Export My Data", subtitle: "Download your health data") {
+                openURL(Self.exportMailto)
+            }
             DSDivider()
 
             // Delete My Data — destructive, plain language, not buried
@@ -380,7 +431,9 @@ struct ProfileSettingsView: View {
             .accessibilityHint("Permanently removes all your health data from Meld")
 
             DSDivider()
-            navigationRow(title: "Privacy Policy", subtitle: nil)
+            navigationRow(title: "Privacy Policy", subtitle: nil) {
+                openURL(Self.privacyPolicyURL)
+            }
         }
         .alert("Delete all your health data?", isPresented: $showDeleteDataConfirmation) {
             Button("Cancel", role: .cancel) {}
@@ -422,11 +475,17 @@ struct ProfileSettingsView: View {
 
             settingsRow(title: "Version", value: appVersion)
             DSDivider()
-            navigationRow(title: "Help & Support", subtitle: nil)
+            navigationRow(title: "Help & Support", subtitle: nil) {
+                openURL(Self.helpMailto)
+            }
             DSDivider()
-            navigationRow(title: "Terms of Service", subtitle: nil)
+            navigationRow(title: "Terms of Service", subtitle: nil) {
+                openURL(Self.termsURL)
+            }
             DSDivider()
-            navigationRow(title: "Open Source Licenses", subtitle: nil)
+            navigationRow(title: "Open Source Licenses", subtitle: nil) {
+                showLicenses = true
+            }
         }
     }
 
@@ -497,10 +556,15 @@ struct ProfileSettingsView: View {
         .padding(.horizontal, DSSpacing.lg)
     }
 
-    private func navigationRow(title: String, subtitle: String?) -> some View {
-        Button(action: {
-            // Navigation
-        }) {
+    /// Tappable row used throughout Settings. The action closure is required
+    /// (no default) so the compiler refuses to ship a stub with no behavior.
+    /// Pass `{}` only for rows you intentionally want to leave inert.
+    private func navigationRow(
+        title: String,
+        subtitle: String?,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
             HStack {
                 VStack(alignment: .leading, spacing: DSSpacing.xxs) {
                     Text(title)
@@ -518,6 +582,7 @@ struct ProfileSettingsView: View {
             .padding(.vertical, DSSpacing.md)
             .padding(.horizontal, DSSpacing.lg)
         }
+        .buttonStyle(.plain)
     }
 }
 

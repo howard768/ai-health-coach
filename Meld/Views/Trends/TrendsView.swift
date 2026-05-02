@@ -65,20 +65,30 @@ struct TrendsView: View {
             await loadTrends()
             await loadPatterns()
         }
-        .onChange(of: selectedRange) { _, _ in Task { await loadTrends() } }
+        .onChange(of: selectedRange) { _, _ in
+            // Refetch BOTH trends and patterns: previously only trendsData
+            // refreshed on range change, so the "Pattern Found" coach insight
+            // card stayed pinned to whatever the first 30-day fetch returned.
+            Task {
+                await loadTrends()
+                await loadPatterns()
+            }
+        }
+    }
+
+    private var rangeDays: Int {
+        switch selectedRange {
+        case .week: return 7
+        case .month: return 30
+        case .quarter: return 90
+        }
     }
 
     private func loadTrends() async {
-        let days: Int
-        switch selectedRange {
-        case .week: days = 7
-        case .month: days = 30
-        case .quarter: days = 90
-        }
         isLoading = true
         loadError = nil
         do {
-            trendsData = try await APIClient.shared.fetchTrends(rangeDays: days)
+            trendsData = try await APIClient.shared.fetchTrends(rangeDays: rangeDays)
         } catch {
             loadError = "Couldn't load trends. Pull to refresh."
         }
@@ -138,7 +148,7 @@ struct TrendsView: View {
 
     private func loadPatterns() async {
         do {
-            let result = try await APIClient.shared.fetchTrendPatterns()
+            let result = try await APIClient.shared.fetchTrendPatterns(rangeDays: rangeDays)
             patterns = result.patterns
         } catch {
             // Keep existing patterns on error
@@ -242,7 +252,26 @@ struct TrendsView: View {
                 }
 
                 DSChip(title: "Ask coach about this") {
-                    NotificationCenter.default.post(name: .meldSwitchTab, object: nil, userInfo: ["tab": Tab.coach.rawValue])
+                    // MainTabView's onReceive(.meldSwitchTab) calls
+                    // coachViewModel.prefill(_:) only when the userInfo
+                    // contains a `message` key. Pass the pattern text as the
+                    // prompt so the coach tab opens with the question already
+                    // teed up. Falls back to a generic prompt when patterns
+                    // haven't loaded yet.
+                    let prompt: String
+                    if let p = topPattern {
+                        prompt = "Tell me more about this pattern: \(p.pattern_text)"
+                    } else {
+                        prompt = "What patterns are you seeing in my data?"
+                    }
+                    NotificationCenter.default.post(
+                        name: .meldSwitchTab,
+                        object: nil,
+                        userInfo: [
+                            "tab": Tab.coach.rawValue,
+                            "message": prompt,
+                        ]
+                    )
                     DSHaptic.light()
                 }
             }

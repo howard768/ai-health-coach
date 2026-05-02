@@ -478,9 +478,13 @@ actor APIClient {
         return try await sendDecoding(URLRequest(url: composed))
     }
 
-    func fetchTrendPatterns() async throws -> APITrendPatternsResponse {
-        let url = serverRoot.appendingPathComponent("api/trends/patterns")
-        let request = URLRequest(url: url)
+    func fetchTrendPatterns(rangeDays: Int = 30) async throws -> APITrendPatternsResponse {
+        var components = URLComponents(
+            url: serverRoot.appendingPathComponent("api/trends/patterns"),
+            resolvingAgainstBaseURL: false
+        )!
+        components.queryItems = [URLQueryItem(name: "days", value: "\(rangeDays)")]
+        let request = URLRequest(url: components.url!)
         let (data, response) = try await authedData(for: request)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             throw APIError.serverError

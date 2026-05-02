@@ -11,35 +11,34 @@ struct MainTabView: View {
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            // Content area with safe area inset for tab bar
-            Group {
-                switch selectedTab {
-                case .home:
-                    NavigationStack {
-                        DashboardView(switchToTab: switchToTab)
-                    }
-                case .trends:
-                    NavigationStack {
-                        TrendsView()
-                    }
-                case .coach:
-                    CoachChatView(viewModel: coachViewModel)
-                case .log:
-                    MealsView()
-                case .you:
-                    NavigationStack {
-                        ProfileSettingsView()
-                    }
+        // iOS 26 SDK: the previous ZStack(.bottom) + safeAreaInset(.bottom)
+        // pattern caused the tab bar to render in the middle of the screen
+        // (safe-area calculations changed under Liquid Glass). The blessed
+        // SwiftUI pattern is `.safeAreaInset(edge: .bottom)` on the content
+        // itself — that pins the tab bar to the bottom safe area on every
+        // SDK from iOS 16 onward, including 26.
+        Group {
+            switch selectedTab {
+            case .home:
+                NavigationStack {
+                    DashboardView(switchToTab: switchToTab)
+                }
+            case .trends:
+                NavigationStack {
+                    TrendsView()
+                }
+            case .coach:
+                CoachChatView(viewModel: coachViewModel)
+            case .log:
+                MealsView()
+            case .you:
+                NavigationStack {
+                    ProfileSettingsView()
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            // Push content above the floating tab bar pill (pill height + bottom inset).
-            .safeAreaInset(edge: .bottom) {
-                Color.clear.frame(height: MeldTabBar.contentInset)
-            }
-
-            // Custom tab bar — stays at bottom even when keyboard is shown
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             MeldTabBar(selectedTab: $selectedTab)
                 .ignoresSafeArea(.keyboard, edges: .bottom)
         }
