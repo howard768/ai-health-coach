@@ -15,7 +15,7 @@ import logging
 from datetime import datetime, timedelta
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -49,24 +49,65 @@ async def oura_auth(
     return RedirectResponse(url=f"{auth_url}{separator}state={state}")
 
 
+# Deep-link scheme used by the iOS app (see `Meld/App/MeldApp.swift` onOpenURL).
+# Safari follows these on iPhone, which closes the browser tab and pops back
+# into the app. Without this, the user lands on the JSON response and has to
+# manually swipe back — bad UX.
+_OURA_SUCCESS_DEEPLINK = "meld://oura/connected"
+
+
+def _oura_error_deeplink(reason: str) -> str:
+    """Build a meld://oura/error deep link with a stable reason code."""
+    return f"meld://oura/error?reason={reason}"
+
+
 @router.get("/oura/callback")
 async def oura_callback(
-    code: str,
+    code: str | None = Query(None),
     state: str = Query(..., description="apple_user_id echoed back from /auth/oura"),
+    error: str | None = Query(None, description="OAuth error code per RFC 6749 §4.1.2.1 (e.g. access_denied)"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Handle Oura OAuth callback — exchange code for tokens, attach to user."""
-    # Validate state points to a real user
+    """Handle Oura OAuth callback — exchange code for tokens, attach to user.
+
+    On success, redirects Safari to ``meld://oura/connected`` so the iOS app
+    re-opens automatically. On failure (bad state, exchange error, user
+    cancellation), redirects to ``meld://oura/error?reason=<code>`` so the
+    iOS handler can show an appropriate alert. We never return a JSON body
+    here — Safari would just render it as text and strand the user on the web.
+
+    `code` is optional because Oura sends `?error=access_denied&state=...` (no
+    code) when the user taps Cancel on the consent screen. FastAPI's default
+    422 for a missing required param would strand the user; we handle the
+    cancel path explicitly instead.
+    """
+    # User cancelled on Oura's consent screen, or Oura returned an explicit
+    # OAuth error. Bounce back with the reason so iOS can show "you cancelled".
+    if error:
+        logger.info("Oura callback received error param: %s for state=%s", error, state[:12] + "...")
+        return RedirectResponse(url=_oura_error_deeplink(error))
+
+    # No code AND no error means a malformed redirect (shouldn't happen, but
+    # don't 422 the user out either — same deep-link failure path).
+    if not code:
+        logger.warning("Oura callback: missing both code and error params for state=%s", state[:12] + "...")
+        return RedirectResponse(url=_oura_error_deeplink("missing_code"))
+
+    # Validate state points to a real user. Don't 400 — Safari renders 4xx
+    # bodies as plain text on iPhone, stranding the user. Deep-link out so
+    # the iOS app gets the failure signal and can show its own error UI.
     result = await db.execute(select(User).where(User.apple_user_id == state))
     user = result.scalar_one_or_none()
     if user is None:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid state parameter — user not found",
-        )
+        logger.warning("Oura callback: state %s did not match any User row", state[:12] + "...")
+        return RedirectResponse(url=_oura_error_deeplink("invalid_state"))
 
     client = OuraClient()
-    token_data = await client.exchange_code(code)
+    try:
+        token_data = await client.exchange_code(code)
+    except httpx.HTTPError as e:
+        logger.error("Oura exchange_code failed for apple_user=%s: %s", state[:12] + "...", e)
+        return RedirectResponse(url=_oura_error_deeplink("exchange_failed"))
 
     # MEL-45 part 2: capture Oura's user ID so the webhook receiver can route
     # incoming events to the correct Meld user. Best-effort — if personal_info
@@ -106,4 +147,4 @@ async def oura_callback(
     db.add(oura_token)
     await db.commit()
 
-    return {"status": "connected", "message": "Oura Ring connected successfully"}
+    return RedirectResponse(url=_OURA_SUCCESS_DEEPLINK)
