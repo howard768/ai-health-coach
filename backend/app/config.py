@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
 
 # Manually load .env since pydantic-settings has issues on Python 3.14
@@ -64,8 +65,10 @@ class Settings(BaseSettings):
 
     # P3-3: Public URLs for the backend, surfaced as config so we can change
     # the production hostname (or run staging) without grepping for the
-    # Railway slug. Override via env var in CI/CD.
-    public_base_url: str = "https://zippy-forgiveness-production-0704.up.railway.app"
+    # Railway slug. Default is empty; required in any non-development APP_ENV
+    # so a misconfigured deploy fails loud instead of silently using the
+    # wrong host.
+    public_base_url: str = ""
     local_base_url: str = "http://localhost:8000"
 
     # Auth — Sign in with Apple + backend JWTs
@@ -87,6 +90,19 @@ class Settings(BaseSettings):
     # Empty in dev (admin endpoints return 403). Production: set to Brock's
     # apple_user_id via Railway env. Adding/removing requires a redeploy.
     admin_user_ids: str = ""
+
+    @model_validator(mode="after")
+    def _require_public_base_url_in_non_dev(self) -> "Settings":
+        # APP_ENV is the same env var /ops/status reports as uptime_env.
+        # Default "development" means a missing PUBLIC_BASE_URL is fine for
+        # local work; any other value (production, staging) must override it.
+        app_env = os.environ.get("APP_ENV", "development")
+        if app_env != "development" and not self.public_base_url:
+            raise ValueError(
+                f"PUBLIC_BASE_URL must be set when APP_ENV={app_env!r}. "
+                "Set it via Railway env vars before deploy."
+            )
+        return self
 
 
 settings = Settings()
