@@ -161,6 +161,12 @@ class EncryptedString(TypeDecorator):
 
     Usage:
         access_token: Mapped[str] = mapped_column(EncryptedString(2000))
+
+    CRITICAL: this TypeDecorator is referenced as a column type in every
+    PHI table model. SQLAlchemy column-type usage is NOT a CALLS edge in
+    static call graphs; impact tools that only look at calls will report
+    `EncryptedString` as low-impact. In reality, any change here touches
+    every encrypted PHI column. Tier 3 by blast radius.
     """
 
     impl = String
