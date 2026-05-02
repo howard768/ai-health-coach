@@ -19,6 +19,12 @@ on:
   # Manual trigger
   workflow_dispatch:
 
+# Cancel any in-flight run for the same workflow + ref. Saves runner
+# minutes when a PR pushes new commits faster than CI completes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   promptfoo:
     name: Promptfoo (55 tests)
