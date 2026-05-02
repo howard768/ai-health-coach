@@ -79,6 +79,10 @@ class MaterializedValue:
         if not self.source_row_ids:
             return ""
         payload = json.dumps(sorted(self.source_row_ids)).encode()
+        # SHA-1 chosen for cache key (non-cryptographic). usedforsecurity=False
+        # tells hashlib it's a checksum; Semgrep's rule doesn't recognize the
+        # arg so we suppress here.
+        # nosemgrep: python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-sha1
         return hashlib.sha1(payload, usedforsecurity=False).hexdigest()
 
 

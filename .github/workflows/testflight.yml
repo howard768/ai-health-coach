@@ -204,9 +204,15 @@ jobs:
 
       - name: Compose release notes
         id: notes
+        # Pass workflow-dispatch input through env, never interpolate it
+        # directly into the script body. Direct ${{ inputs.x }} substitution
+        # in `run:` is a shell injection vector if the input contains a
+        # quote character (GHSA-style).
+        env:
+          INPUT_RELEASE_NOTES: ${{ inputs.release_notes }}
         run: |
-          if [ -n "${{ inputs.release_notes }}" ]; then
-            NOTES="${{ inputs.release_notes }}"
+          if [ -n "$INPUT_RELEASE_NOTES" ]; then
+            NOTES="$INPUT_RELEASE_NOTES"
           else
             # Default: last commit subject + short sha
             NOTES="$(git log -1 --pretty=%s) ($(git rev-parse --short HEAD))"

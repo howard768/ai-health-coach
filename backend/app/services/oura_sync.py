@@ -34,6 +34,8 @@ async def ensure_valid_token(db: AsyncSession, user_id: str) -> str | None:
     )
     token = result.scalar_one_or_none()
     if not token:
+        # Logs internal user_id only.
+        # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
         logger.warning("No Oura token found for user %s", user_id)
         return None
 

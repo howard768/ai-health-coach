@@ -236,7 +236,9 @@ async def _run_notification_job(
 
                 tokens = await _get_active_tokens(db, user_id)
                 if not tokens:
-                    logger.info("No active tokens for user %s — skipping %s", user_id[:12], job_name)
+                    # Logs first 12 chars of user_id + job name only.
+                    # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
+                    logger.info("No active tokens for user %s, skipping %s", user_id[:12], job_name)
                     continue
 
                 content = await content_fn(db, user_id, user_name)
