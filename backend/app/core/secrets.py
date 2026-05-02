@@ -56,6 +56,10 @@ def verify_secrets_configured() -> None:
     environments log info and continue. Designed to be called from the
     FastAPI lifespan before any other startup work, so a misconfigured
     deploy never reaches the scheduler/router init.
+
+    CRITICAL: invoked from `lifespan()` in app/main.py. Static analyzers
+    do not model FastAPI lifespan as a CALLS edge, so impact tools that
+    only look at the call graph will report this as orphaned. It is not.
     """
     is_prod = settings.app_env == "production"
 

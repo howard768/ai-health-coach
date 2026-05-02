@@ -465,7 +465,14 @@ Do NOT diagnose or alarm. Gently suggest professional follow-up.
 # ============================================================
 
 class CoachEngine:
-    """Research-informed AI coaching engine."""
+    """Research-informed AI coaching engine.
+
+    CRITICAL: instantiated via FastAPI dependency injection in routers
+    (coach.py, insights.py). Static call graphs do not model `Depends(...)`
+    as a CALLS edge to `__init__`, so impact tools may report this class
+    as low-impact. In reality, any change here is Tier 2 product surface
+    and gates user-visible coach output.
+    """
 
     def __init__(self):
         self.client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
