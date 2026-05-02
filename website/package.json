@@ -3,7 +3,7 @@
   "type": "module",
   "version": "0.0.1",
   "private": true,
-  "description": "Marketing website for Meld — heymeld.com",
+  "description": "Marketing website for Meld at heymeld.com",
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",
@@ -12,13 +12,16 @@
     "astro": "astro"
   },
   "dependencies": {
-    "@astrojs/check": "^0.9.4",
+    "@astrojs/check": "^0.9.9",
     "@astrojs/sitemap": "^3.2.1",
     "astro": "^6.1.9",
     "typescript": "^5.7.3"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260426.1"
+  },
+  "overrides": {
+    "yaml": "^2.8.3"
   },
   "engines": {
     "node": ">=22.12.0"
