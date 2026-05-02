@@ -64,6 +64,17 @@ jobs:
         with:
           fetch-depth: 2  # need HEAD + HEAD^ for commit message
 
+      # Apple started rejecting App Store Connect uploads from any toolchain
+      # older than Xcode 26 / iOS 26 SDK in 2026 (error 409, SDK_VERSION_ISSUE).
+      # The macos-15 runner ships with Xcode 16.x as default — we need Xcode 26
+      # or later for `xcodebuild archive` to embed the right SDK marker. Pin to
+      # the latest stable Xcode the runner has installed; if Apple raises the
+      # bar again, this step picks up the new floor automatically.
+      - name: Select Xcode 26+ (Apple's App Store Connect requirement)
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
       - name: Install xcodegen
         run: brew install xcodegen
 
