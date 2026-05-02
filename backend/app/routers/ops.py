@@ -140,7 +140,23 @@ async def _get_pipeline_freshness(db: AsyncSession) -> PipelineFreshness:
                 if len(s) >= 11 and s[10] == " ":
                     s = s[:10] + "T" + s[11:]
                 results[key] = s
-        except Exception:
+        except Exception as exc:
+            # Surface the underlying failure to logs (Sentry / Railway stdout)
+            # before swallowing it. Production has been silently returning null
+            # for every freshness field, so we cannot tell from outside whether
+            # the query is failing (permission / schema / aborted-tx) or the
+            # table is genuinely empty. Logging here closes that gap without
+            # changing the API contract, which still returns null on failure.
+            # The endpoint itself rolls back the session before its own probe,
+            # so we deliberately do not roll back here. See MEL-39.
+            logger.warning(
+                "pipeline_freshness query failed for %s (table=%s column=%s): %s",
+                key,
+                table,
+                column,
+                exc,
+                exc_info=True,
+            )
             results[key] = None
 
     return PipelineFreshness(**results)

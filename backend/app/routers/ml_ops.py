@@ -281,9 +281,21 @@ async def _source_freshness(
         val = await _scalar_or_none(db, f"SELECT MAX({col}) FROM {table}")  # noqa: S608
         last = _iso(val)
         stale = _days_between(last, now)
-    except Exception:
+    except Exception as exc:
+        # Surface the underlying failure before swallowing. Production has been
+        # returning row_count_last_30d=null for sources whose last_ingest is
+        # fresh (Oura: last_ingest=2026-05-02, days_stale=0, but count=null).
+        # That smells like a query-level failure, not "table empty". Logging
+        # here lets us see the actual error without changing the API contract.
+        # See MEL-39.
+        logger.warning(
+            "data-quality last_ingest query failed (table=%s col=%s): %s",
+            table,
+            col,
+            exc,
+            exc_info=True,
+        )
         await db.rollback()
-        pass
 
     # row_count_last_30d
     try:
@@ -295,9 +307,15 @@ async def _source_freshness(
         )
         if cnt is not None:
             count = int(cnt)
-    except Exception:
+    except Exception as exc:
+        logger.warning(
+            "data-quality row_count_last_30d query failed (table=%s col=%s): %s",
+            table,
+            col,
+            exc,
+            exc_info=True,
+        )
         await db.rollback()
-        pass
 
     return DataSourceFreshness(
         last_ingest=last, days_stale=stale, row_count_last_30d=count
@@ -318,9 +336,11 @@ async def data_quality(db: AsyncSession = Depends(get_db)) -> DataQualityRespons
             db, "SELECT MAX(created_at) FROM health_metric_records"
         )
         canonical_stale = _days_between(_iso(val), now)
-    except Exception:
+    except Exception as exc:
+        logger.warning(
+            "data-quality canonical_freshness query failed: %s", exc, exc_info=True
+        )
         await db.rollback()
-        pass
 
     return DataQualityResponse(
         timestamp=now.isoformat(),
