@@ -97,6 +97,10 @@ def make_candidate_id(user_id: str, kind: str, *subject_parts: str) -> str:
     our scale while keeping the DB column small.
     """
     payload = "|".join([user_id, kind, *subject_parts])
+    # SHA-1 chosen for compact deterministic ID (non-cryptographic).
+    # usedforsecurity=False tells hashlib it's a checksum; Semgrep's rule
+    # doesn't recognize the arg so we suppress here.
+    # nosemgrep: python.lang.security.insecure-hash-algorithms.insecure-hash-algorithm-sha1
     return hashlib.sha1(payload.encode("utf-8"), usedforsecurity=False).hexdigest()[:24]
 
 

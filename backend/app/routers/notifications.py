@@ -85,6 +85,8 @@ async def register_device_token(
         existing.user_id = user_id
         existing.is_active = True
         existing.updated_at = utcnow_naive()
+        # Token is APNs device-token, deliberately redacted to prefix...suffix shape.
+        # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
         logger.info("Updated device token %s...%s", request.device_token[:8], request.device_token[-4:])
     else:
         token = DeviceToken(
@@ -93,6 +95,8 @@ async def register_device_token(
             platform=request.platform,
         )
         db.add(token)
+        # Same redacted-shape token.
+        # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
         logger.info("Registered new device token %s...%s", request.device_token[:8], request.device_token[-4:])
 
     await db.commit()

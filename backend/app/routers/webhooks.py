@@ -55,6 +55,8 @@ async def oura_webhook_verification(
         or not challenge
         or not hmac.compare_digest(verification_token, expected)
     ):
+        # Logs presence booleans only, never the token or challenge value.
+        # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
         logger.warning(
             "Oura webhook verification failed: token_present=%s challenge_present=%s expected_configured=%s",
             bool(verification_token),

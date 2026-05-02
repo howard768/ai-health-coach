@@ -230,10 +230,12 @@ async def refresh_token(
     if row is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Unknown refresh token")
 
-    # Reuse detection — revoked token presented again means the chain is compromised.
+    # Reuse detection: revoked token presented again means the chain is compromised.
     if row.revoked_at is not None:
+        # Logs internal user_id only, no token material.
+        # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
         logger.warning(
-            "Refresh token reuse detected for user=%s — revoking chain",
+            "Refresh token reuse detected for user=%s; revoking chain",
             row.user_id,
         )
         await _revoke_chain(db, token_hash)
@@ -338,6 +340,8 @@ async def delete_account(
     if apple_refresh:
         try:
             await revoke_apple_token(apple_refresh)
+            # Logs first 12 chars of apple_id (truncated identifier), no token.
+            # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
             logger.info("Apple token revoked for user=%s", apple_id[:12] + "...")
         except (httpx.HTTPError, jwt.PyJWTError, ValueError) as e:
             logger.error("Apple token revocation failed for user=%s: %s", apple_id[:12], e)

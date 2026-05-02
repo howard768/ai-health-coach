@@ -72,7 +72,10 @@ def verify_secrets_configured() -> None:
         )
 
     if critical_missing:
-        # Dev — fine for local iteration, just note it
+        # Dev: fine for local iteration, just note it.
+        # Logs the list of unset env-var NAMES (e.g. "JWT_SECRET_KEY"),
+        # never any secret value.
+        # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
         logger.info(
             "Critical secrets unset (dev mode, OK for local): %s",
             ", ".join(critical_missing),
@@ -110,6 +113,8 @@ def verify_secrets_configured() -> None:
             list(_VALID_APNS_ENVIRONMENTS),
         )
 
+    # Logs env type + presence booleans only, never any secret value.
+    # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
     logger.info(
         "Secrets validation complete (env=%s, jwt=%s, encryption=%s, "
         "anthropic=%s, apns_env=%s)",

@@ -1,0 +1,31 @@
+# Paths Semgrep should never scan.
+# Per docs/comprehensive-scan-2026-04-30.md, per-rule suppression of
+# false positives is handled inline via `# nosemgrep:` comments. This
+# file only excludes paths whose findings would be noise regardless of
+# the rule (vendored, generated, fixtures).
+
+# Tooling state from the GitNexus install
+.gitnexus/
+.gitnexus-staging/
+
+# Generated lockfiles
+**/uv.lock
+**/package-lock.json
+
+# Dep trees we don't author
+node_modules/
+**/node_modules/
+.venv/
+**/.venv/
+venv/
+**/venv/
+
+# Build artifacts
+build/
+DerivedData/
+**/Pods/
+
+# Test fixtures: synthetic / golden data, not production-shaped
+backend/tests/fixtures/
+backend/tests/data/
+evals/promptfoo/data/
