@@ -27,5 +27,10 @@ class Base(DeclarativeBase):
 
 
 async def get_db():
+    # CRITICAL: invoked via FastAPI Depends; do not rely on call-graph.
+    # Every database-touching route declares `db: AsyncSession = Depends(get_db)`,
+    # which static analyzers like GitNexus do not model as a CALLS edge.
+    # Treat changes to this function as Tier 3 by blast radius even though
+    # the file path is not on the Tier 3 list.
     async with async_session() as session:
         yield session

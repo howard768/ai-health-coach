@@ -144,6 +144,10 @@ def _init_sentry():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # CRITICAL: invoked by FastAPI ASGI machinery, not by any direct caller.
+    # Static call graphs do not model lifespan invocation as a CALLS edge,
+    # so impact tools will report this as orphaned. It is the boot path:
+    # any change here gates every deploy.
     # Startup: Sentry, secret validation, PEM verifiers, scheduler.
     # Migrations are NOT run here — Railway's preDeployCommand owns
     # `alembic upgrade head` (see backend/railway.toml). See
