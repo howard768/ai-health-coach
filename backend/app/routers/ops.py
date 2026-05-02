@@ -38,6 +38,12 @@ _FRESHNESS_SOURCES: dict[str, tuple[str, str]] = {
     "notification_records_latest": ("notification_records", "sent_at"),
 }
 
+# Defense-in-depth allowlists for the f-string SQL below. Identifiers can't
+# be parameterized via bindparam, so we validate them against the same
+# constants that drive _FRESHNESS_SOURCES before interpolation.
+_ALLOWED_TABLES: frozenset[str] = frozenset(t for t, _ in _FRESHNESS_SOURCES.values())
+_ALLOWED_COLUMNS: frozenset[str] = frozenset(c for _, c in _FRESHNESS_SOURCES.values())
+
 
 # -- Response models --
 
@@ -108,8 +114,15 @@ async def _get_pipeline_freshness(db: AsyncSession) -> PipelineFreshness:
     """
     results: dict[str, str | None] = {}
     for key, (table, column) in _FRESHNESS_SOURCES.items():
+        # Belt-and-suspenders: identifiers are constants today, but if anyone
+        # ever wires this dict to runtime input, the assertions trip first.
+        assert table in _ALLOWED_TABLES, f"unknown table: {table!r}"
+        assert column in _ALLOWED_COLUMNS, f"unknown column: {column!r}"
         try:
             row = await db.execute(
+                # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text.avoid-sqlalchemy-text
+                # Identifiers validated above against frozensets derived from a
+                # module-level constant. SQL identifiers cannot be parameterized.
                 text(f"SELECT MAX({column}) FROM {table}")  # noqa: S608
             )
             val = row.scalar()
@@ -155,7 +168,7 @@ async def ops_status(db: AsyncSession = Depends(get_db)) -> OpsStatusResponse:
     #     before probing.
     # (2) `SELECT 1` succeeds against an empty Postgres, which masked total
     #     schema loss for 10 days during the 2026-04-29 incident. Probe
-    #     `alembic_version` instead — its presence confirms the schema chain
+    #     `alembic_version` instead; its presence confirms the schema chain
     #     ran. See ~/.claude/projects/.../memory/feedback_db_ok_must_query_real_table.md.
     db_ok = True
     try:
