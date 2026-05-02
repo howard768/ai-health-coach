@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import date
+from datetime import date, datetime, time
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -232,12 +232,16 @@ async def get_candidates(
     """
     from app.models.ml_insights import MLInsightCandidate
 
-    today = date.today()
+    # MELD-BACKEND-G: pre-fix this passed a date string into a DateTime
+    # comparison. Postgres rejects `timestamp >= varchar` with
+    # UndefinedFunctionError; SQLite was lenient. Always compare against a
+    # real datetime here.
+    today_start = datetime.combine(date.today(), time.min)
 
     result = await db.execute(
         select(MLInsightCandidate).where(
             MLInsightCandidate.user_id == user.apple_user_id,
-            MLInsightCandidate.generated_at >= today.isoformat(),
+            MLInsightCandidate.generated_at >= today_start,
         )
     )
     candidates = result.scalars().all()
