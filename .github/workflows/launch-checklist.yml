@@ -1,0 +1,38 @@
+name: Launch Checklist
+
+# Triggered by linear-label-router.yml when an issue gets the `launch-check`
+# label without `launch-check-done`. Validates the 19-point pre-launch
+# checklist and posts results as a Linear comment, then marks done.
+#
+# Replaces the meld-launch-checklist scheduled task.
+
+on:
+  workflow_dispatch:
+    inputs:
+      linear_issue_id:
+        description: 'Linear issue identifier (e.g. MEL-NN)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: launch-checklist-${{ inputs.linear_issue_id }}
+  cancel-in-progress: false
+
+jobs:
+  run-checklist:
+    name: Run checklist for ${{ inputs.linear_issue_id }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Run pre-launch checklist
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+        run: python3 scripts/launch_checklist.py "${{ inputs.linear_issue_id }}"

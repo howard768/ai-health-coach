@@ -1,0 +1,45 @@
+name: Linear Label Router (Cron)
+
+# Cron-polled router that replaces three PC-bound polling scheduled tasks:
+#   - meld-incident-response  (P0 Linear issue -> incident-response.yml)
+#   - meld-launch-checklist   (launch-check label -> launch-checklist.yml)
+#   - meld-feature-scoping    (needs-spec label -> feature-scoping.yml)
+#
+# Polls Linear every 5 minutes via GraphQL, finds open issues with the
+# trigger label that do NOT already have the matching done-marker, and
+# fires `gh workflow run <downstream>.yml --field linear_issue_id=<X>`.
+#
+# Idempotency is enforced by the marker labels each downstream workflow
+# adds (incident-playbook-initialized / launch-check-done / spec-drafted).
+# So a sustained match produces one dispatch and then nothing until the
+# label is manually cleared.
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'   # every 5 min, on the 5
+  workflow_dispatch: {}     # for ad-hoc manual trigger
+
+permissions:
+  contents: read
+  actions: write   # required to dispatch other workflows via gh workflow run
+
+concurrency:
+  group: linear-label-router
+  cancel-in-progress: false
+
+jobs:
+  route:
+    name: Poll Linear and dispatch
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Poll and dispatch
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/linear_label_router.py
