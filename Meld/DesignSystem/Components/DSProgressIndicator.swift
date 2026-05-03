@@ -83,7 +83,7 @@ struct DSCircularProgress: View {
                     .rotationEffect(.degrees(-90))
                     .animation(DSMotion.standard, value: progress)
             } else {
-                // Indeterminate — spinning
+                // Indeterminate, spinning
                 Circle()
                     .trim(from: 0, to: 0.3)
                     .stroke(

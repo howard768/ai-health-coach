@@ -1,4 +1,4 @@
-"""Tests for the Opus narrator — injected fake Anthropic client, no API calls.
+"""Tests for the Opus narrator, injected fake Anthropic client, no API calls.
 
 Covers the happy path, voice-compliance rejection, em-dash mechanical scrub,
 and fallback-to-template behavior across kinds.
@@ -124,7 +124,7 @@ async def test_em_dash_in_model_output_is_mechanically_scrubbed():
 
 @pytest.mark.asyncio
 async def test_em_dash_plus_emoji_falls_back_to_template():
-    # Multiple violations — em dash scrub alone won't rescue this.
+    # Multiple violations, em dash scrub alone won't rescue this.
     client = FakeAnthropicClient(
         next_text="Higher protein \u2014 longer deep sleep \U0001F44D in your data."
     )

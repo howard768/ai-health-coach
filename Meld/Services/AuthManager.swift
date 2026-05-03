@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - AuthManager
 //
-// Orchestrates the session lifecycle — Sign in with Apple exchange, token
+// Orchestrates the session lifecycle, Sign in with Apple exchange, token
 // refresh on 401, logout, and account deletion. Isolated as an actor so
 // concurrent callers serialize on refresh (single-flight pattern).
 //
@@ -11,7 +11,7 @@ import Foundation
 //   handler awaits the same Task (Donny Wals' pattern).
 // - On refresh failure, wipe Keychain and broadcast `meldSessionExpired`
 //   so the UI can kick to Welcome.
-// - Never preemptively refresh — only refresh on 401 from the API.
+// - Never preemptively refresh, only refresh on 401 from the API.
 
 @MainActor
 final class AuthSessionState: ObservableObject {
@@ -69,7 +69,7 @@ actor AuthManager {
     ///   2. Caller A returns its result.
     ///   3. The deferred clear-task is queued but not yet run.
     ///   4. Caller B enters refresh(), sees the still-set `refreshTask`,
-    ///      and awaits its value — getting A's already-resolved value.
+    ///      and awaits its value, getting A's already-resolved value.
     /// On A's success this is harmless dedup; on A's failure B gets A's
     /// error instead of a fresh attempt. Now we clear synchronously inside
     /// the actor body before returning, so the cache reflects exactly
@@ -131,7 +131,7 @@ actor AuthManager {
             let refresh = try await KeychainStore.shared.readRefreshToken()
             try? await APIClient.shared.logoutSession(refreshToken: refresh)
         } catch {
-            // No refresh token stored — nothing to tell the backend about
+            // No refresh token stored, nothing to tell the backend about
         }
         try? await KeychainStore.shared.wipe()
         await MainActor.run {
@@ -165,9 +165,9 @@ actor AuthManager {
     func handleUnauthorized() async {
         do {
             _ = try await refresh()
-            // Success — caller should retry the original request
+            // Success, caller should retry the original request
         } catch {
-            // Refresh failed — treat as signed out
+            // Refresh failed, treat as signed out
             try? await KeychainStore.shared.wipe()
             await MainActor.run {
                 AuthSessionState.shared.setSignedIn(false)

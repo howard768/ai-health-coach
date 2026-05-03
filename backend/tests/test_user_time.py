@@ -51,7 +51,7 @@ def test_user_now_uses_settings_default_when_tz_name_omitted(monkeypatch):
     assert "New_York" in str(result.tzinfo) or str(result.tzinfo) == "America/New_York"
 
 
-# ── user_today_iso — the meals.py date bug ────────────────────────────────
+# ── user_today_iso, the meals.py date bug ────────────────────────────────
 
 
 def test_user_today_iso_8pm_est_is_today_not_tomorrow():
@@ -87,7 +87,7 @@ def test_user_today_iso_invalid_tz_falls_back_to_utc():
     assert result == "2026-05-01"
 
 
-# ── user_hour — the meal classification bug ────────────────────────────────
+# ── user_hour, the meal classification bug ────────────────────────────────
 
 
 def test_user_hour_8pm_est_returns_20_not_0():

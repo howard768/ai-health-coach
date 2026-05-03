@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     # Token Oura sends back during the GET handshake to verify the registrar
     # owns our endpoint. Generate per-env via `openssl rand -hex 24`.
     # Empty = handshake rejected (default-deny in dev). 2026-04-29 audit found
-    # a hardcoded value in source — that string is now revoked.
+    # a hardcoded value in source, that string is now revoked.
     oura_webhook_verification_token: str = ""
 
     # App
@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     apns_bundle_id: str = "com.heymeld.app"
     apns_environment: str = "sandbox"  # "sandbox" or "production"
 
-    # Encryption — Fernet symmetric key for OAuth tokens at rest.
+    # Encryption, Fernet symmetric key for OAuth tokens at rest.
     # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
     encryption_key: str = ""
 
@@ -71,7 +71,7 @@ class Settings(BaseSettings):
     public_base_url: str = ""
     local_base_url: str = "http://localhost:8000"
 
-    # Auth — Sign in with Apple + backend JWTs
+    # Auth, Sign in with Apple + backend JWTs
     jwt_secret_key: str = ""  # HS256 secret for our own access tokens; from env
     apple_team_id: str = ""
     apple_bundle_id: str = "com.heymeld.app"
@@ -82,7 +82,7 @@ class Settings(BaseSettings):
     siwa_key_path: str = ""
     siwa_key_content: str = ""
 
-    # Sentry — error tracking + AI debugging (Seer). Empty DSN disables.
+    # Sentry, error tracking + AI debugging (Seer). Empty DSN disables.
     sentry_dsn: str = ""
 
     # Admin Apple user IDs allowed to call /api/insights/admin/rollback and

@@ -104,7 +104,7 @@ def test_wrong_typ_rejected():
         "jti": "test-jti",
         "iss": JWT_ISSUER,
         "aud": JWT_AUDIENCE,
-        "typ": "refresh",  # WRONG — trying to use refresh as access
+        "typ": "refresh",  # WRONG, trying to use refresh as access
     }
     token = jwt.encode(payload, settings.jwt_secret_key, algorithm=JWT_ALGORITHM)
     with pytest.raises(jwt.InvalidTokenError):

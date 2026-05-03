@@ -1,4 +1,4 @@
-"""FastAPI dependencies — primary entry point for authenticated routes.
+"""FastAPI dependencies, primary entry point for authenticated routes.
 
 Usage in routers:
 

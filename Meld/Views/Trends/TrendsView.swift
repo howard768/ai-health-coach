@@ -39,7 +39,7 @@ struct TrendsView: View {
                     // Error with retry
                     errorCard(message: loadError)
                 } else if isEmpty {
-                    // No data yet — prompt to connect a source
+                    // No data yet, prompt to connect a source
                     emptyCard
                 } else {
                     // Trend summary (headline insight)
@@ -50,7 +50,7 @@ struct TrendsView: View {
                         TrendCard(metric: metric, range: selectedRange, apiData: trendsData)
                     }
 
-                    // Cross-domain and nutrition — only shown when backed by real data
+                    // Cross-domain and nutrition, only shown when backed by real data
                     // (pattern detection and nutrition APIs not yet wired)
                 }
             }
@@ -204,7 +204,7 @@ struct TrendsView: View {
 
     private var summaryText: String {
         guard let data = trendsData, !data.metrics.isEmpty else {
-            return "Keep tracking — more data means better insights."
+            return "Keep tracking, more data means better insights."
         }
         var parts: [String] = []
 
@@ -222,11 +222,11 @@ struct TrendsView: View {
         }
         if let rhr = data.metrics["resting_hr"], rhr.values.count >= 2 {
             let diff = (rhr.values.last ?? 0) - (rhr.values.first ?? 0)
-            if diff < -1 { parts.append("Resting heart rate is dropping — good sign") }
+            if diff < -1 { parts.append("Resting heart rate is dropping, good sign") }
             else if diff > 1 { parts.append("Resting heart rate is up a bit") }
             else { parts.append("Resting heart rate is stable") }
         }
-        if parts.isEmpty { return "Keep tracking — more data means better insights." }
+        if parts.isEmpty { return "Keep tracking, more data means better insights." }
         return parts.joined(separator: ". ") + "."
     }
 
@@ -301,7 +301,7 @@ struct TrendsView: View {
                         Text("Avg Protein")
                             .font(DSTypography.caption)
                             .foregroundStyle(DSColor.Text.tertiary)
-                        Text(avgProtein.map { "\($0)g" } ?? "—")
+                        Text(avgProtein.map { "\($0)g" } ?? "--")
                             .font(DSTypography.h3)
                             .foregroundStyle(DSColor.Text.primary)
                         Text("Target: \(targetProtein)g")
@@ -317,7 +317,7 @@ struct TrendsView: View {
                         Text("Avg Calories")
                             .font(DSTypography.caption)
                             .foregroundStyle(DSColor.Text.tertiary)
-                        Text(avgCalories.map { $0.formatted() } ?? "—")
+                        Text(avgCalories.map { $0.formatted() } ?? "--")
                             .font(DSTypography.h3)
                             .foregroundStyle(DSColor.Text.primary)
                         Text("Target: \(targetCalories.formatted())")
@@ -329,7 +329,7 @@ struct TrendsView: View {
                         Text("Logged")
                             .font(DSTypography.caption)
                             .foregroundStyle(DSColor.Text.tertiary)
-                        Text(daysLogged.map { "\($0)/\(rangeDays)" } ?? "—")
+                        Text(daysLogged.map { "\($0)/\(rangeDays)" } ?? "--")
                             .font(DSTypography.h3)
                             .foregroundStyle(DSColor.Text.primary)
                         Text("days")

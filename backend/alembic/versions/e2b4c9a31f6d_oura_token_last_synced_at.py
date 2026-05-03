@@ -31,7 +31,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Nullable so existing rows don't need a backfill — the first sync
+    # Nullable so existing rows don't need a backfill, the first sync
     # after deploy will populate it. Downstream code treats NULL as
     # "never synced" which correctly triggers a sync.
     op.add_column(

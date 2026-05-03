@@ -51,7 +51,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUser
                 if HealthKitService.shared.isAvailable {
                     let steps = await HealthKitService.shared.queryTodaySteps()
                     if steps != nil {
-                        // HealthKit is authorized — sync data to backend
+                        // HealthKit is authorized, sync data to backend
                         HealthKitService.shared.isAuthorized = true
                         await HealthKitService.shared.syncToBackend()
                         Log.healthKit.info("Auto-synced on launch")
@@ -83,7 +83,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUser
     }
 
     // MARK: - Foreground Notification Display
-    // Uses completion handler variant — the async variant deadlocks in Swift 6.
+    // Uses completion handler variant, the async variant deadlocks in Swift 6.
 
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
@@ -94,7 +94,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUser
     }
 
     // MARK: - Notification Tap Handling
-    // Uses completion handler variant — the async variant deadlocks in Swift 6.
+    // Uses completion handler variant, the async variant deadlocks in Swift 6.
 
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
@@ -103,7 +103,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUser
     ) {
         let userInfo = response.notification.request.content.userInfo
 
-        // Determine which tab to open — action buttons take priority.
+        // Determine which tab to open, action buttons take priority.
         // PR-H: route through `NotificationActionID` + `Tab` rawValues so
         // the registration site (registerNotificationCategories) and this
         // matching site stay in lockstep at compile time.
@@ -136,13 +136,13 @@ final class AppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUser
         completionHandler()
     }
 
-    /// Static storage for pending navigation — written from the
+    /// Static storage for pending navigation, written from the
     /// UNUserNotificationCenter delegate callback (runs on UN's internal
     /// queue, NOT MainActor) and read from `MainTabView.checkPendingTab()`
     /// (runs on MainActor via SwiftUI lifecycle).
     ///
     /// Pre-followup #1 this was `nonisolated(unsafe) static var pendingTab:
-    /// String?` — racy under concurrent set/get, and Swift 6 only kept it
+    /// String?`, racy under concurrent set/get, and Swift 6 only kept it
     /// because the `unsafe` opt-out silenced the compiler. Now wrapped in
     /// `PendingTabHolder` which provides lock-protected `set` and atomic
     /// `consume` (read + nil-out in one critical section). The MainTabView
@@ -237,7 +237,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate, @preconcurrency UNUser
         ) { task in
             // PR-H: replace `as!` force-cast with guard. The system should
             // always hand us a `BGProcessingTask` for this identifier, but a
-            // future BGTaskScheduler API change could surprise us — fail
+            // future BGTaskScheduler API change could surprise us, fail
             // soft (mark complete + log) rather than crashing the app.
             guard let processingTask = task as? BGProcessingTask else {
                 Log.notifications.error(

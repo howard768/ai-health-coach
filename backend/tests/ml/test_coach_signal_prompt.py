@@ -1,4 +1,4 @@
-"""Tests for Phase 5 prompt rendering — SignalContext into EVIDENCE_BOUND_SYSTEM_PROMPT.
+"""Tests for Phase 5 prompt rendering, SignalContext into EVIDENCE_BOUND_SYSTEM_PROMPT.
 
 Pure string-assembly tests (no DB, no LLM). Verifies that the three new
 prompt sections render correctly when SignalContext is populated, and

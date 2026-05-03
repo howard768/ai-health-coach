@@ -1,5 +1,5 @@
 appId: com.heymeld.app
-name: "Meals — Search for a food item"
+name: "Meals, Search for a food item"
 ---
 - runFlow: ../helpers/auth_bypass.yaml
 

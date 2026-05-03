@@ -6,13 +6,13 @@ AI-powered health coach for iOS. Reads sleep, recovery, workouts, and nutrition 
 
 | Path | What it is |
 |---|---|
-| `Meld/` | iOS app — SwiftUI 6, iOS 17+, custom design system, Sign in with Apple |
+| `Meld/` | iOS app, SwiftUI 6, iOS 17+, custom design system, Sign in with Apple |
 | `MeldNotificationServiceExtension/` | NSE for rich push notifications (recovery badges, etc.) |
 | `MeldTests/` | iOS unit tests (XCTest) |
-| `backend/` | FastAPI service — Python 3.13, async SQLAlchemy, Anthropic SDK, APScheduler |
+| `backend/` | FastAPI service, Python 3.13, async SQLAlchemy, Anthropic SDK, APScheduler |
 | `evals/` | Promptfoo + pytest eval suite for the coach prompt (56 + 19 tests) |
 | `Fonts/`, `medium/`, `eightsleep/` | Reference assets and supporting material |
-| `project.yml` | XcodeGen source of truth — regenerate the .xcodeproj from this |
+| `project.yml` | XcodeGen source of truth, regenerate the .xcodeproj from this |
 | `.github/workflows/` | CI: backend tests, iOS build, eval suite |
 
 ## Quick start
@@ -36,7 +36,7 @@ xcodegen generate
 open Meld.xcodeproj
 ```
 
-Pick the **Meld** scheme and a recent iPhone simulator. The Debug build talks to your local backend at `192.168.x.x:8000` (set in `project.yml` — replace with your Mac's LAN IP). Release builds hit Railway.
+Pick the **Meld** scheme and a recent iPhone simulator. The Debug build talks to your local backend at `192.168.x.x:8000` (set in `project.yml`, replace with your Mac's LAN IP). Release builds hit Railway.
 
 ### Eval suite
 
@@ -70,7 +70,7 @@ Sign in with Apple → backend exchanges identity token for our own short-lived 
 
 ## Security at rest
 
-OAuth tokens (Oura, Garmin sessions, Peloton, Apple refresh) are encrypted with Fernet (AES-128-CBC + HMAC) via a SQLAlchemy `EncryptedString` TypeDecorator. The key lives in Railway env vars only — losing the DB without the key gets you ciphertext, not credentials. Legacy plaintext rows are still readable and re-encrypt on the next write.
+OAuth tokens (Oura, Garmin sessions, Peloton, Apple refresh) are encrypted with Fernet (AES-128-CBC + HMAC) via a SQLAlchemy `EncryptedString` TypeDecorator. The key lives in Railway env vars only, losing the DB without the key gets you ciphertext, not credentials. Legacy plaintext rows are still readable and re-encrypt on the next write.
 
 ## Notifications
 
@@ -100,7 +100,7 @@ Kill switch: repo variable `AUTO_MERGE_ENABLED` (default `true`). Flip to `false
 
 ## What's NOT in this repo
 
-- The Anthropic API key, JWT secret, encryption key, APNs `.p8`, and Sign in with Apple `.p8` — all in Railway env vars and `.env` (gitignored).
+- The Anthropic API key, JWT secret, encryption key, APNs `.p8`, and Sign in with Apple `.p8`, all in Railway env vars and `.env` (gitignored).
 - The `meld.db` SQLite file in the repo root is local dev only. Production uses Railway Postgres.
 - The Obsidian wiki at `~/Documents/Obsidian Vault/HealthCoach/` holds research docs, audits, and design specs that aren't suitable for this repo.
 

@@ -7,16 +7,16 @@ live under ``app/models/`` solely so alembic discovers them.
 
 Tables:
 
-- ``ml_baselines`` — per-(user, metric) STL decomposition snapshot. One row
+- ``ml_baselines``, per-(user, metric) STL decomposition snapshot. One row
   per (user, metric, computed_at). Trend + seasonal + residual_std give
   downstream layers (L2 associations, anomaly detection) the statistics
   they need to residualize a raw series.
-- ``ml_change_points`` — detected changes in a metric's baseline. BOCPD
+- ``ml_change_points``, detected changes in a metric's baseline. BOCPD
   writes here when the streaming probability crosses threshold.
-- ``ml_forecasts`` — per-(user, metric, target_date, made_on) short-horizon
+- ``ml_forecasts``, per-(user, metric, target_date, made_on) short-horizon
   forecast value with a 95% prediction interval. Many-to-one with user;
   stored forecasts are idempotent per (user, metric, target_date, made_on).
-- ``ml_anomalies`` — flagged deviations ``|observed - forecasted|`` beyond
+- ``ml_anomalies``, flagged deviations ``|observed - forecasted|`` beyond
   the residual z-score threshold. One row per (user, metric, date) that
   trips the flag.
 

@@ -89,7 +89,7 @@ def test_seasonal_naive_returns_none_when_lookback_missing():
         s, metric_key="hrv", made_on=date(2026, 1, 3), horizon_days=7, use_prophet=False
     )
     # Horizon days 1..4 are within 7d of made_on; lookback falls BEFORE 2026-01-01.
-    # Days with lookback in the series: day 4,5,6,7 have lookback at day -3,-2,-1,0 — only day 7 lookback (2026-01-03) is in series.
+    # Days with lookback in the series: day 4,5,6,7 have lookback at day -3,-2,-1,0, only day 7 lookback (2026-01-03) is in series.
     y_hat_none = sum(1 for p in out.points if p.y_hat is None)
     assert y_hat_none >= 3
 

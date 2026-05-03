@@ -213,7 +213,7 @@ async def send_test_by_category(
         select(SleepRecord).where(SleepRecord.user_id == user_id).order_by(desc(SleepRecord.date)).limit(1)
     )
     sr = sleep_result.scalar_one_or_none()
-    # Only build health_data from a real record — no fabricated fallbacks
+    # Only build health_data from a real record, no fabricated fallbacks
     # (Original code used hardcoded 85/65/58/80 which is mock data in prod.)
     if sr is None:
         return {"status": "error", "message": "No sleep data available"}
@@ -285,7 +285,7 @@ async def get_notification_preferences(
     pref = result.scalar_one_or_none()
 
     if not pref:
-        # Return defaults (no row yet — will be created on first PUT)
+        # Return defaults (no row yet, will be created on first PUT)
         return NotificationPreferencesResponse()
 
     return NotificationPreferencesResponse(

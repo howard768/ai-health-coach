@@ -12,7 +12,7 @@ class OuraToken(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[str] = mapped_column(String(255), index=True)
-    # Encrypted at rest with Fernet (P1-1). Backward-compatible — legacy
+    # Encrypted at rest with Fernet (P1-1). Backward-compatible, legacy
     # plaintext rows still read fine and get re-encrypted on next refresh.
     access_token: Mapped[str] = mapped_column(EncryptedString(2000))
     refresh_token: Mapped[str] = mapped_column(EncryptedString(2000))
@@ -21,7 +21,7 @@ class OuraToken(Base):
     # Last time the backend successfully called Oura's API for this user.
     # Used by _maybe_refresh_oura() in routers/health.py to throttle the
     # on-demand dashboard sync. Updated at the END of sync_user_data()
-    # regardless of how many records were saved — the semantic is "we
+    # regardless of how many records were saved, the semantic is "we
     # talked to Oura", not "we got new rows". NULL = never synced.
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     # MEL-45 part 1: Oura's user identifier (from /v2/usercollection/personal_info

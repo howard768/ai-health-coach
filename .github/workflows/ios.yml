@@ -67,7 +67,7 @@ jobs:
         run: brew install xcodegen
 
       - name: Regenerate project
-        # project.yml is the source of truth — checked-in .xcodeproj is just
+        # project.yml is the source of truth, checked-in .xcodeproj is just
         # a snapshot. Regenerating in CI catches drift and avoids merge
         # conflicts in pbxproj.
         run: xcodegen generate
@@ -96,7 +96,7 @@ jobs:
 
       # Split test invocations by target type because they need different
       # signing settings and have different failure modes. Running them in
-      # one `xcodebuild test` masked which target was breaking — the
+      # one `xcodebuild test` masked which target was breaking, the
       # per-suite summaries from xcpretty were getting swallowed when any
       # target hit exit 65.
       #
@@ -211,7 +211,7 @@ jobs:
     # Bumped from 20 to 40. This job was previously skipping because
     # build-and-test was red; now that the build passes, the full
     # Maestro flow set (12 flows) runs end-to-end and takes ~24 minutes
-    # on the macos-15 runner — just over the previous 20-minute job
+    # on the macos-15 runner, just over the previous 20-minute job
     # timeout. `|| true` on the `maestro test` step already swallows
     # per-flow exit codes; the timeout here is about wall-clock ceiling.
     timeout-minutes: 40
@@ -367,7 +367,7 @@ jobs:
         run: brew install swiftlint
 
       - name: Run SwiftLint
-        # Don't fail the build on lint warnings — we haven't established a
+        # Don't fail the build on lint warnings, we haven't established a
         # baseline yet. This will become blocking once the codebase is clean.
         run: |
           swiftlint --reporter github-actions-logging Meld/ MeldTests/ MeldSnapshotTests/ || \

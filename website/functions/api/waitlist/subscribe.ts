@@ -1,5 +1,5 @@
 /**
- * Waitlist subscribe — Cloudflare Pages Function.
+ * Waitlist subscribe, Cloudflare Pages Function.
  *
  * POST /api/waitlist/subscribe
  *
@@ -43,7 +43,7 @@ interface SubscribeBody {
 }
 
 const CORS_HEADERS: Record<string, string> = {
-  // Same-origin by default — the site and function share a host — but allow
+  // Same-origin by default, the site and function share a host, but allow
   // the Pages preview subdomains + localhost dev for convenience.
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -155,7 +155,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }
 
   // Insert new row. If a race created one between the SELECT and INSERT,
-  // the UNIQUE constraint on email will surface here — treat as success.
+  // the UNIQUE constraint on email will surface here, treat as success.
   try {
     await env.DB.prepare(
       `INSERT INTO waitlist_signups
@@ -178,7 +178,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       )
       .run();
   } catch (err) {
-    // UNIQUE violation race — treat as a dedupe hit.
+    // UNIQUE violation race, treat as a dedupe hit.
     const message = err instanceof Error ? err.message : String(err);
     if (/UNIQUE/i.test(message)) {
       return json({

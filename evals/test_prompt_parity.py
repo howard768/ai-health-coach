@@ -2,7 +2,7 @@
 
 The eval suite (`promptfooconfig.yaml`) defines a system prompt used to test
 coach quality. The production coach engine (`backend/app/services/coach_engine.py`)
-defines its own system prompt. These two have already drifted twice — once
+defines its own system prompt. These two have already drifted twice, once
 when adding the magnesium fix, and again when adding the "trust current data"
 rule.
 
@@ -75,7 +75,7 @@ def test_rule_count_matches():
     # Production coach has rules inside the EVIDENCE_BOUND_SYSTEM_PROMPT triple-string
     prod_rules = set(re.findall(r"^(\d+)\.\s", prod_text, re.MULTILINE))
 
-    # Eval has many "1. ", "2. " from rules in YAML — extract just the prompt section
+    # Eval has many "1. ", "2. " from rules in YAML, extract just the prompt section
     # Look for the CRITICAL RULES block specifically
     eval_critical = re.search(
         r"CRITICAL RULES:(.*?)USER",

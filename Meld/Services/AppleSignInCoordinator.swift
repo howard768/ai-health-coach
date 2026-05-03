@@ -14,13 +14,13 @@ import UIKit
 // - Random nonce via SecRandomCopyBytes (CSPRNG).
 // - SHA256 hash sent to Apple, raw nonce kept on device and sent to backend
 //   for nonce verification in the Apple JWT claims.
-// - Name/email arrive ONLY on first sign-in — persist immediately.
+// - Name/email arrive ONLY on first sign-in, persist immediately.
 // - Use claims["sub"] (from the identity token) as source of truth, not the
 //   iOS-supplied credential.user field. This is enforced server-side.
 
 @MainActor
 final class AppleSignInCoordinator: NSObject {
-    /// Current raw nonce — kept until sign-in completes so we can send it
+    /// Current raw nonce, kept until sign-in completes so we can send it
     /// alongside the identity token to our backend. The view reads this via
     /// `currentRawNonce` after calling `prepareRequest`.
     private(set) var currentRawNonce: String?
@@ -39,7 +39,7 @@ final class AppleSignInCoordinator: NSObject {
         self.currentRawNonce = nil
     }
 
-    /// Awaitable sign-in entry point — used by WelcomeView.
+    /// Awaitable sign-in entry point, used by WelcomeView.
     /// The continuation resumes when the delegate fires.
     func signIn() async throws {
         try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
@@ -87,7 +87,7 @@ final class AppleSignInCoordinator: NSObject {
         return result
     }
 
-    /// SHA256 hex of the input — Apple expects this in `request.nonce`.
+    /// SHA256 hex of the input, Apple expects this in `request.nonce`.
     static func sha256(_ input: String) -> String {
         let inputData = Data(input.utf8)
         let hashed = SHA256.hash(data: inputData)
@@ -120,7 +120,7 @@ extension AppleSignInCoordinator: ASAuthorizationControllerDelegate {
             return
         }
 
-        // fullName and email are ONLY present on first sign-in — capture them now
+        // fullName and email are ONLY present on first sign-in, capture them now
         // or never see them again for this user.
         let nameComponents = credential.fullName
         let fullName: String? = {
@@ -130,7 +130,7 @@ extension AppleSignInCoordinator: ASAuthorizationControllerDelegate {
         }()
         let email = credential.email
 
-        // Device ID for session tracking — identifierForVendor is stable per app install.
+        // Device ID for session tracking, identifierForVendor is stable per app install.
         let deviceId = UIDevice.current.identifierForVendor?.uuidString
 
         Task { @MainActor in
@@ -165,7 +165,7 @@ extension AppleSignInCoordinator: ASAuthorizationControllerDelegate {
 
 extension AppleSignInCoordinator: ASAuthorizationControllerPresentationContextProviding {
     func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
-        // Return the key window — works for SwiftUI apps too
+        // Return the key window, works for SwiftUI apps too
         UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .flatMap { $0.windows }

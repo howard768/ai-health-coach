@@ -6,25 +6,25 @@ import SwiftUI
 
 enum DSRadius {
 
-    /// 4pt — Badges, tiny elements
+    /// 4pt, Badges, tiny elements
     static let xs: CGFloat = 4
 
-    /// 8pt — Chips, buttons
+    /// 8pt, Chips, buttons
     static let sm: CGFloat = 8
 
-    /// 12pt — Input fields, small cards
+    /// 12pt, Input fields, small cards
     static let md: CGFloat = 12
 
-    /// 16pt — Metric cards (from Figma)
+    /// 16pt, Metric cards (from Figma)
     static let lg: CGFloat = 16
 
-    /// 20pt — Insight cards, large cards (from Figma)
+    /// 20pt, Insight cards, large cards (from Figma)
     static let xl: CGFloat = 20
 
-    /// 28pt — Modals, sheets
+    /// 28pt, Modals, sheets
     static let xxl: CGFloat = 28
 
-    /// Capsule — Pills, toggles, full rounding
+    /// Capsule, Pills, toggles, full rounding
     static let full: CGFloat = .infinity
 }
 

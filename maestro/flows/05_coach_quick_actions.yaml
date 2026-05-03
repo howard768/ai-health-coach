@@ -1,5 +1,5 @@
 appId: com.heymeld.app
-name: "Coach Chat — Quick action chips"
+name: "Coach Chat, Quick action chips"
 ---
 - runFlow: ../helpers/auth_bypass.yaml
 

@@ -33,17 +33,17 @@ from dataclasses import dataclass
 _EM_DASH_RE = re.compile("\u2014")
 
 # Flesch-Kincaid grade level ceiling. The product target is 4th-grade
-# reading level. FK grade is a rough metric — it penalizes long sentences
+# reading level. FK grade is a rough metric, it penalizes long sentences
 # and multi-syllable words (including "circadian", "cardiovascular") more
 # than a human reader would. Empirically, well-crafted 4th-grade-readable
 # prose scores 5-7 on FK. We align with the existing coach eval threshold
 # (7 in ``evals/test_coach_quality.py``) rather than trying to be stricter
-# in the narrator — same bar everywhere. The em-dash and emoji rules carry
+# in the narrator, same bar everywhere. The em-dash and emoji rules carry
 # most of the voice-compliance load; FK is a backstop against dense prose.
 DEFAULT_MAX_GRADE = 7.0
 
 # Reading-level checks misbehave on tiny strings. Anything under this length
-# gets a pass on grade-level — we are surfacing a label or a CTA, not prose.
+# gets a pass on grade-level, we are surfacing a label or a CTA, not prose.
 _MIN_CHARS_FOR_GRADE_CHECK = 60
 
 
@@ -161,10 +161,10 @@ def scrub_em_dashes(text: str) -> str:
     Matches the existing sanitize_output behavior in
     ``backend/app/services/content_blocks.py``: em dash with adjacent spaces
     becomes a comma, bare em dash inside a word becomes a hyphen. Used by
-    the Opus narrator when the model slips past the prompt — we prefer a
+    the Opus narrator when the model slips past the prompt, we prefer a
     mechanical fix to retrying an expensive model call.
     """
-    # " — " (spaced em dash) -> ", "
+    # ", " (spaced em dash) -> ", "
     cleaned = re.sub(r"\s*\u2014\s*", ", ", text)
     # Any remaining bare em dash -> hyphen
     cleaned = cleaned.replace("\u2014", "-")

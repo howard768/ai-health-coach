@@ -83,7 +83,7 @@ struct DesignSystemPreview: View {
             Text("H3 18/Medium").font(DSTypography.h3).foregroundStyle(DSColor.Text.primary)
             Text("87").font(DSTypography.metricXL).foregroundStyle(DSColor.Text.primary)
             Text("68 ms").font(DSTypography.metricLG).foregroundStyle(DSColor.Text.primary)
-            Text("Body 16/Light — main text").font(DSTypography.body).foregroundStyle(DSColor.Text.primary)
+            Text("Body 16/Light, main text").font(DSTypography.body).foregroundStyle(DSColor.Text.primary)
             Text("Body SM 14/Regular").font(DSTypography.bodySM).foregroundStyle(DSColor.Text.secondary)
             Text("Caption 12/Regular").font(DSTypography.caption).foregroundStyle(DSColor.Text.tertiary)
             Text("HEART RATE").dsLabel().foregroundStyle(DSColor.Text.tertiary)

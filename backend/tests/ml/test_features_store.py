@@ -227,7 +227,7 @@ async def test_get_feature_frame_respects_include_imputed_flag(db):
 
     # With imputed included, the cells are still NaN (value was None when
     # stored); without imputed they're also NaN. The real difference shows
-    # up when is_observed=True but imputed_by is set — not exercised in v1
+    # up when is_observed=True but imputed_by is set, not exercised in v1
     # since our builders never output imputed=True for missing data.
     # Still: both calls must succeed and return the same shape.
     assert frame_with.shape == frame_without.shape
@@ -257,7 +257,7 @@ async def test_get_feature_frame_with_no_keys_returns_full_catalog(db):
 
 
 # ─────────────────────────────────────────────────────────────────────────
-# Performance guardrail — loose, just to catch 100x regressions.
+# Performance guardrail, loose, just to catch 100x regressions.
 # ─────────────────────────────────────────────────────────────────────────
 
 

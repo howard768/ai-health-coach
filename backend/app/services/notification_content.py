@@ -27,7 +27,7 @@ from app.core.time import utcnow_naive
 logger = logging.getLogger("meld.notifications.content")
 
 # Shared rules injected into every prompt
-SHARED_RULES = """STRICT RULES — violating any is a failure:
+SHARED_RULES = """STRICT RULES, violating any is a failure:
 1. NEVER include numbers, percentages, scores, or raw metrics. These are private health data visible on the lock screen.
 2. NEVER use emoji. Not one. Zero emoji anywhere.
 3. 4th grade reading level. Short sentences. Simple words.
@@ -170,7 +170,7 @@ class NotificationContentGenerator:
             "apns": {
                 "category": "BEDTIME_COACHING",
                 "thread_id": "sleep-coaching",
-                "interruption_level": "active",  # NOT time-sensitive — don't break Focus
+                "interruption_level": "active",  # NOT time-sensitive, don't break Focus
                 "relevance_score": 0.6,
                 "collapse_id": f"bedtime-{utcnow_naive().strftime('%Y-%m-%d')}",
             },
@@ -229,7 +229,7 @@ class NotificationContentGenerator:
             "apns": {
                 "category": "WEEKLY_REVIEW",
                 "thread_id": "weekly-review",
-                "interruption_level": "passive",  # Low priority — Notification Center only
+                "interruption_level": "passive",  # Low priority, Notification Center only
                 "relevance_score": 0.4,
                 "collapse_id": f"weekly-{utcnow_naive().strftime('%Y-%W')}",
             },

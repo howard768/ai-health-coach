@@ -101,7 +101,7 @@ jobs:
           # them, Postgres-strict mode rejects with DatatypeMismatch.
           # Catch via DOTALL multiline match within a single sa.Column(...)
           # call. False positives possible if Boolean appears further than
-          # 200 chars from server_default in an oddly-formatted Column —
+          # 200 chars from server_default in an oddly-formatted Column ,
           # acceptable for a warning, not a hard fail.
           BOOL_INT_DEFAULT_PATTERN = re.compile(
               r"sa\.Boolean\([^)]*\)[^)]{0,200}server_default\s*=\s*sa\.text\(['\"][01]['\"]\)|"

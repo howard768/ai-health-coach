@@ -1,5 +1,5 @@
 appId: com.heymeld.app
-name: "Meals — FAB opens LogFoodSheet with all input methods"
+name: "Meals, FAB opens LogFoodSheet with all input methods"
 ---
 - runFlow: ../helpers/auth_bypass.yaml
 

@@ -1,10 +1,10 @@
 """
-Phase 3: Continuous Quality — Coach Quality Tests
+Phase 3: Continuous Quality, Coach Quality Tests
 
 Deterministic + LLM-based quality checks:
-1. Reading level (textstat) — must be at or below 5th grade
-2. Faithfulness (DeepEval) — responses must be grounded in provided data
-3. Uniqueness — same question + different profiles must produce different responses
+1. Reading level (textstat), must be at or below 5th grade
+2. Faithfulness (DeepEval), responses must be grounded in provided data
+3. Uniqueness, same question + different profiles must produce different responses
 
 Run: cd evals && python -m pytest test_coach_quality.py -v
 """
@@ -59,7 +59,7 @@ def get_coach_response(user_name, health_data, goals, query):
 
 
 # ──────────────────────────────────────────────────────
-# 1. READING LEVEL (textstat — deterministic, no API)
+# 1. READING LEVEL (textstat, deterministic, no API)
 # ──────────────────────────────────────────────────────
 
 READING_LEVEL_CASES = [
@@ -110,7 +110,7 @@ def test_reading_level(case):
 
 
 # ──────────────────────────────────────────────────────
-# 2. FAITHFULNESS (data grounding — LLM-as-judge)
+# 2. FAITHFULNESS (data grounding, LLM-as-judge)
 # ──────────────────────────────────────────────────────
 
 FAITHFULNESS_CASES = [

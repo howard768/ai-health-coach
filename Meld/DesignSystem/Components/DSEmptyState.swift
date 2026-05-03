@@ -6,7 +6,7 @@ import SwiftUI
 // but styled with our DS tokens for brand consistency.
 //
 // Pattern: Illustration slot → Title → Body → Primary action
-// The illustration slot accepts any View — mascot, icon, custom art.
+// The illustration slot accepts any View, mascot, icon, custom art.
 
 struct DSEmptyState<Illustration: View>: View {
     let title: String

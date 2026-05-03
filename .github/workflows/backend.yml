@@ -7,10 +7,10 @@ name: Backend CI
 # ~/.claude/projects/-Users-brockhoward-ai-health-coach/memory/feedback_testing_rigor.md)
 # enforced here:
 #   1. Full pytest suite (unit + integration + regression + ML-specific).
-#   2. ML boundary gate  — rest of backend/app/ may only import backend.ml.api.
-#   3. Cold-boot gate    — no heavy ML dep may load on `from app.main import app`.
-#   4. Alembic round-trip smoke — upgrade, downgrade, upgrade on a fresh DB.
-#   5. App import smoke  — catches syntax / forward-ref bugs without booting FastAPI.
+#   2. ML boundary gate , rest of backend/app/ may only import backend.ml.api.
+#   3. Cold-boot gate   , no heavy ML dep may load on `from app.main import app`.
+#   4. Alembic round-trip smoke, upgrade, downgrade, upgrade on a fresh DB.
+#   5. App import smoke , catches syntax / forward-ref bugs without booting FastAPI.
 #
 # Python version is pinned to 3.12 to match local dev (Stack.md). Do NOT bump
 # without testing every ML dep on the new Python. Some ML wheels (xgboost,
@@ -153,7 +153,7 @@ jobs:
           # The shorter ``JWT_SECRET`` that used to live here was silently ignored;
           # auth tests passed only because pydantic defaulted the field to "".
           JWT_SECRET_KEY: "test-jwt-secret-must-be-long-enough-for-hs256-aaaaaaaa"
-          # Fernet test key — pinned in CI so test_encryption.py round-trips.
+          # Fernet test key, pinned in CI so test_encryption.py round-trips.
           # app.config.Settings() reads os.environ at import time, so this
           # MUST be set before pytest starts the process. (The legacy
           # plaintext codepath is exercised separately in
@@ -293,14 +293,14 @@ jobs:
 
       - name: Install ruff
         working-directory: backend
-        # ruff isn't a runtime dep — install it ad-hoc so we don't pollute
+        # ruff isn't a runtime dep, install it ad-hoc so we don't pollute
         # the prod lockfile with linter machinery.
         run: uv tool install ruff
 
       - name: Lint with ruff (including ml/ and tests/ml/)
         working-directory: backend
         # Allow warnings but fail on errors. We're not trying to enforce a
-        # zero-warning bar yet — just catch syntax and obvious bugs.
+        # zero-warning bar yet, just catch syntax and obvious bugs.
         run: |
           uv tool run ruff check app/ ml/ tests/ --output-format=github || echo "::warning::ruff found issues"
 

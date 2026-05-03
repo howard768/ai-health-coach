@@ -47,7 +47,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Nullable so existing rows don't need a backfill at migration time —
+    # Nullable so existing rows don't need a backfill at migration time ,
     # the next successful Oura sync per user will populate it. Indexed
     # because the webhook receiver will look up by this column on every
     # incoming event (could be many per minute for multi-user accounts).

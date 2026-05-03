@@ -4,7 +4,7 @@ Generates one-sentence explanations for insights that the card view
 renders verbatim (``payload.effect_description``). Ship these through
 Claude Opus per the plan: it's the one line the user sees daily, must
 pass the voice rules, and quality > cost. Cap is 1 narration + 2
-explanations per user per day per the plan — at current Opus pricing
+explanations per user per day per the plan, at current Opus pricing
 that's ~$0.05/user/month, trivially cheap.
 
 Voice compliance (no em dashes, no emoji, Flesch-Kincaid grade <= 5) is
@@ -13,7 +13,7 @@ enforced post-generation. On violation we try one mechanical scrub
 not clear the checks we fall back to a templated string rather than ship
 non-compliant copy.
 
-See feedback_testing_rigor.md — every narration path has a unit test
+See feedback_testing_rigor.md, every narration path has a unit test
 that pins the voice invariant.
 """
 
@@ -31,7 +31,7 @@ logger = logging.getLogger("meld.ml.narrate")
 NARRATION_MODEL = "claude-opus-4-20250514"
 NARRATION_MAX_TOKENS = 280
 
-# System prompt for the narrator. Deliberately short — we want Opus's
+# System prompt for the narrator. Deliberately short, we want Opus's
 # default voice constrained to the voice rules and nothing else. The
 # candidate payload provides all the context.
 _NARRATION_SYSTEM_PROMPT = """You translate statistical findings into one short sentence a health-coaching app shows to a user.
@@ -123,7 +123,7 @@ def _compose_user_prompt(req: NarrationRequest) -> str:
             lines.append("A change-point detector also fired, so this is a two-signal confirmed shift.")
         return "\n".join(lines)
 
-    # Generic fallback — narrator will produce something generic or we fall
+    # Generic fallback, narrator will produce something generic or we fall
     # back to the template below.
     return f"Kind: {req.kind}. Subjects: {', '.join(req.subject_metrics) or 'unknown'}."
 
@@ -174,7 +174,7 @@ async def generate_narration(
             if text:
                 raw_text = text.strip()
                 break
-    except Exception as e:  # noqa: BLE001 — narrator never propagates LLM errors
+    except Exception as e:  # noqa: BLE001, narrator never propagates LLM errors
         logger.warning("Opus narration failed: %s", e)
         return _fallback(request.kind, "api_error")
 

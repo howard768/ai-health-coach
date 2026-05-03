@@ -1,5 +1,5 @@
 appId: com.heymeld.app
-name: "Smoke Test — App launches and tabs visible"
+name: "Smoke Test, App launches and tabs visible"
 ---
 - runFlow: ../helpers/auth_bypass.yaml
 

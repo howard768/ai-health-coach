@@ -77,7 +77,7 @@ async def client(test_engine):
 @pytest.mark.asyncio
 async def test_callback_user_cancelled_redirects_with_access_denied(client):
     """Oura sends ?error=access_denied (no code) when the user taps Cancel.
-    We don't 422 the user — bounce back to meld://oura/error?reason=access_denied
+    We don't 422 the user, bounce back to meld://oura/error?reason=access_denied
     so the iOS app can show the right alert."""
     resp = await client.get(
         "/auth/oura/callback",

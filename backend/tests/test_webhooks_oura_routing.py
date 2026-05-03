@@ -102,7 +102,7 @@ def configured_verification_token(monkeypatch):
     """Pin the verification token used by the webhook handler.
 
     Pydantic Settings reads env at import time, so setting OURA_WEBHOOK_VERIFICATION_TOKEN
-    after module import has no effect — patch the helper instead. The handler
+    after module import has no effect, patch the helper instead. The handler
     rejects the handshake when our configured token is empty (dev default), so
     every verification test needs this fixture.
     """
@@ -149,7 +149,7 @@ async def test_get_verification_missing_challenge_rejected(client, configured_ve
     assert "error" in body
 
 
-# ── POST /api/webhooks/oura — Step 1: oura_user_id match ────────────────
+# ── POST /api/webhooks/oura, Step 1: oura_user_id match ────────────────
 
 
 @pytest.mark.asyncio
@@ -182,7 +182,7 @@ async def test_post_routes_to_user_matching_oura_user_id(client, db_session, mon
     )
 
 
-# ── POST — Step 2: single-user fallback ─────────────────────────────────
+# ── POST, Step 2: single-user fallback ─────────────────────────────────
 
 
 @pytest.mark.asyncio
@@ -227,7 +227,7 @@ async def test_post_no_users_returns_no_user(client):
     assert resp.json().get("status") == "no_user"
 
 
-# ── POST — Step 3: multi-user no-match ──────────────────────────────────
+# ── POST, Step 3: multi-user no-match ──────────────────────────────────
 
 
 @pytest.mark.asyncio
@@ -260,7 +260,7 @@ async def test_post_unmatched_in_multi_user_returns_no_match(
     assert sync_calls == [], "no_match must NOT trigger a sync"
 
 
-# ── POST — body shape validation ────────────────────────────────────────
+# ── POST, body shape validation ────────────────────────────────────────
 
 
 @pytest.mark.asyncio

@@ -21,7 +21,7 @@ struct RecoveryDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: DSSpacing.xxl) {
 
-                // Zone badge — the hero
+                // Zone badge, the hero
                 DSCard(style: .metric) {
                     ZoneBadge(zone: zone, score: 82, badgeSize: 72)
                         .frame(maxWidth: .infinity, alignment: .leading)

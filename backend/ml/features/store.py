@@ -1,13 +1,13 @@
 """Feature store: orchestration + read / write I/O for ml_feature_values.
 
-**Write path** — ``materialize_for_user`` runs every builder for a given date
+**Write path**, ``materialize_for_user`` runs every builder for a given date
 range, merges the results into a single wide frame, feeds the frame to the
 derived-feature builder, emits data-quality masks, and bulk-writes everything
 to ``ml_feature_values``. It also syncs the declarative catalog from
 ``ml.features.catalog`` to the ``ml_feature_catalog`` table so downstream
 services can list features without importing ML internals.
 
-**Read path** — ``get_feature_frame`` returns a wide pandas DataFrame indexed
+**Read path**, ``get_feature_frame`` returns a wide pandas DataFrame indexed
 by date, one column per feature key, suitable for downstream discovery /
 forecasting / ranking code. This is the only API the rest of ``backend.ml``
 should use to read features. No ad-hoc SQL per module.
@@ -203,7 +203,7 @@ def _values_to_frame(
     """
     import pandas as pd
 
-    # Only raw / nutrition / activity / contextual / quality here — derived is
+    # Only raw / nutrition / activity / contextual / quality here, derived is
     # layered on top after this call.
     rows = [
         {
@@ -278,7 +278,7 @@ async def _bulk_upsert(
         }
         for v in values
     ]
-    # SQLAlchemy Core bulk insert — way faster than ORM add() x N.
+    # SQLAlchemy Core bulk insert, way faster than ORM add() x N.
     from sqlalchemy import insert
 
     await db.execute(insert(MLFeatureValue), to_insert)
@@ -301,7 +301,7 @@ async def get_feature_frame(
     """Return a wide DataFrame indexed by ``feature_date``, one column per feature.
 
     ``feature_keys=None`` returns every feature in the catalog (not every
-    feature with data — missing features appear as fully-NaN columns).
+    feature with data, missing features appear as fully-NaN columns).
     ``include_imputed=False`` masks imputed cells to NaN so callers that
     need strict observation can opt out without a second query.
     """

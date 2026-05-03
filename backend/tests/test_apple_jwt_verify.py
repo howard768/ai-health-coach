@@ -44,7 +44,7 @@ from app.core.apple import (
 
 @pytest.fixture(scope="module")
 def rsa_keypair():
-    """Generate one RSA keypair for the whole module — keypair generation is
+    """Generate one RSA keypair for the whole module, keypair generation is
     expensive (~100ms). Tests don't share state otherwise."""
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     public_key = private_key.public_key()
@@ -173,7 +173,7 @@ def test_identity_token_nonce_mismatch_rejected(rsa_keypair):
 def test_identity_token_blocks_algorithm_confusion():
     """A token signed with `alg=HS256` must be rejected because our
     verifier passes `algorithms=["RS256"]`. This is the classic
-    algorithm-confusion defense — without the `algorithms` kwarg pyjwt
+    algorithm-confusion defense, without the `algorithms` kwarg pyjwt
     would allow any algorithm. Use a plain HMAC secret to forge the
     token (pyjwt now blocks using PEM strings as HMAC secrets at the
     encode side, but a real attacker would construct the token raw)."""

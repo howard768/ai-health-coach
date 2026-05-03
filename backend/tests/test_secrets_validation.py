@@ -48,7 +48,7 @@ def test_prod_empty_jwt_secret_raises(monkeypatch):
 
 
 def test_prod_whitespace_jwt_secret_raises(monkeypatch):
-    """Whitespace-only is the same Railway-UI footgun as missing — treat the same."""
+    """Whitespace-only is the same Railway-UI footgun as missing, treat the same."""
     monkeypatch.setattr(settings, "app_env", "production")
     _fully_set(monkeypatch)
     monkeypatch.setattr(settings, "jwt_secret_key", "   \n\t  ")

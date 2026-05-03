@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Error State Views
 // Two structural patterns:
-// 1. Full-screen error (when nothing can load — mascot concerned)
+// 1. Full-screen error (when nothing can load, mascot concerned)
 // 2. Inline error banner (when one section fails)
 // All copy at 4th grade reading level.
 
@@ -128,7 +128,7 @@ struct InlineErrorBanner: View {
 // MARK: - Predefined Error States
 
 extension FullScreenError {
-    /// Network failure — no connection
+    /// Network failure, no connection
     static func networkError(onRetry: @escaping () -> Void) -> FullScreenError {
         FullScreenError(
             title: "Can't connect",
@@ -137,7 +137,7 @@ extension FullScreenError {
         )
     }
 
-    /// API error — server issue
+    /// API error, server issue
     static func serverError(onRetry: @escaping () -> Void) -> FullScreenError {
         FullScreenError(
             title: "Something went wrong",
@@ -146,7 +146,7 @@ extension FullScreenError {
         )
     }
 
-    /// Permission denied — HealthKit
+    /// Permission denied, HealthKit
     static func permissionDenied() -> FullScreenError {
         FullScreenError(
             title: "We need access",
@@ -157,7 +157,7 @@ extension FullScreenError {
 }
 
 extension InlineErrorBanner {
-    /// Sync failed — inline
+    /// Sync failed, inline
     static func syncFailed(onRetry: @escaping () -> Void) -> InlineErrorBanner {
         InlineErrorBanner(
             message: "Sync failed. Your data may be old.",
@@ -167,7 +167,7 @@ extension InlineErrorBanner {
         )
     }
 
-    /// Stale data — informational
+    /// Stale data, informational
     static func staleData() -> InlineErrorBanner {
         InlineErrorBanner(
             message: "Data hasn't been updated in a while.",

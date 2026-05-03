@@ -2,7 +2,7 @@ import Foundation
 
 /// Centralized `Notification.Name` constants for in-app cross-component
 /// signalling. Pre-PR-H, every site that posted or observed a notification
-/// used `.init("MeldSwitchTab")` directly — six call sites, each with its
+/// used `.init("MeldSwitchTab")` directly, six call sites, each with its
 /// own potential typo, and no compiler help finding stale references when
 /// the name changes.
 ///

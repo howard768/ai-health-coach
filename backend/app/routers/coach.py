@@ -89,7 +89,7 @@ class HistoryResponse(BaseModel):
 
 
 # ============================================================
-# CHAT — Send message, persist both user + coach messages
+# CHAT, Send message, persist both user + coach messages
 # ============================================================
 
 @router.post("/chat", response_model=ChatResponse)
@@ -102,7 +102,7 @@ async def chat(
 ):
     """Send a message, get AI response, persist both to DB.
 
-    Rate-limited to 30/min per IP — about one message every 2s. Generous
+    Rate-limited to 30/min per IP, about one message every 2s. Generous
     enough for normal back-and-forth but caps Claude budget exhaustion.
     """
 
@@ -222,7 +222,7 @@ async def chat(
 
 
 # ============================================================
-# FEEDBACK — Thumbs up/down on coach responses
+# FEEDBACK, Thumbs up/down on coach responses
 # ============================================================
 
 class FeedbackRequest(BaseModel):
@@ -259,7 +259,7 @@ async def submit_feedback(
 
 
 # ============================================================
-# EXPLAIN-FINDING (Phase 5) — why did this insight surface?
+# EXPLAIN-FINDING (Phase 5), why did this insight surface?
 # ============================================================
 #
 # POST /api/coach/explain-finding
@@ -316,7 +316,7 @@ async def explain_finding(
 
 
 # ============================================================
-# HISTORY — Retrieve persisted conversation
+# HISTORY, Retrieve persisted conversation
 # ============================================================
 
 @router.get("/history", response_model=HistoryResponse)
@@ -359,7 +359,7 @@ async def get_history(
 
 
 # ============================================================
-# INSIGHT — Daily dashboard insight
+# INSIGHT, Daily dashboard insight
 # ============================================================
 
 @router.post("/insight")
@@ -372,7 +372,7 @@ async def generate_insight(
     user_id = current_user.apple_user_id
     health_data = await get_latest_health_data(db, user_id)
     _, user_goals, _ = await _load_user_context(db, user_id)
-    # generate_daily_insight calls the sync Anthropic SDK — must offload
+    # generate_daily_insight calls the sync Anthropic SDK, must offload
     result = await asyncio.to_thread(
         engine.generate_daily_insight,
         health_data,
@@ -382,7 +382,7 @@ async def generate_insight(
 
 
 # ============================================================
-# ANALYTICS — Production monitoring dashboard
+# ANALYTICS, Production monitoring dashboard
 # ============================================================
 
 @router.get("/analytics")
@@ -418,7 +418,7 @@ async def get_analytics(
 
     latencies = [m.latency_ms for m in messages if m.latency_ms]
     avg_latency = round(sum(latencies) / len(latencies)) if latencies else None
-    # Nearest-rank p95 — clamp index to valid range so it works for any n >= 1
+    # Nearest-rank p95, clamp index to valid range so it works for any n >= 1
     if latencies:
         sorted_latencies = sorted(latencies)
         import math

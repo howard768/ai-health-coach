@@ -35,11 +35,11 @@ DEFAULT_SOURCE_PRIORITY: dict[str, list[str]] = {
     "steps": ["garmin", "apple_health", "oura"],
     "active_calories": ["garmin", "apple_health", "peloton"],
     "workouts": ["peloton", "garmin", "apple_health"],
-    "readiness": ["oura"],  # Proprietary — do not merge across sources
-    "body_battery": ["garmin"],  # Proprietary — Garmin only
+    "readiness": ["oura"],  # Proprietary, do not merge across sources
+    "body_battery": ["garmin"],  # Proprietary, Garmin only
 }
 
-# Divergence thresholds — flag for coach when sources disagree by more than this
+# Divergence thresholds, flag for coach when sources disagree by more than this
 DIVERGENCE_THRESHOLDS: dict[str, float] = {
     "sleep_duration": 0.15,  # 15% difference
     "sleep_efficiency": 0.10,  # 10 percentage points

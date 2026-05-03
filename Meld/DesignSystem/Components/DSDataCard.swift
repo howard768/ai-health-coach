@@ -5,7 +5,7 @@ import SwiftUI
 // within coach chat messages and metric detail screens.
 //
 // Per Vision doc: "Inline rich cards that really visualize the data
-// with rich data and context. Not a link to a dashboard — the insight
+// with rich data and context. Not a link to a dashboard, the insight
 // is right there in the conversation."
 //
 // Variants:

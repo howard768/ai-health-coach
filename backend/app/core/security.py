@@ -1,14 +1,14 @@
 """JWT issuance, verification, and refresh-token hashing for Meld backend.
 
 Design decisions (see `ai-health-coach/docs/audit-ultraplan.md`):
-- **HS256** for our own tokens — single-backend, single-client system. Auth0's
+- **HS256** for our own tokens, single-backend, single-client system. Auth0's
   guidance is that HS256 is appropriate when all verifiers are within your
   security perimeter. Switch to RS256 if we add a second verifier later.
 - **Access tokens**: 15 min expiry, JWT with `sub`, `exp`, `iat`, `jti`, `iss`,
   `aud`, `typ="access"`. Short-lived so revocation is rarely needed.
 - **Refresh tokens**: 30 day expiry, opaque random string stored hashed in DB.
   Rotated on every use. Reuse detection revokes the entire chain on replay.
-- **Explicit `algorithms=["HS256"]`** on every `jwt.decode` — required by
+- **Explicit `algorithms=["HS256"]`** on every `jwt.decode`, required by
   RFC 8725 §2.1 to prevent algorithm confusion (CVE-2022-29217).
 
 References:
@@ -34,7 +34,7 @@ from app.core.time import utcnow_naive
 ACCESS_TOKEN_EXPIRE_MINUTES = 15
 REFRESH_TOKEN_EXPIRE_DAYS = 30
 
-# JWT claims — keep these in sync between issue and verify paths.
+# JWT claims, keep these in sync between issue and verify paths.
 JWT_ALGORITHM = "HS256"
 JWT_ISSUER = "meld-api"
 JWT_AUDIENCE = "meld-ios"
@@ -96,14 +96,14 @@ def create_refresh_token() -> tuple[str, str, datetime]:
         (raw_token, hashed_id, expires_at)
 
     - `raw_token` is what we send to the client (never stored server-side).
-    - `hashed_id` is the SHA256 hex of the raw token — used as the primary key
+    - `hashed_id` is the SHA256 hex of the raw token, used as the primary key
       in `refresh_tokens`. Hashing means a DB breach doesn't yield usable
       tokens.
     - `expires_at` is 30 days out, **as a NAIVE UTC datetime**. Critical:
       `RefreshToken.expires_at` is `DateTime` (no timezone) per the project
       convention (SQLite doesn't support TZ-aware columns; we keep Postgres
       consistent). Postgres-strict envs reject TZ-aware values bound to a
-      naive column — this was the cause of MELD-BACKEND-F (DBAPIError on
+      naive column, this was the cause of MELD-BACKEND-F (DBAPIError on
       `/auth/apple` blocking sign-in). SQLite-permissive dev hides it. Use
       ``utcnow_naive()`` so the column type matches the value bound.
     """

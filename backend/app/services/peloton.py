@@ -10,7 +10,7 @@ from datetime import date, timedelta
 
 logger = logging.getLogger("meld.peloton")
 
-# pylotoncycle wraps requests — most errors surface as requests.exceptions
+# pylotoncycle wraps requests, most errors surface as requests.exceptions
 # or plain ValueError/KeyError on bad response shapes. We include OSError
 # to catch underlying socket failures.
 try:

@@ -5,7 +5,7 @@ import SwiftUI
 // Garmin Connect uses username/password (NOT OAuth) via the garminconnect
 // library on the backend. The library handles SSO server-side; we just need
 // to collect the credentials, post them once, and the backend stores the
-// resulting OAuth session token (NOT the password — see P0-2 fix).
+// resulting OAuth session token (NOT the password, see P0-2 fix).
 
 struct GarminLoginView: View {
     @State private var username = ""

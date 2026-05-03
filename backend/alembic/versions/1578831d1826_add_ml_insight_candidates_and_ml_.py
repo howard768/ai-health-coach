@@ -8,7 +8,7 @@ Phase 4 schema for insight candidates + daily ranked slate. Candidates are
 normalized surfaceable findings; rankings are the ranker's per-(user, date)
 output. ``was_shown`` + ``feedback`` fields close the user feedback loop.
 
-Hand-trimmed to just the new tables — autogenerate flagged the usual SQLite
+Hand-trimmed to just the new tables, autogenerate flagged the usual SQLite
 foreign-key / EncryptedString noise that is not this migration's concern.
 """
 

@@ -1,7 +1,7 @@
 """Tests for the additional CRITICAL audit-flagged paths:
 
   - `_scrub_phi` (PHI/PII scrub before Sentry transmit)
-  - `_real_remote_address` (real client IP for rate limiter — bypass risk)
+  - `_real_remote_address` (real client IP for rate limiter, bypass risk)
   - `normalize_pem` (PEM env-var-mangling normalizer)
 
 The first two live in `app/main.py`; the third in `app/core/pem.py`. All
@@ -204,6 +204,6 @@ def test_normalize_pem_ensures_exactly_one_trailing_newline():
     assert result_a.endswith("-----END PRIVATE KEY-----\n")
     assert result_b.endswith("-----END PRIVATE KEY-----\n")
     assert result_c.endswith("-----END PRIVATE KEY-----\n")
-    # Exactly one — none of the outputs end with two newlines
+    # Exactly one, none of the outputs end with two newlines
     for result in (result_a, result_b, result_c):
         assert not result.endswith("\n\n")

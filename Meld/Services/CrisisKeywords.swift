@@ -5,8 +5,8 @@ import Foundation
 // The backend's coach_engine.check_message_content() already detects crisis
 // phrases and, when the Anthropic API fails, returns a safety fallback with
 // 988/741741. But that only catches anthropic.APIError. If the request fails
-// for any other reason — network timeout, TLS error, 500/502 from the host,
-// an unhandled exception before the Claude call — iOS shows a generic
+// for any other reason, network timeout, TLS error, 500/502 from the host,
+// an unhandled exception before the Claude call, iOS shows a generic
 // "trouble connecting" message and the user's crisis signal is lost.
 //
 // This helper mirrors the backend's phrase list so we can surface crisis

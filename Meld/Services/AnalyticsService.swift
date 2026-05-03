@@ -4,10 +4,10 @@ import TelemetryDeck
 // MARK: - Meld Analytics Service
 // Thin wrapper around TelemetryDeck for product analytics.
 // Hybrid architecture:
-// - TelemetryDeck: product analytics (screen views, taps, funnels) — NO PHI
+// - TelemetryDeck: product analytics (screen views, taps, funnels), NO PHI
 // - FastAPI backend: health-sensitive events (anything referencing user health data)
 //
-// TelemetryDeck double-hashes user IDs — neither we nor they can identify users.
+// TelemetryDeck double-hashes user IDs, neither we nor they can identify users.
 // All signals are privacy-safe by design.
 
 enum Analytics {

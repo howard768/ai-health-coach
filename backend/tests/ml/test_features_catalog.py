@@ -115,7 +115,7 @@ def test_specs_by_category_filters_correctly() -> None:
     ],
 )
 def test_core_features_present(required_key: str) -> None:
-    """These features MUST exist in v1 — downstream code relies on them."""
+    """These features MUST exist in v1, downstream code relies on them."""
     assert catalog.get_spec(required_key) is not None, (
         f"Required feature {required_key!r} not in catalog"
     )

@@ -3,7 +3,7 @@
 Surfaces aggregate signal-quality, data-quality, drift, experiment, retrain,
 and model-registry state for autonomous monitoring loops. All endpoints are
 public (no auth) like ``/ops/status`` and return ONLY counts / aggregates
-— never user_id, patient identifiers, or raw health metrics.
+, never user_id, patient identifiers, or raw health metrics.
 
 Design rules baked into every endpoint here:
 

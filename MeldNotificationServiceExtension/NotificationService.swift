@@ -1,7 +1,7 @@
 import UserNotifications
 
 /// Attaches rich media (recovery badge images) to push notifications.
-/// Uses bundled images keyed by recovery level — no network download needed.
+/// Uses bundled images keyed by recovery level, no network download needed.
 @preconcurrency
 class NotificationService: UNNotificationServiceExtension {
 
@@ -52,7 +52,7 @@ class NotificationService: UNNotificationServiceExtension {
                 )
                 content.attachments = [attachment]
             } catch {
-                // Graceful degradation — deliver without image
+                // Graceful degradation, deliver without image
             }
         }
 

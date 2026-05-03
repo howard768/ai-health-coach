@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import Meld
 
-// MARK: - Signal Engine Phase 4 — iOS decode + conversion tests
+// MARK: - Signal Engine Phase 4, iOS decode + conversion tests
 //
 // These pin the wire contract against the backend's
 // ``app/routers/insights.py`` response shape and the conversion from
@@ -34,7 +34,7 @@ import Testing
 }
 
 @Test func dailyInsightDecodesCorrelationCard() async throws {
-    // Representative correlation payload — matches what run_daily_insights
+    // Representative correlation payload, matches what run_daily_insights
     // would produce for a literature-supported UserCorrelation row.
     let json = """
     {
@@ -123,7 +123,7 @@ import Testing
 
 @Test func signalInsightKindFallsBackToUnknownOnForwardCompat() async throws {
     // Forward-compat: if the backend ships a new kind later, iOS should not
-    // crash — it should fall back to .unknown and still render a generic card.
+    // crash, it should fall back to .unknown and still render a generic card.
     let json = "\"brand_new_kind\"".data(using: .utf8)!
     let kind = try JSONDecoder().decode(SignalInsightKind.self, from: json)
     #expect(kind == .unknown)
@@ -156,7 +156,7 @@ import Testing
     #expect(SignalInsightFeedback.alreadyKnew.rawValue == "already_knew")
 }
 
-// MARK: - SignalRanker.convert — API -> domain mapping
+// MARK: - SignalRanker.convert, API -> domain mapping
 
 @Test func signalRankerConvertPreservesAllFields() async throws {
     let card = APIDailyInsightCard(
@@ -241,7 +241,7 @@ import Testing
 
 @Test func signalInsightBodyNeverContainsEmDash() async throws {
     // Voice rule (feedback_no_em_dashes): no em dash anywhere in
-    // iOS-generated strings. Regression test — a previous revision used
+    // iOS-generated strings. Regression test, a previous revision used
     // an em dash in the anomaly fallback copy.
     let cases: [SignalInsightKind] = [.correlation, .anomaly, .forecastWarning, .unknown]
     for kind in cases {

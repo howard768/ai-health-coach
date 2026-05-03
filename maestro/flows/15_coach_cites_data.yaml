@@ -1,5 +1,5 @@
 appId: com.heymeld.app
-name: "Coach — Chat loads and input works"
+name: "Coach, Chat loads and input works"
 ---
 - runFlow: ../helpers/auth_bypass.yaml
 

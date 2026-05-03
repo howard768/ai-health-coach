@@ -1,4 +1,4 @@
-"""Waitlist signup model — captures pre-launch email signups from heymeld.com.
+"""Waitlist signup model, captures pre-launch email signups from heymeld.com.
 
 Unlike User (which is scoped to authenticated iOS app users), a WaitlistSignup
 is a cold lead: just an email + the campaign it came from. No PII beyond that.
@@ -24,7 +24,7 @@ class WaitlistSignup(Base):
     # Lowercased email is the natural dedupe key.
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True, nullable=False)
 
-    # Where on the site the submission came from — "hero", "final_cta", etc.
+    # Where on the site the submission came from, "hero", "final_cta", etc.
     # Used to A/B which section converts best.
     source: Mapped[str | None] = mapped_column(String(64), nullable=True)
 

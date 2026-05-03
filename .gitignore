@@ -1,4 +1,4 @@
-# APNs private keys — NEVER commit
+# APNs private keys, NEVER commit
 backend/keys/
 *.p8
 

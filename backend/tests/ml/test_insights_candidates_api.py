@@ -118,7 +118,7 @@ async def test_candidates_route_uses_datetime_not_string_for_generated_at_compar
     from app.routers import insights as insights_module
 
     src = inspect.getsource(insights_module.get_candidates)
-    # Drop comments — they may legitimately mention the old pattern.
+    # Drop comments, they may legitimately mention the old pattern.
     no_comments = "\n".join(
         line for line in src.splitlines() if not line.lstrip().startswith("#")
     )

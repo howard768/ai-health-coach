@@ -11,7 +11,7 @@ credentials at rest and re-authenticate per cycle. PR #103 added the encrypted
 
 1. Look up the user's PelotonToken (most recent row).
 2. Decrypt + read username + password (EncryptedString TypeDecorator).
-3. `client.login(username, password)` — fresh PylotonCycle instance per sync.
+3. `client.login(username, password)`, fresh PylotonCycle instance per sync.
 4. On login failure (password rotated, account suspended, network glitch),
    return a structured `needs_reauth` status and capture to Sentry. The
    scheduler logs this without alerting; the iOS client surfaces a
@@ -83,7 +83,7 @@ async def sync_user_data(db: AsyncSession, user_id: str) -> dict:
 
     if not token.password or not token.username:
         # Legacy row from before the password column landed (pre-MEL-44 part 1)
-        # — user must reconnect so we can capture credentials.
+        #, user must reconnect so we can capture credentials.
         _capture_reauth_needed(user_id, reason="missing_credentials_legacy_row")
         return {
             "status": "needs_reauth",
@@ -119,7 +119,7 @@ async def sync_user_data(db: AsyncSession, user_id: str) -> dict:
     if not isinstance(workouts, list):
         # Defensive: if pylotoncycle ever changes return shape, log + bail.
         logger.error(
-            "Peloton get_workouts returned %s, expected list — bailing", type(workouts)
+            "Peloton get_workouts returned %s, expected list, bailing", type(workouts)
         )
         return {"status": "error", "message": "unexpected Peloton response shape"}
 

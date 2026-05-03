@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Screen 4: Connect Data Sources + Reward
 // When a source connects, show data reward (information reveal).
 // Coach acknowledgement card celebrates the connection.
-// At least one source required — critical path.
+// At least one source required, critical path.
 // 4th grade reading level. 20pt margins, 8pt grid.
 
 struct ConnectDataView: View {

@@ -42,7 +42,7 @@ class LiteratureEntry:
     strength_of_evidence: str  # strong, moderate, preliminary
 
 
-# Curated literature database — vetted papers covering key health domains
+# Curated literature database, vetted papers covering key health domains
 LITERATURE_DB: list[LiteratureEntry] = [
     # Sleep & Nutrition
     LiteratureEntry(

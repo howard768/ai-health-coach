@@ -20,7 +20,7 @@ final class MealsViewModel {
     private var searchTask: Task<Void, Never>?
 
     init() {
-        // Start with empty nutrition — loadMeals() fills from API
+        // Start with empty nutrition, loadMeals() fills from API
         self.dailyNutrition = DailyNutrition(
             date: Date(),
             meals: [],

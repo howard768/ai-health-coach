@@ -5,7 +5,7 @@ Revises: c0518b5194eb
 Create Date: 2026-04-11 15:45:00.000000
 
 Adds the `waitlist_signups` table to capture pre-launch email signups from
-heymeld.com. This is separate from `users` — these are cold leads (email +
+heymeld.com. This is separate from `users`, these are cold leads (email +
 campaign metadata), not authenticated tenants.
 
 Dedupe key: lowercased `email` column with a unique index. Re-submissions

@@ -1,7 +1,7 @@
 """Phase 4.5 Commit 4: wearables generator tests.
 
 The load-bearing test here is
-``test_steps_lag1_drives_sleep_efficiency`` — it pins the shared-latent
+``test_steps_lag1_drives_sleep_efficiency``, it pins the shared-latent
 strength that lets L2 associations register the pair at
 ``developing+`` tier on 60-day data. Weakening it breaks Phase 5.9
 Promptfoo active-patterns cases, so if the cohort size / window /

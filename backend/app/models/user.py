@@ -10,7 +10,7 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    # Apple's stable per-app user identifier. This is our natural tenant key —
+    # Apple's stable per-app user identifier. This is our natural tenant key ,
     # all tenant tables FK to users.apple_user_id (not users.id).
     apple_user_id: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     email: Mapped[str] = mapped_column(String(255), nullable=True)
@@ -31,12 +31,12 @@ class User(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow_naive, onupdate=utcnow_naive)
 
     # ── Auth fields (added 2026-04-10 for Sign in with Apple) ────────────
-    # Deactivation flag — set to False to soft-disable an account without deletion.
+    # Deactivation flag, set to False to soft-disable an account without deletion.
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    # Apple private relay address (@privaterelay.appleid.com) — still routable,
+    # Apple private relay address (@privaterelay.appleid.com), still routable,
     # but we flag it for compliance and UI display.
     is_private_email: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    # Last successful sign-in — useful for session hygiene and monitoring.
+    # Last successful sign-in, useful for session hygiene and monitoring.
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     # Apple's refresh token from the original /auth/apple exchange.
     # Required for account deletion (we need to call Apple's /auth/revoke with it).

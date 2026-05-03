@@ -1,11 +1,11 @@
-# Meld Coach — Data Fidelity Golden Tests
+# Meld Coach, Data Fidelity Golden Tests
 # Verifies the coach cites actual health data correctly and never fabricates.
 # These are the highest-priority evals: every "coach said 0 deep sleep" bug
 # would be caught by this suite.
 #
 # Run: npx promptfoo eval -c golden_data_fidelity.yaml --no-cache
 
-description: "Meld Coach — Data Fidelity Suite (DB → Prompt → Response)"
+description: "Meld Coach, Data Fidelity Suite (DB → Prompt → Response)"
 
 providers:
   - id: anthropic:messages:claude-sonnet-4-20250514
@@ -40,7 +40,7 @@ defaultTest:
 
 tests:
   # ═══════════════════════════════════════════════
-  # DEEP SLEEP — the #1 recurring data bug
+  # DEEP SLEEP, the #1 recurring data bug
   # ═══════════════════════════════════════════════
 
   - description: "Deep sleep: must cite actual 48 minutes"
@@ -77,7 +77,7 @@ tests:
         threshold: 0.8
 
   # ═══════════════════════════════════════════════
-  # STEPS — Apple Health integration
+  # STEPS, Apple Health integration
   # ═══════════════════════════════════════════════
 
   - description: "Steps: must cite actual 4201"
@@ -107,7 +107,7 @@ tests:
         threshold: 0.8
 
   # ═══════════════════════════════════════════════
-  # HRV — trending and baselines
+  # HRV, trending and baselines
   # ═══════════════════════════════════════════════
 
   - description: "HRV declining: must reference decline from baseline"
@@ -134,7 +134,7 @@ tests:
         threshold: 0.7
 
   # ═══════════════════════════════════════════════
-  # RESTING HR — elevated
+  # RESTING HR, elevated
   # ═══════════════════════════════════════════════
 
   - description: "RHR elevated: must flag as above baseline"
@@ -151,7 +151,7 @@ tests:
         threshold: 0.7
 
   # ═══════════════════════════════════════════════
-  # SOURCE ATTRIBUTION — multi-source accuracy
+  # SOURCE ATTRIBUTION, multi-source accuracy
   # ═══════════════════════════════════════════════
 
   - description: "Sources: must not attribute wrong source"
@@ -166,7 +166,7 @@ tests:
         threshold: 0.7
 
   # ═══════════════════════════════════════════════
-  # EMPTY DATA — no fabrication
+  # EMPTY DATA, no fabrication
   # ═══════════════════════════════════════════════
 
   - description: "No data: must say unavailable, not fabricate"
@@ -195,7 +195,7 @@ tests:
         threshold: 0.7
 
   # ═══════════════════════════════════════════════
-  # READINESS — comprehensive metric
+  # READINESS, comprehensive metric
   # ═══════════════════════════════════════════════
 
   - description: "Readiness critically low: must cite and explain"

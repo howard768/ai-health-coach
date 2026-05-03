@@ -1,6 +1,6 @@
 name: TestFlight Release
 
-# TestFlight upload — fires automatically on every push to main that touches
+# TestFlight upload, fires automatically on every push to main that touches
 # iOS sources, and manually via "Run workflow" from the Actions tab. Replaces
 # the manual Xcode Archive + Distribute App flow entirely; the only reason to
 # open Xcode now is for live debugging or simulator work.
@@ -22,7 +22,7 @@ on:
   # trigger a build (paths filter), so we don't burn macOS-runner minutes on
   # changes the iOS app couldn't possibly need a rebuild for. The build number
   # comes from `github.run_number` (see "Compute next build number" step), so
-  # every dispatch — automatic or manual — gets a fresh, monotonically
+  # every dispatch, automatic or manual, gets a fresh, monotonically
   # increasing number that satisfies App Store Connect's uniqueness rule.
   push:
     branches: [main]
@@ -66,7 +66,7 @@ jobs:
 
       # Apple started rejecting App Store Connect uploads from any toolchain
       # older than Xcode 26 / iOS 26 SDK in 2026 (error 409, SDK_VERSION_ISSUE).
-      # The macos-15 runner ships with Xcode 16.x as default — we need Xcode 26
+      # The macos-15 runner ships with Xcode 16.x as default, we need Xcode 26
       # or later for `xcodebuild archive` to embed the right SDK marker. Pin to
       # the latest stable Xcode the runner has installed; if Apple raises the
       # bar again, this step picks up the new floor automatically.

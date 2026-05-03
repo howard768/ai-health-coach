@@ -5,7 +5,7 @@ import Testing
 // MARK: - APIContentBlock decoder
 //
 // The backend emits a discriminated union { type: "text" | "data_card", ... }.
-// These tests pin the wire format — if the backend renames a field, the iOS
+// These tests pin the wire format, if the backend renames a field, the iOS
 // decode breaks and we catch it here before shipping.
 
 @Test func contentBlockDecodesTextType() async throws {
@@ -56,7 +56,7 @@ import Testing
 }
 
 @Test func chatResponseDecodesWithBlocks() async throws {
-    // Representative payload from POST /api/coach/chat — mirrors what the
+    // Representative payload from POST /api/coach/chat, mirrors what the
     // backend actually returns for a response containing one data tag.
     let json = """
     {
@@ -142,7 +142,7 @@ import Testing
 @Test @MainActor func coachViewModelStartsWithEmptyMessages() async throws {
     let viewModel = CoachViewModel()
     // After P0-7 (delete seedMessages), the VM starts empty.
-    // loadHistory() is called from init() but completes async — synchronous
+    // loadHistory() is called from init() but completes async, synchronous
     // check just confirms there's no fake seed data.
     #expect(!viewModel.isTyping)
 }

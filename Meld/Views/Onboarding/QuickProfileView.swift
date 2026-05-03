@@ -4,7 +4,7 @@ import UIKit
 // MARK: - Screen 3: Quick Profile (Adaptive)
 // Fields shown depend on goals selected in Screen 2.
 // Pre-fills from HealthKit where available (green checkmark).
-// All required fields for selected goals — no skip.
+// All required fields for selected goals, no skip.
 // 4th grade reading level. 20pt margins, 8pt grid.
 //
 // Build 6 revision (2026-04-16): replaced TextField + numeric-pad inputs with
@@ -21,7 +21,7 @@ struct QuickProfileView: View {
 
     // Sensible starting defaults for the wheel pickers. These do NOT write
     // back to the assessment until the user actually interacts with the
-    // wheel — see the `isSet` flags below. This matches the "picker shows
+    // wheel, see the `isSet` flags below. This matches the "picker shows
     // something, but user hasn't confirmed" pattern Apple Health uses.
     @State private var ageValue: Int = 30
     @State private var heightFt: Int = 5

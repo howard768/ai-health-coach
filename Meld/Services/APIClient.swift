@@ -9,7 +9,7 @@ actor APIClient {
 
     // baseURL is set once at init and never mutated. Marking it nonisolated
     // lets serverRoot (also nonisolated) be read from any actor without
-    // awaiting — required by call sites like DataSourceDetailView that run
+    // awaiting, required by call sites like DataSourceDetailView that run
     // on @MainActor and can't hop to the APIClient actor synchronously.
     // URL is Sendable, so the nonisolated let is safe under Swift 6.
     nonisolated private let baseURL: URL
@@ -32,7 +32,7 @@ actor APIClient {
         // 2. Device: API_BASE_URL from Info.plist (injected per Debug/Release config)
         // 3. Last-resort fallback: Railway production URL
         #if targetEnvironment(simulator)
-        // Use 127.0.0.1 instead of localhost — the simulator resolves
+        // Use 127.0.0.1 instead of localhost, the simulator resolves
         // localhost to ::1 (IPv6) first, which fails when the backend
         // only listens on 0.0.0.0 (IPv4).
         // PR-H: replace force-unwrap with explicit precondition so any
@@ -47,7 +47,7 @@ actor APIClient {
             if let plistURL, !plistURL.isEmpty, let _ = URL(string: plistURL) {
                 return plistURL
             }
-            // Fallback — should never hit in a properly configured build
+            // Fallback, should never hit in a properly configured build
             return "https://zippy-forgiveness-production-0704.up.railway.app/api"
         }()
         // PR-H: same pattern; the closure above only returns valid URL
@@ -71,11 +71,11 @@ actor APIClient {
     }
 
     /// Build a URL from a path relative to the server root (e.g., "/api/meals").
-    /// Handles the baseURL already containing "/api" — strips it to get server root.
+    /// Handles the baseURL already containing "/api", strips it to get server root.
     /// Nonisolated because it only reads the immutable nonisolated baseURL; lets
     /// main-actor call sites (OAuth redirects, share URLs) read without await.
     nonisolated var serverRoot: URL {
-        // baseURL is like "http://host:8000/api" — go up one to get "http://host:8000"
+        // baseURL is like "http://host:8000/api", go up one to get "http://host:8000"
         baseURL.deletingLastPathComponent()
     }
 
@@ -97,7 +97,7 @@ actor APIClient {
         }
         #endif
         // Read token from Keychain directly (AuthManager's validAccessToken also reads it).
-        // We don't refresh preemptively — only on 401.
+        // We don't refresh preemptively, only on 401.
         if let token = try? await KeychainStore.shared.readAccessToken() {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
@@ -145,7 +145,7 @@ actor APIClient {
     // NSURLErrorNotConnectedToInternet and friends are mapped to .networkError
     // so offline shows a useful message instead of a generic "server error".
 
-    /// Execute a request where we only care about success — discards the body.
+    /// Execute a request where we only care about success, discards the body.
     /// Throws on non-200 or network failure.
     private func send(_ request: URLRequest) async throws {
         let (_, response) = try await authedDataOrNetworkError(for: request)
@@ -230,7 +230,7 @@ actor APIClient {
 
     // MARK: - Auth endpoints
     //
-    // These hit /auth/* which does NOT go through authedData — they either
+    // These hit /auth/* which does NOT go through authedData, they either
     // don't need a bearer token (signInWithApple) or use a different auth
     // mechanism (refreshSession passes refresh_token in the body).
 
@@ -467,7 +467,7 @@ actor APIClient {
         let url = serverRoot.appendingPathComponent("api/trends")
         // PR-H: replace force-unwraps with guard-throw. URLComponents from a
         // valid URL is documented to never fail, but a typo in `serverRoot`
-        // shouldn't crash the app — surface as a recoverable APIError.
+        // shouldn't crash the app, surface as a recoverable APIError.
         guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
             throw APIError.serverError
         }
@@ -630,7 +630,7 @@ actor APIClient {
     // MARK: - Health Check
 
     func healthCheck() async -> Bool {
-        // Unauthenticated — root endpoint is public
+        // Unauthenticated, root endpoint is public
         let url = baseURL.deletingLastPathComponent()
         do {
             let (_, response) = try await session.data(from: url)
@@ -647,7 +647,7 @@ enum APIError: Error, LocalizedError {
     case serverError
     case networkError
     case decodingError
-    case unauthorized  // 401 — refresh failed, session is dead
+    case unauthorized  // 401, refresh failed, session is dead
 
     var errorDescription: String? {
         switch self {
@@ -814,7 +814,7 @@ struct APIChatResponse: Codable {
     let blocks: [APIContentBlock]?
     let message_id: Int?
     // P2-18: decode routing/safety/model_used so future debug UI can read them.
-    // Backend already returns these — ignoring would silently swallow info.
+    // Backend already returns these, ignoring would silently swallow info.
     let routing: APIChatRouting?
     let safety: APIChatSafety?
     let model_used: String?
@@ -1062,7 +1062,7 @@ struct APIDataSource: Codable {
 }
 
 /// Payload for PUT /api/user/profile. Mirrors backend UserProfileUpdate schema.
-/// All fields optional — the backend merges onto the existing record.
+/// All fields optional, the backend merges onto the existing record.
 struct APIUserProfileUpdate: Codable {
     var name: String?
     var email: String?

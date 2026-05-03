@@ -7,7 +7,7 @@ TZ-aware UTC datetime for `expires_at`, but `RefreshToken.expires_at` is a
 naive `DateTime` column (project convention; SQLite doesn't support
 TZ-aware, and we keep Postgres consistent for parity).
 
-Postgres-strict env rejected the bind. SQLite-permissive dev hid it — same
+Postgres-strict env rejected the bind. SQLite-permissive dev hid it, same
 class as the 2026-04-29 boolean-default `sa.text("0/1")` Postgres bug
 (see feedback_postgres_dialect_parity.md).
 

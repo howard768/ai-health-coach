@@ -1,5 +1,5 @@
 appId: com.heymeld.app
-name: "Profile — Delete account alert cancels correctly"
+name: "Profile, Delete account alert cancels correctly"
 ---
 - runFlow: ../helpers/auth_bypass.yaml
 

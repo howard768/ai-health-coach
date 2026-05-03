@@ -90,7 +90,7 @@ class MLFeatureCatalogEntry(Base):
     builder produced it.
 
     Keeping this in the DB (not just in code) lets downstream services list
-    available features without importing ``backend.ml`` directly — which would
+    available features without importing ``backend.ml`` directly, which would
     violate the import boundary.
     """
 

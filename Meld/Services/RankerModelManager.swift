@@ -130,8 +130,8 @@ actor RankerModelManager {
 
     private func modelCacheDirectory() -> URL {
         // PR-H: `fileManager.urls(for:in:).first` always returns a value on
-        // iOS — the user-domain Application Support URL is guaranteed by
-        // the OS — so the prior `.first!` was technically safe. Keep the
+        // iOS, the user-domain Application Support URL is guaranteed by
+        // the OS, so the prior `.first!` was technically safe. Keep the
         // invariant explicit with `preconditionFailure` so any future
         // sandboxing edge case fails with a readable trace instead of an
         // EXC_BAD_INSTRUCTION crash.
@@ -140,7 +140,7 @@ actor RankerModelManager {
             in: .userDomainMask
         )
         guard let baseURL = urls.first else {
-            preconditionFailure("FileManager.urls(.applicationSupport, .user) returned no URL — sandboxing broken?")
+            preconditionFailure("FileManager.urls(.applicationSupport, .user) returned no URL, sandboxing broken?")
         }
         let appSupport = baseURL.appendingPathComponent("Models")
 

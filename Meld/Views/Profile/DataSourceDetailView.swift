@@ -201,7 +201,7 @@ struct DataSourceDetailView: View {
                 await HealthKitService.shared.requestAuthorization()
             }
         case .peloton, .garmin:
-            // These use login sheets — handled by ProfileSettingsView
+            // These use login sheets, handled by ProfileSettingsView
             break
         }
     }

@@ -43,12 +43,12 @@ struct DotArray: View {
                     VStack(spacing: DSSpacing.xs) {
                         ZStack {
                             if trainedDays.contains(day) {
-                                // Trained — filled circle
+                                // Trained, filled circle
                                 Circle()
                                     .fill(DSColor.Green.green500)
                                     .frame(width: dotSize, height: dotSize)
                             } else if day == todayIndex && !trainedDays.contains(day) {
-                                // Today, not yet trained — pulsing
+                                // Today, not yet trained, pulsing
                                 Circle()
                                     .stroke(DSColor.Purple.purple500, lineWidth: 2)
                                     .frame(width: dotSize, height: dotSize)
@@ -58,12 +58,12 @@ struct DotArray: View {
                                         value: todayPulse
                                     )
                             } else if day > todayIndex {
-                                // Future — faded outline
+                                // Future, faded outline
                                 Circle()
                                     .stroke(DSColor.Text.disabled.opacity(0.4), lineWidth: 1.5)
                                     .frame(width: dotSize, height: dotSize)
                             } else {
-                                // Past, missed — outline
+                                // Past, missed, outline
                                 Circle()
                                     .stroke(DSColor.Text.disabled, lineWidth: 1.5)
                                     .frame(width: dotSize, height: dotSize)

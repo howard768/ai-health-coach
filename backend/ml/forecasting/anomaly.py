@@ -78,7 +78,7 @@ async def detect_anomalies_for_user(
     )
     baselines = {b.metric_key: b for b in baseline_result.scalars().all()}
     if not baselines:
-        # Nothing to check against — baselines need >= 28 days of data first.
+        # Nothing to check against, baselines need >= 28 days of data first.
         return run
 
     # 2. Load the last N days of observed feature values.

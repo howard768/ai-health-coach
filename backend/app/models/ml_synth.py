@@ -1,4 +1,4 @@
-"""Schema for Signal Engine Phase 4.5, Commit 6 — synth cohort manifests.
+"""Schema for Signal Engine Phase 4.5, Commit 6, synth cohort manifests.
 
 One table:
 

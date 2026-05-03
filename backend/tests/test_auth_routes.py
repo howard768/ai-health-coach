@@ -1,17 +1,17 @@
 """Integration tests for the two CRITICAL auth routes flagged as zero-test
 in the 2026-04-30 audit (MEL-43):
 
-  - POST /auth/apple/revoked   — Apple server-to-server webhook
-  - POST /auth/delete          — App Store guideline 5.1.1(v) account deletion
+  - POST /auth/apple/revoked  , Apple server-to-server webhook
+  - POST /auth/delete         , App Store guideline 5.1.1(v) account deletion
 
 Both lift the in-memory SQLite + AsyncClient pattern from test_ops.py with
 explicit StaticPool so every connection shares the same in-memory database.
 
 Mocks:
   - `verify_apple_server_notification` (the JWT verifier itself is unit-tested
-    in test_apple_jwt_verify.py) — these tests focus on the route handler's
+    in test_apple_jwt_verify.py), these tests focus on the route handler's
     behavior given a known-verified or known-bad outcome.
-  - `revoke_apple_token` (the HTTP call to Apple) — these tests don't hit the
+  - `revoke_apple_token` (the HTTP call to Apple), these tests don't hit the
     real Apple API; the unit-level shape is exercised in test_apple_jwt_verify.
 
 Run: cd backend && uv run pytest tests/test_auth_routes.py -v
@@ -123,7 +123,7 @@ async def test_revoked_consent_revoked_marks_user_inactive(client, db_session, m
     resp = await client.post("/auth/apple/revoked", json={"payload": "fake.jwt.string"})
     assert resp.status_code == 200
 
-    # Force re-fetch — the route used a separate session, so db_session's
+    # Force re-fetch, the route used a separate session, so db_session's
     # identity map still holds the pre-commit User object cached.
     db_session.expire_all()
     refreshed = (
@@ -255,7 +255,7 @@ async def test_delete_account_authed_user_deletes_self(client, db_session, monke
     assert resp.json()["status"] == "deleted"
     assert revoke_calls == ["fake-refresh-token"], "revoke_apple_token must run with the user's refresh token"
 
-    # Verify the user row is gone — expire identity map to force re-fetch.
+    # Verify the user row is gone, expire identity map to force re-fetch.
     db_session.expire_all()
     gone = (
         await db_session.execute(select(User).where(User.apple_user_id == apple_id))
@@ -311,7 +311,7 @@ async def test_delete_account_revoke_failure_still_deletes_locally(client, db_se
         json={},
         headers={"Authorization": f"Bearer {token}"},
     )
-    # User STILL deleted locally — App Store guideline 5.1.1(v) requires the
+    # User STILL deleted locally, App Store guideline 5.1.1(v) requires the
     # local delete to complete even when Apple's revoke endpoint fails.
     assert resp.status_code == 200
     assert resp.json()["status"] == "deleted"

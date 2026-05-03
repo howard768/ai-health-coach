@@ -4,7 +4,7 @@ import SwiftUI
 // Shows what the coach learned, celebrates completion.
 // Mascot transitions from thinking → celebrating.
 // Summary card reveals actual data metrics.
-// No badges for MVP — reward is information + acknowledgement.
+// No badges for MVP, reward is information + acknowledgement.
 // 4th grade reading level. 20pt margins, 8pt grid.
 
 struct FirstSyncView: View {
@@ -19,7 +19,7 @@ struct FirstSyncView: View {
 
                     Spacer().frame(height: DSSpacing.huge)
 
-                    // Mascot — large, animated
+                    // Mascot, large, animated
                     MeldMascot(
                         state: viewModel.isComplete ? .celebrating : .thinking,
                         size: 80
@@ -78,7 +78,7 @@ struct FirstSyncView: View {
                 .padding(.horizontal, M)
             }
 
-            // CTA — only when sync complete
+            // CTA, only when sync complete
             if viewModel.isComplete {
                 DSButton(title: "See your dashboard", style: .primary, size: .lg) {
                     onComplete()
@@ -116,12 +116,12 @@ struct FirstSyncView: View {
             VStack(spacing: DSSpacing.md) {
                 summaryRow(
                     label: "Sleep Score",
-                    value: viewModel.fetchedSleepScore ?? "—",
+                    value: viewModel.fetchedSleepScore ?? "--",
                     source: viewModel.fetchedSleepScore != nil ? "Oura" : ""
                 )
                 summaryRow(
                     label: "HRV",
-                    value: viewModel.fetchedHRV ?? "—",
+                    value: viewModel.fetchedHRV ?? "--",
                     source: viewModel.fetchedHRV != nil ? "Oura" : ""
                 )
                 summaryRow(label: "Goal", value: goalSummary, source: "You")

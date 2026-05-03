@@ -20,7 +20,7 @@ struct CameraView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 if let image = capturedImage {
-                    // Photo captured — show preview
+                    // Photo captured, show preview
                     Image(uiImage: image)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
@@ -45,7 +45,7 @@ struct CameraView: View {
                         .padding(.top, DSSpacing.xxl)
                     }
                 } else {
-                    // No photo yet — show picker prompt
+                    // No photo yet, show picker prompt
                     VStack(spacing: DSSpacing.xxl) {
                         Spacer()
 

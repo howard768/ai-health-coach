@@ -1,5 +1,5 @@
 appId: com.heymeld.app
-name: "Profile — Crisis resources visible and accessible"
+name: "Profile, Crisis resources visible and accessible"
 ---
 - runFlow: ../helpers/auth_bypass.yaml
 

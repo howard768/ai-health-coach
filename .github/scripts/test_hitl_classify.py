@@ -50,7 +50,7 @@ def test_workflow_yaml_with_needle_in_prompt_is_tier0():
     """PR #44 regression: a workflow YAML mentioning EVIDENCE_BOUND_SYSTEM_PROMPT
     inside an agent prompt block must NOT be classified as Tier 3.
 
-    This is the exact shape of the diff that closed PR #44 — a new workflow
+    This is the exact shape of the diff that closed PR #44, a new workflow
     under .github/workflows/ whose prompt body enumerates the refuse list.
     """
     diff = (
@@ -92,7 +92,7 @@ def test_non_workflow_file_with_needle_is_still_tier3():
 
 def test_credential_under_workflows_still_caught_by_path_match():
     """A credential accidentally committed under .github/workflows/ must still
-    trip the path-match rule — the skip is content-match only."""
+    trip the path-match rule, the skip is content-match only."""
     tier, t3_path, _t3_content, _t2 = classify(
         [".github/workflows/leaked.pem"], CFG, _diff("")
     )

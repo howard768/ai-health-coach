@@ -54,7 +54,7 @@ def validate_pem_loads(pem: str, *, label: str) -> None:
     Done at startup so misconfig fails the deploy fast.
 
     ``label`` shows up in the error message and logs (e.g. "APNs",
-    "SIWA"). Don't include the PEM body in the error — the cryptography
+    "SIWA"). Don't include the PEM body in the error, the cryptography
     error already does that, and we don't want to log secrets.
     """
     try:

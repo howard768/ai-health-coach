@@ -93,7 +93,7 @@ async def check_throttle(db: AsyncSession, user_id: str, category: str) -> bool:
     if not all_ignored:
         return True
 
-    # 3 consecutive ignored — skip every other send
+    # 3 consecutive ignored, skip every other send
     # Use the count of records in this category to determine odd/even
     count_result = await db.execute(
         select(func.count(NotificationRecord.id)).where(

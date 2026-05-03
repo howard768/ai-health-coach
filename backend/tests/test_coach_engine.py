@@ -1,4 +1,4 @@
-"""Tests for the coach engine's deterministic logic — SafetyCheck and Deliberator.
+"""Tests for the coach engine's deterministic logic, SafetyCheck and Deliberator.
 
 These don't require the Anthropic API. They cover the safety gates and routing
 logic that runs before any AI call. This is the most security-critical code in
@@ -23,7 +23,7 @@ from app.services.coach_engine import (
 )
 
 
-# ── SafetyCheck — deterministic safety gates ─────────────────────────────────
+# ── SafetyCheck, deterministic safety gates ─────────────────────────────────
 
 
 def test_safety_check_normal_data_not_concerning():
@@ -51,7 +51,7 @@ def test_safety_check_critically_low_hrv():
 
 
 def test_safety_check_elevated_resting_hr():
-    """Resting HR above 100 bpm is tachycardia — safety flag."""
+    """Resting HR above 100 bpm is tachycardia, safety flag."""
     data = {"resting_hr": 110}
     check = SafetyCheck.check_health_data(data)
     assert check.is_concerning
@@ -100,7 +100,7 @@ def test_safety_check_multiple_concerns_collected():
     assert len(check.reasons) >= 3  # All three concerns flagged
 
 
-# ── Deliberator — routing decisions ──────────────────────────────────────────
+# ── Deliberator, routing decisions ──────────────────────────────────────────
 
 
 def test_deliberator_safety_flag_routes_to_opus():
@@ -153,7 +153,7 @@ def test_deliberator_routine_query_routes_to_sonnet():
 
 
 def test_deliberator_resting_hr_query_routes_to_ai():
-    """RHR queries should go to AI with full data context — NOT canned rules.
+    """RHR queries should go to AI with full data context, NOT canned rules.
 
     Regression test: previously matched 'rest' in 'resting heart rate' and
     returned the readiness rule, which was a confusing UX bug."""
@@ -163,7 +163,7 @@ def test_deliberator_resting_hr_query_routes_to_ai():
         {"resting_hr": 62, "readiness_score": 70},
         safety,
     )
-    # Should NOT be RULES — must route to AI with real data
+    # Should NOT be RULES, must route to AI with real data
     assert decision.tier != ModelTier.RULES
 
 
@@ -274,7 +274,7 @@ def test_safety_check_baseline_deviation_zero_baseline():
 def test_safety_check_baseline_suppressed_for_new_user():
     """Baseline deviation should NOT fire when user has < 3 days of data."""
     data = {"hrv_average": 30, "baseline_hrv": 60, "baseline_days": 1}
-    # 50% deviation, but only 1 day of history — too noisy to flag
+    # 50% deviation, but only 1 day of history, too noisy to flag
     check = SafetyCheck.check_health_data(data)
     assert not any("baseline" in r.lower() for r in check.reasons)
 
@@ -296,7 +296,7 @@ def test_deliberator_hrv_skips_baseline_for_new_user():
         "how is my HRV?",
         {"hrv_average": 30, "baseline_hrv": 60, "baseline_days": 2},
     )
-    # Not enough data for baseline comparison — should fall through to AI
+    # Not enough data for baseline comparison, should fall through to AI
     assert not can
 
 

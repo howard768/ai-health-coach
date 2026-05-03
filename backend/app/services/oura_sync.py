@@ -41,7 +41,7 @@ async def ensure_valid_token(db: AsyncSession, user_id: str) -> str | None:
 
     # Check if token expires within 5 minutes
     if token.expires_at and token.expires_at < utcnow_naive() + timedelta(minutes=5):
-        logger.info("Oura token expired or expiring soon — refreshing")
+        logger.info("Oura token expired or expiring soon, refreshing")
         try:
             client = OuraClient()
             new_tokens = await client.refresh_access_token(token.refresh_token)
@@ -86,7 +86,7 @@ async def sync_user_data(db: AsyncSession, user_id: str) -> dict:
         sleep_sessions = await client.get_sleep_sessions(start, end)
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 401:
-            logger.error("Oura API returned 401 — token may be revoked")
+            logger.error("Oura API returned 401, token may be revoked")
             return {"status": "error", "message": "Oura access revoked. Reconnect your ring."}
         logger.error("Oura API error: %s", e)
         return {"status": "error", "message": f"Oura API error: {e}"}
@@ -130,7 +130,7 @@ async def sync_user_data(db: AsyncSession, user_id: str) -> dict:
 
         # Get session data for durations AND true efficiency percentage.
         # daily_sleep.contributors.efficiency is a 0-100 score that contributes
-        # to the daily sleep score — NOT the actual sleep efficiency percentage.
+        # to the daily sleep score, NOT the actual sleep efficiency percentage.
         # The real percentage comes from the sleep_sessions endpoint.
         session = session_by_day.get(day_date, {})
         session_efficiency = session.get("efficiency")  # 0-100 percentage
@@ -179,7 +179,7 @@ async def sync_user_data(db: AsyncSession, user_id: str) -> dict:
 
     # Bump the token's last_synced_at so the dashboard on-demand refresh
     # logic can throttle us. This is updated on every successful call
-    # regardless of how many records were written — the semantic is
+    # regardless of how many records were written, the semantic is
     # "we successfully contacted Oura", not "we got new rows".
     token_result = await db.execute(
         select(OuraToken)

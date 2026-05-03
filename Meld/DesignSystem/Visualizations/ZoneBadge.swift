@@ -71,7 +71,7 @@ struct ZoneBadge: View {
                     .stroke(zone.color, lineWidth: 5)
                     .frame(width: badgeSize, height: badgeSize)
 
-                // Icon inside — shape encoding for colorblind safety
+                // Icon inside, shape encoding for colorblind safety
                 Image(systemName: zone.iconName)
                     .font(.system(size: badgeSize * 0.3, weight: .semibold))
                     .foregroundStyle(zone.color)

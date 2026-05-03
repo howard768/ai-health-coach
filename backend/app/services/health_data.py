@@ -45,7 +45,7 @@ async def get_latest_health_data(db: AsyncSession, user_id: str) -> dict:
     # Start from yesterday (sleep + recovery baseline) and overlay today
     # (steps, active calories, anything that accumulates during the day).
     reconciled: dict = {}
-    # Merge sources from both days — yesterday's sources are the fallback
+    # Merge sources from both days, yesterday's sources are the fallback
     # for any metric that carries forward (e.g. steps when today has none).
     merged_sources: dict = {}
     if yesterday_metrics:
@@ -68,7 +68,7 @@ async def get_latest_health_data(db: AsyncSession, user_id: str) -> dict:
         # Get 7-day baselines from reconciled data
         baselines = await _get_reconciled_baselines(db, user_id, days=7)
 
-        # Deep sleep isn't in HealthMetricRecord yet — pull from SleepRecord
+        # Deep sleep isn't in HealthMetricRecord yet, pull from SleepRecord
         deep_sleep_min = 0
         sr = await db.execute(
             select(SleepRecord)
@@ -96,7 +96,7 @@ async def get_latest_health_data(db: AsyncSession, user_id: str) -> dict:
         }
 
     # Fallback: read directly from SleepRecord (Oura-only, pre-reconciliation)
-    logger.info("No reconciled data — falling back to SleepRecord for user %s", user_id)
+    logger.info("No reconciled data, falling back to SleepRecord for user %s", user_id)
     return await _get_sleep_record_data(db, user_id)
 
 

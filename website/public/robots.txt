@@ -1,10 +1,10 @@
-# heymeld.com — Meld AI Health Coach
+# heymeld.com, Meld AI Health Coach
 # We want to be discoverable. All major search and AI crawlers are allowed.
 
 User-agent: *
 Allow: /
 
-# AI crawlers — explicitly allowed
+# AI crawlers, explicitly allowed
 User-agent: GPTBot
 Allow: /
 

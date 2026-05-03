@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Coach Insight Card
 // Purple-100 background card showing the AI coach's daily insight.
 // Uses the actual SquatBlob pixel-art mascot (not a placeholder).
-// The entire card is tappable — navigates to Coach tab.
+// The entire card is tappable, navigates to Coach tab.
 // CTA is a proper button with 44pt minimum touch target.
 
 struct CoachInsightCard: View {
@@ -41,7 +41,7 @@ struct CoachInsightCard: View {
                         .lineSpacing(4)
                         .multilineTextAlignment(.leading)
 
-                    // CTA — proper button with accessible touch target
+                    // CTA, proper button with accessible touch target
                     HStack(spacing: DSSpacing.xs) {
                         Text("Continue in chat")
                             .font(DSTypography.bodyEmphasis)

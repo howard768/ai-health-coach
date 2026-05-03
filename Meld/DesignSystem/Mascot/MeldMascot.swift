@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MARK: - MeldMascot — the one mascot every call site uses
+// MARK: - MeldMascot, the one mascot every call site uses
 //
 // Composes:
 //   1. Base body (SquatBlobIcon)

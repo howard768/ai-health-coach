@@ -4,10 +4,10 @@ Flagged in the 2026-04-30 audit (MEL-43) as a CRITICAL zero-test path
 that gates admin endpoints (`/api/insights/admin/rollback` and friends).
 A bug here means either:
   - admins locked out of admin endpoints (annoying)
-  - non-admins permitted to call them (catastrophic — any beta tester
+  - non-admins permitted to call them (catastrophic, any beta tester
     could swap the active CoreML ranker model)
 
-Pure unit tests on the dep function — it takes a `User` and a settings
+Pure unit tests on the dep function, it takes a `User` and a settings
 read, returns the User on allow or raises 403. No TestClient needed.
 
 Run: cd backend && uv run pytest tests/test_admin_gate.py -v
@@ -26,7 +26,7 @@ from app.models.user import User
 
 
 def _make_user(apple_user_id: str = "001234.deadbeef.0001") -> User:
-    """Build an in-memory User instance. Not added to any session — the
+    """Build an in-memory User instance. Not added to any session, the
     admin gate only reads `user.apple_user_id` and never queries the DB."""
     return User(
         apple_user_id=apple_user_id,

@@ -1,5 +1,5 @@
 appId: com.heymeld.app
-name: "Coach Chat — Send a message"
+name: "Coach Chat, Send a message"
 ---
 - runFlow: ../helpers/auth_bypass.yaml
 
@@ -24,6 +24,6 @@ name: "Coach Chat — Send a message"
       id: "tab-coach"
     timeout: 3000
 
-# App should not crash — tabs still visible
+# App should not crash, tabs still visible
 - assertVisible:
     id: "tab-coach"

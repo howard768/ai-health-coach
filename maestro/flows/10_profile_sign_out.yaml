@@ -1,5 +1,5 @@
 appId: com.heymeld.app
-name: "Profile — Sign out alert cancels correctly"
+name: "Profile, Sign out alert cancels correctly"
 ---
 - runFlow: ../helpers/auth_bypass.yaml
 

@@ -152,7 +152,7 @@ jobs:
 
           print(f'Data Fidelity: {successes}/{total} passed ({pass_rate:.1f}%)')
 
-          # All data fidelity tests must pass — these are the most critical
+          # All data fidelity tests must pass, these are the most critical
           if failures > 0:
               print(f'DATA FIDELITY GATE FAILED: {failures} test(s) failed')
               for r in results.get('results', []):

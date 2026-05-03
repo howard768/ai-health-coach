@@ -34,7 +34,7 @@ def valid_es256_pem() -> str:
     """Generate a valid ES256 (P-256) private key in PEM format.
 
     Apple uses ES256 for both APNs and SIWA. Generate at runtime so tests
-    don't ship a checked-in fixture key — even a synthetic one — that could
+    don't ship a checked-in fixture key, even a synthetic one, that could
     look real to a casual reader.
     """
     key = ec.generate_private_key(ec.SECP256R1())
@@ -60,7 +60,7 @@ def reset_apns_singleton_cache():
 def test_siwa_disabled_logs_nothing(monkeypatch, caplog):
     """SIWA-specific vars unset = SIWA disabled. No error logs even when
     shared Apple IDs are set (production state when APNs is configured but
-    SIWA is not yet — the case that produced false alarm MELD-BACKEND-E)."""
+    SIWA is not yet, the case that produced false alarm MELD-BACKEND-E)."""
     monkeypatch.setattr(settings, "siwa_key_content", None)
     monkeypatch.setattr(settings, "siwa_key_path", None)
     monkeypatch.setattr(settings, "siwa_key_id", None)

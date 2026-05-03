@@ -1,11 +1,11 @@
-"""Schema for Signal Engine Phase 4 — insight candidates + rankings.
+"""Schema for Signal Engine Phase 4, insight candidates + rankings.
 
 Two tables:
 
-- ``ml_insight_candidates`` — one row per surfaceable finding, regardless of
+- ``ml_insight_candidates``, one row per surfaceable finding, regardless of
   kind (correlation, anomaly, forecast_warning, etc.). Normalized into a
   common shape so the ranker sees apples-to-apples.
-- ``ml_rankings`` — per-(user, date) ranked slate. Only rank=1 is displayed;
+- ``ml_rankings``, per-(user, date) ranked slate. Only rank=1 is displayed;
   rank 2+ are kept for shadow-mode comparison and for training the learned
   ranker in Phase 7. ``was_shown`` and ``feedback`` close the user feedback
   loop.

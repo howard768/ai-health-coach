@@ -29,7 +29,7 @@ final class OnboardingViewModel {
     var isSyncing = false
     var syncProgress: Double = 0
 
-    // Metrics fetched after sync completes (nil = no data yet → show "—")
+    // Metrics fetched after sync completes (nil = no data yet → show "--")
     var fetchedSleepScore: String? = nil
     var fetchedHRV: String? = nil
 
@@ -152,7 +152,7 @@ final class OnboardingViewModel {
             await UIApplication.shared.open(authURL)
 
         case .peloton, .garmin:
-            // Marked "Soon" in the UI — taps should never reach here, but
+            // Marked "Soon" in the UI, taps should never reach here, but
             // no-op defensively so we don't insert them into connectedSources.
             break
         }
@@ -183,7 +183,7 @@ final class OnboardingViewModel {
 
         // Step 1: Persist the assessment to the backend. This creates the
         // User record that coach greetings, goals, and personalization read from.
-        // Failing silently is OK — the user can retry from Profile settings
+        // Failing silently is OK, the user can retry from Profile settings
         // later. But we log it so we can spot repeated failures.
         do {
             // Normalize the free-form goal text: trim whitespace, collapse empty
@@ -209,12 +209,12 @@ final class OnboardingViewModel {
             )
             _ = try await APIClient.shared.updateUserProfile(update)
         } catch {
-            // Non-fatal — continue the sync flow. User can retry from settings.
+            // Non-fatal, continue the sync flow. User can retry from settings.
             Log.onboarding.error("Profile save failed: \(error.localizedDescription)")
         }
 
         // Step 1b: Try to load real metrics for the summary card.
-        // Silently ignored, if data isn't ready yet the card shows "—".
+        // Silently ignored, if data isn't ready yet the card shows "--".
         //
         // Reject obviously bogus values. Zero sleep efficiency means the
         // backend has no reconciled sleep record yet (not that the user

@@ -9,7 +9,7 @@ import Foundation
 //
 // The iOS side does NOT rank anything in Phase 4. Ranking happens in the
 // nightly `insight_candidate_job` scheduler (backend). Phase 7 adds an on-
-// device CoreML ranker — that is when `SignalRanker.swift` grows real
+// device CoreML ranker, that is when `SignalRanker.swift` grows real
 // scoring logic. For now the service file exists to keep the naming stable
 // across phases.
 //
@@ -45,7 +45,7 @@ enum SignalInsightFeedback: String, Codable {
     case alreadyKnew = "already_knew"
 }
 
-/// Card payload — heterogeneous by kind but rendered through a single view.
+/// Card payload, heterogeneous by kind but rendered through a single view.
 /// All fields are optional because the backend's payload shape is kind-
 /// specific: correlations carry source/target/pearson_r, anomalies carry
 /// observation_date/z_score, etc.

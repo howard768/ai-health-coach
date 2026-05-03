@@ -1,7 +1,7 @@
 """Garmin Connect API client.
 
 Uses the garminconnect Python library (SSO-based authentication).
-The library is synchronous — wrap calls in asyncio.to_thread() for async backend.
+The library is synchronous, wrap calls in asyncio.to_thread() for async backend.
 """
 
 import logging
@@ -28,7 +28,7 @@ try:
         OSError,
     )
 except ImportError:
-    # Library not installed — import errors handled at call sites.
+    # Library not installed, import errors handled at call sites.
     _GARMIN_FETCH_ERRORS = (ConnectionError, TimeoutError, OSError)
 
 
@@ -41,7 +41,7 @@ class GarminClient:
     async def login(self, username: str, password: str) -> dict:
         """Authenticate with Garmin Connect via SSO.
 
-        Returns a dict including `session_data` — a serialized garth session
+        Returns a dict including `session_data`, a serialized garth session
         (OAuth1 + OAuth2 tokens). Store THIS, not the password. Restore via
         `login_from_session()` for subsequent API calls.
         """
@@ -87,7 +87,7 @@ class GarminClient:
             raise RuntimeError("garminconnect package not installed")
 
         def _restore():
-            # Empty-string credentials — garth.loads() supplies the tokens.
+            # Empty-string credentials, garth.loads() supplies the tokens.
             client = Garmin()
             client.garth.loads(session_data)
             return client

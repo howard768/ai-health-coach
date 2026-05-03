@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 
 import httpx
-import jwt  # pyjwt — supports ES256 with the cryptography backend
+import jwt  # pyjwt, supports ES256 with the cryptography backend
 
 from app.config import settings
 from app.core.http import DEFAULT_TIMEOUT
@@ -33,7 +33,7 @@ class APNsClient:
         """Drop all cached state so the next call re-reads from env.
 
         Both the parsed PEM and the JWT signed with it must be cleared
-        together — clearing only the PEM (as `verify_apns_configured`
+        together, clearing only the PEM (as `verify_apns_configured`
         previously did) left the cached JWT pointing at the now-evicted
         key, so push sends used a stale token until the 50-minute JWT
         rotation. After-this-PR, callers always invalidate as a pair.
@@ -46,8 +46,8 @@ class APNsClient:
         """Load the APNs .p8 private key.
 
         Priority:
-        1. `APNS_KEY_CONTENT` env var — raw .p8 contents (production via Railway)
-        2. `APNS_KEY_PATH` env var — on-disk .p8 file (local development)
+        1. `APNS_KEY_CONTENT` env var, raw .p8 contents (production via Railway)
+        2. `APNS_KEY_PATH` env var, on-disk .p8 file (local development)
 
         The image must NOT bake the .p8 file in. `.dockerignore` excludes `keys/`.
 
@@ -74,7 +74,7 @@ class APNsClient:
             return self._private_key
 
         raise ValueError(
-            "APNs key not configured — set APNS_KEY_CONTENT (production) "
+            "APNs key not configured, set APNS_KEY_CONTENT (production) "
             "or APNS_KEY_PATH (local dev)"
         )
 
@@ -230,7 +230,7 @@ def verify_apns_configured() -> None:
     secret rotation tooling).
     """
     if not (settings.apns_key_content or settings.apns_key_path):
-        logger.info("APNs not configured (push disabled) — skipping verify")
+        logger.info("APNs not configured (push disabled), skipping verify")
         return
     pem = apns_client._load_private_key()
     try:
@@ -238,7 +238,7 @@ def verify_apns_configured() -> None:
     except PemConfigError as e:
         # Drop the cached singleton so a subsequent fix + retry actually
         # re-reads the env. Both the PEM AND the JWT signed with it must
-        # be cleared together (PR E hygiene fix). Do NOT raise — let the
+        # be cleared together (PR E hygiene fix). Do NOT raise, let the
         # app boot.
         apns_client._reset_cache()
         logger.error(

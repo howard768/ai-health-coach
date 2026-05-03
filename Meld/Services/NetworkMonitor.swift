@@ -7,7 +7,7 @@ import Observation
 // P2-10: Provides app-wide reachability state so ViewModels can distinguish
 // "offline" from "server error" and show a dedicated offline banner instead
 // of a generic "something went wrong". URLSession already handles
-// waitsForConnectivity + timeouts (set in APIClient.swift) — this adds the
+// waitsForConnectivity + timeouts (set in APIClient.swift), this adds the
 // observable state layer on top.
 //
 // Usage:
@@ -30,7 +30,7 @@ final class NetworkMonitor {
     /// path update lands.
     private(set) var isOnline: Bool = true
 
-    /// Current connection type — useful for "using cellular" UX or metered-
+    /// Current connection type, useful for "using cellular" UX or metered-
     /// data decisions. Mirrors NWInterface.InterfaceType.
     enum ConnectionType {
         case wifi
@@ -42,7 +42,7 @@ final class NetworkMonitor {
     private(set) var connectionType: ConnectionType = .other
 
     /// True while actively using an expensive connection (usually cellular).
-    /// Read from NWPath.isExpensive — used to suppress large background syncs.
+    /// Read from NWPath.isExpensive, used to suppress large background syncs.
     private(set) var isExpensive: Bool = false
 
     /// True while using a constrained connection (Low Data Mode).
@@ -100,7 +100,7 @@ final class NetworkMonitor {
     func waitUntilOnline() async {
         if isOnline { return }
         await withCheckedContinuation { continuation in
-            // Poll at 1Hz — cheap and robust to missed path updates.
+            // Poll at 1Hz, cheap and robust to missed path updates.
             Task { @MainActor in
                 while !isOnline {
                     try? await Task.sleep(nanoseconds: 1_000_000_000)

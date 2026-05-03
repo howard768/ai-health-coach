@@ -1,5 +1,5 @@
 appId: com.heymeld.app
-name: "Trends — Chart data renders (not empty or error)"
+name: "Trends, Chart data renders (not empty or error)"
 ---
 - runFlow: ../helpers/auth_bypass.yaml
 

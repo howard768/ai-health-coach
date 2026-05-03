@@ -53,7 +53,7 @@ FDR_ALPHA = 0.10
 # ``"hrv_next_day"``; the translation layer is ``LEGACY_NAME`` below, which
 # preserves the user-facing names stored in ``UserCorrelation``.
 #
-# Note: dinner_hour is intentionally skipped — it is not in the v1 catalog.
+# Note: dinner_hour is intentionally skipped, it is not in the v1 catalog.
 # Adding it is a follow-up (needs a per-meal timestamp feature).
 SEED_PAIRS: tuple[tuple[str, str, int, str | None], ...] = (
     ("protein_g", "deep_sleep_minutes", 0, "positive"),
@@ -144,7 +144,7 @@ def _generate_dynamic_pairs(
     outcomes: list[str] = []
     for spec in catalog.iter_catalog():
         if "." in spec.key:
-            # Skip derived features for now — they introduce collinearity
+            # Skip derived features for now, they introduce collinearity
             # (e.g., 7d_rolling_mean is a smoothed version of the raw).
             # Phase 4+ can reintroduce if SHAP signals they help.
             continue
@@ -188,7 +188,7 @@ def _align_pair(
 
     x = frame[source].astype(float)
     # target[d + lag] paired with source[d] means shift target BACK by lag
-    # in time — i.e., at index d look at the value that was originally at
+    # in time, i.e., at index d look at the value that was originally at
     # index d + lag. pandas Series.shift(-lag) does exactly that.
     y = frame[target].astype(float).shift(-lag_days)
     aligned = pd.concat([x.rename("x"), y.rename("y")], axis=1).dropna()
@@ -292,7 +292,7 @@ async def compute_associations(
     computes dual-method correlations on every eligible pair, applies
     BH-FDR, and returns significant results plus a report for telemetry.
 
-    Does NOT commit — the caller owns the transaction. For the full
+    Does NOT commit, the caller owns the transaction. For the full
     persist + literature-validate cycle, call
     ``persist_associations`` after this.
     """

@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Profile & Settings Screen
 // Combined Profile + Settings on the Profile tab.
-// Research: in a health app, profile data IS settings —
+// Research: in a health app, profile data IS settings ,
 // age, weight, and goals directly control coaching.
 //
 // 6 sections, max 7 items each, max 2 levels deep.
@@ -26,7 +26,7 @@ struct ProfileSettingsView: View {
     @Environment(\.openURL) private var openURL
     private let M: CGFloat = 20
 
-    // External links — kept as constants so they're easy to update from one
+    // External links, kept as constants so they're easy to update from one
     // place when the marketing site moves things around.
     private static let privacyPolicyURL = URL(string: "https://heymeld.com/privacy")!
     private static let termsURL = URL(string: "https://heymeld.com/terms")!
@@ -71,7 +71,7 @@ struct ProfileSettingsView: View {
         .background(DSColor.Background.primary)
         .navigationTitle("Profile")
         .task {
-            // Check HealthKit auth: try a lightweight query — if data comes back, we're authorized
+            // Check HealthKit auth: try a lightweight query, if data comes back, we're authorized
             if HealthKitService.shared.isAvailable {
                 let steps = await HealthKitService.shared.queryTodaySteps()
                 if steps != nil {
@@ -133,7 +133,7 @@ struct ProfileSettingsView: View {
             profileLoadFailed = false
         } catch {
             profileLoadFailed = true
-            // We deliberately don't surface the raw error string in the header —
+            // We deliberately don't surface the raw error string in the header ,
             // it's just noise to users. The retry-on-foreground handles the
             // transient cases; the dash placeholders signal "no data yet".
         }
@@ -161,15 +161,15 @@ struct ProfileSettingsView: View {
             DSAvatar(size: .xl, initials: profile?.initials ?? "?")
 
             VStack(alignment: .leading, spacing: DSSpacing.xs) {
-                // Show real name once loaded; show "—" not "Loading..." so a
+                // Show real name once loaded; show "--" not "Loading..." so a
                 // failed fetch (network blip) doesn't strand the user staring
                 // at a permanent spinner. scenePhase re-fetch will pick up the
                 // real name on next foreground.
-                Text(profile?.name ?? "—")
+                Text(profile?.name ?? "--")
                     .font(DSTypography.h2)
                     .foregroundStyle(DSColor.Text.primary)
 
-                Text(profile?.goalsString ?? "—")
+                Text(profile?.goalsString ?? "--")
                     .font(DSTypography.bodySM)
                     .foregroundStyle(DSColor.Text.secondary)
 
@@ -204,9 +204,9 @@ struct ProfileSettingsView: View {
             DSDivider()
             settingsRow(title: "Height", value: profile?.heightString ?? "--")
             DSDivider()
-            // TODO: native Goals editor — for now no-op (this row was already
+            // TODO: native Goals editor, for now no-op (this row was already
             // a stub pre-fix, just keeping the signature aligned).
-            navigationRow(title: "Goals", subtitle: profile?.goalsString ?? "—") {}
+            navigationRow(title: "Goals", subtitle: profile?.goalsString ?? "--") {}
         }
     }
 
@@ -281,7 +281,7 @@ struct ProfileSettingsView: View {
                 showGarminLogin = true
             }
         default:
-            // Oura and others — show detail view
+            // Oura and others, show detail view
             selectedDataSource = source
         }
     }
@@ -304,7 +304,7 @@ struct ProfileSettingsView: View {
     private func isSourceConnected(_ source: DataSourceType) -> Bool {
         switch source {
         case .appleHealth:
-            // HealthKit is local — check authorization status, not backend
+            // HealthKit is local, check authorization status, not backend
             return HealthKitService.shared.isAuthorized
         default:
             // Check backend profile for token-based sources
@@ -344,7 +344,7 @@ struct ProfileSettingsView: View {
 
     // MARK: - Crisis Resources
     // Anti-dark-pattern: safety resources at the same depth as features.
-    // Not red/alarming — uses brand purple to normalize help-seeking.
+    // Not red/alarming, uses brand purple to normalize help-seeking.
 
     private var crisisResourcesSection: some View {
         settingsCard {
@@ -377,10 +377,10 @@ struct ProfileSettingsView: View {
             DSDivider()
 
             Button {
-                // PR-K: `?body=` not `&body=` — `sms:` URL syntax requires `?` for the
+                // PR-K: `?body=` not `&body=`, `sms:` URL syntax requires `?` for the
                 // first parameter. The pre-PR string parsed as a malformed query
                 // and the body wasn't pre-filled (Crisis Text Line opens but the
-                // user has to type "HOME" themselves — defeats the purpose).
+                // user has to type "HOME" themselves, defeats the purpose).
                 guard let url = URL(string: "sms:741741?body=HOME") else { return }
                 UIApplication.shared.open(url)
             } label: {
@@ -415,7 +415,7 @@ struct ProfileSettingsView: View {
             }
             DSDivider()
 
-            // Delete My Data — destructive, plain language, not buried
+            // Delete My Data, destructive, plain language, not buried
             Button(action: { showDeleteDataConfirmation = true }) {
                 HStack {
                     Text("Delete My Data")
@@ -528,8 +528,8 @@ struct ProfileSettingsView: View {
     // MARK: - Helpers
 
     private var appVersion: String {
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
-        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "--"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "--"
         return "\(version) (\(build))"
     }
 

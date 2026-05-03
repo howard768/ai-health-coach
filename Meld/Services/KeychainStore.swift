@@ -12,7 +12,7 @@ import Security
 //   can read the token after first unlock, but tokens never sync to iCloud
 //   and never restore from backup (tenant isolation for refurbished devices).
 // - SecItemDelete-before-SecItemAdd for idempotent upsert (avoids errSecDuplicateItem).
-// - NO token logging — OS Logger with .private privacy level should be used elsewhere.
+// - NO token logging, OS Logger with .private privacy level should be used elsewhere.
 
 actor KeychainStore {
     static let shared = KeychainStore()
@@ -42,7 +42,7 @@ actor KeychainStore {
         case appleUserId = "appleUserId"
     }
 
-    // MARK: - Public API — tokens as strings
+    // MARK: - Public API, tokens as strings
 
     func saveAccessToken(_ token: String) throws {
         try saveString(token, account: .accessToken)
@@ -78,7 +78,7 @@ actor KeychainStore {
                 kSecAttrAccount as String: account.rawValue,
             ]
             let status = SecItemDelete(query as CFDictionary)
-            // errSecItemNotFound is fine — the item wasn't there to begin with
+            // errSecItemNotFound is fine, the item wasn't there to begin with
             guard status == errSecSuccess || status == errSecItemNotFound else {
                 throw KeychainError.status(status)
             }
@@ -155,7 +155,7 @@ extension KeychainStore {
         do {
             try await KeychainStore.shared.wipe()
         } catch {
-            // Non-fatal — log and continue
+            // Non-fatal, log and continue
             Log.auth.error("First-launch Keychain wipe failed: \(error.localizedDescription)")
         }
         UserDefaults.standard.set(true, forKey: key)

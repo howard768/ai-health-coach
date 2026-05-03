@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Meld Design System Colors
 // Source of truth: Figma file SdHDNSLZVsCtYWs2NttWnj, Design System page
 // All colors support light + dark mode via adaptive pairs.
-// Defined programmatically for maintainability — no xcassets dependency.
+// Defined programmatically for maintainability, no xcassets dependency.
 
 enum DSColor {
 
@@ -93,8 +93,8 @@ enum DSColor {
     }
 
     // MARK: - Accessible Green for Text
-    // Green 500 (#219E80) on white = 3.9:1 — fails WCAG AA for normal text.
-    // Use green600 (#178066) for green text on light backgrounds = 5.5:1 — passes.
+    // Green 500 (#219E80) on white = 3.9:1, fails WCAG AA for normal text.
+    // Use green600 (#178066) for green text on light backgrounds = 5.5:1, passes.
     // Green 500 is fine for: large text, icons, backgrounds, non-text decorative elements.
 
     enum Accessible {

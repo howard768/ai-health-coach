@@ -3,7 +3,7 @@
 Takes a biometric feature series from the Phase 1 feature store, fits an STL
 (Season-Trend-Loess) model when there's enough history, and runs streaming
 BOCPD to detect regime shifts. Also re-certifies historical change points
-with ``ruptures.Pelt`` as a backstop — BOCPD is fast but approximate; ruptures
+with ``ruptures.Pelt`` as a backstop, BOCPD is fast but approximate; ruptures
 gives deterministic, paper-ready segmentation.
 
 All heavy imports (pandas, numpy, statsmodels, ruptures) are lazy.
@@ -35,7 +35,7 @@ if TYPE_CHECKING:
 
 MODEL_VERSION = "1.0.0"
 
-# Metrics we build baselines for. Keep this small in Phase 2 — every metric
+# Metrics we build baselines for. Keep this small in Phase 2, every metric
 # adds compute; start with the five headline biometrics.
 BASELINE_METRICS: tuple[str, ...] = (
     "hrv",
@@ -113,7 +113,7 @@ def compute_baseline_for_series(
     - Robust STL (``robust=True``) downweights outliers so a single travel
       day does not skew the trend.
     - Missing days are linearly interpolated within the observed span
-      before fit — STL does not natively accept NaN but is tolerant of
+      before fit, STL does not natively accept NaN but is tolerant of
       short interpolated gaps. Leading / trailing NaNs are dropped so we
       don't extrapolate.
     """
@@ -171,7 +171,7 @@ def compute_baseline_for_series(
     else:
         trend_slope = None
 
-    # Seasonal amplitude — range over the most recent 7 days.
+    # Seasonal amplitude, range over the most recent 7 days.
     last_week = seasonal[-7:] if len(seasonal) >= 7 else seasonal
     seasonal_amplitude = float(np.nanmax(last_week) - np.nanmin(last_week))
 
@@ -218,7 +218,7 @@ def fit_bocpd(
         ``λ=100`` config recommended by the 2025 BOCPD evaluation paper.
     threshold_prob : float
         Emit a change point when ``P(r_t = 0 | x_{1:t}) > threshold_prob``.
-        0.5 is a conservative default — tune per-metric if false positives
+        0.5 is a conservative default, tune per-metric if false positives
         creep up.
     sigma : float or None
         Measurement noise std. If ``None``, estimated as the empirical std
@@ -306,7 +306,7 @@ def fit_bocpd(
         # single-step r=0 spike is rare because the new run takes a few steps
         # to accumulate mass; looking at the mass in the first few slots
         # captures the "MAP run length just reset" signal more robustly. See
-        # Adams & MacKay 2007 figure 3 — the bright low-r band is the
+        # Adams & MacKay 2007 figure 3, the bright low-r band is the
         # canonical change-point visualization.
         short_run_slots = min(5, len(R_new))
         short_run_mass = float(R_new[:short_run_slots].sum())

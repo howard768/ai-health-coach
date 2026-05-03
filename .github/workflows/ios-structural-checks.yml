@@ -89,7 +89,7 @@ jobs:
               r"^struct\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:<[^>]*>)?\s*:\s*[^{]*\bView\b",
               re.MULTILINE,
           )
-          discovered_views = []  # (name, relpath) — only DS components here
+          discovered_views = []  # (name, relpath), only DS components here
           if ds_components_root.is_dir():
               for sub in ds_scan_subdirs:
                   sub_root = ds_components_root / sub

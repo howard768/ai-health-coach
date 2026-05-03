@@ -3,7 +3,7 @@
 Pinned in MEL-45 part 2 to prevent the PHI-leak from coming back. Pre-MEL-45
 the endpoint returned the first active user's reconciled health metrics,
 which was a no-auth endpoint exposing arbitrary users' sleep/HRV/RHR. The
-fix is aggregate-only — these tests assert the response shape never
+fix is aggregate-only, these tests assert the response shape never
 contains per-user health data again.
 
 Run: cd backend && uv run python -m pytest tests/test_health_canary.py -v
@@ -192,7 +192,7 @@ async def test_canary_stale_sleep_record_does_not_count_as_fresh(empty_db):
         SleepRecord(
             user_id="apple-stale-1",
             date="2026-04-29",
-            # 25 hours ago — outside the freshness window
+            # 25 hours ago, outside the freshness window
             synced_at=utcnow_naive() - timedelta(hours=25),
         )
     )

@@ -1,7 +1,7 @@
 import SwiftUI
 
 // MARK: - Glassmorphic Background Effect
-// Frosted glass with weight — elegant but not flimsy.
+// Frosted glass with weight, elegant but not flimsy.
 // Uses .ultraThinMaterial + continuous corners + white-opacity stroke + soft shadow.
 // Automatically adapts for dark mode via material system.
 

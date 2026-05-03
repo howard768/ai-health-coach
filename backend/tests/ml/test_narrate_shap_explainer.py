@@ -134,7 +134,7 @@ async def test_explain_rejects_other_users_candidate(db):
 
 
 # ─────────────────────────────────────────────────────────────────────────
-# Anomaly path — DB-seeded
+# Anomaly path, DB-seeded
 # ─────────────────────────────────────────────────────────────────────────
 
 
@@ -218,7 +218,7 @@ async def test_anomaly_ranks_features_by_baseline_deviation(db):
     result = await shap_explainer.explain(db, USER, "cand-anom-1")
     assert result is not None
     assert result.kind == "anomaly"
-    # Steps was spiked down on TODAY — should rank highest by |z-score|.
+    # Steps was spiked down on TODAY, should rank highest by |z-score|.
     feature_names = [c.feature for c in result.contributions]
     assert "steps" in feature_names
     # The metric_key itself (hrv) is deliberately excluded.

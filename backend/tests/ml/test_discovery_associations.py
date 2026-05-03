@@ -394,7 +394,7 @@ async def _seed_legacy_parity_data(db, user_id: str, days: int = 60):
     Designed to exercise the overlapping seed pair
     ``steps -> sleep_efficiency``, lag 0. The correlation is seeded strong
     (noise 0.3 on a ~1.2 signal) so that **both** engines agree it's
-    significant — legacy's hand-rolled p-value is a loose t-distribution
+    significant, legacy's hand-rolled p-value is a loose t-distribution
     approximation (p ≈ 0.07 on what scipy rates p << 0.001 for r ≈ 0.62),
     and the parity test would drop the pair on the legacy side if we chose
     a weaker correlation. Tighter noise gives r ≈ 0.97 where both engines
@@ -437,7 +437,7 @@ async def _seed_legacy_parity_data(db, user_id: str, days: int = 60):
                 efficiency=eff,
             )
         )
-        # ActivityRecord (read by feature store for steps — in case reconciliation matters).
+        # ActivityRecord (read by feature store for steps, in case reconciliation matters).
         db.add(
             ActivityRecord(
                 user_id=user_id,
@@ -482,7 +482,7 @@ async def test_parity_new_vs_legacy_on_steps_sleep_efficiency(db):
     # with scipy.stats.pearsonr's exact two-tailed p.
     assert abs(new_pair.pearson_r - legacy_pair.pearson_r) / max(abs(legacy_pair.pearson_r), 0.01) < 0.02
     assert abs(new_pair.spearman_r - legacy_pair.spearman_r) / max(abs(legacy_pair.spearman_r), 0.01) < 0.02
-    # Sample sizes must match exactly — both should align all 60 days.
+    # Sample sizes must match exactly, both should align all 60 days.
     assert new_pair.sample_size == legacy_pair.sample_size
     assert new_pair.direction == legacy_pair.direction
     assert new_pair.methods_agree == legacy_pair.methods_agree

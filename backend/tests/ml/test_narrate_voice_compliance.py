@@ -1,4 +1,4 @@
-"""Voice compliance checker tests — pure Python, no DB, no LLM.
+"""Voice compliance checker tests, pure Python, no DB, no LLM.
 
 Voice is non-negotiable per feedback_no_em_dashes + feedback_onboarding.
 Every ML-generated user-facing string must pass these rules before it
@@ -29,7 +29,7 @@ def test_regular_hyphen_is_fine():
 
 
 def test_en_dash_is_allowed():
-    # U+2013 is an en dash — plan allows it. Only U+2014 is forbidden.
+    # U+2013 is an en dash, plan allows it. Only U+2014 is forbidden.
     assert voice_compliance.has_em_dash("Range 40\u201350 bpm.") is False
 
 
@@ -75,7 +75,7 @@ def test_short_strings_skip_grade_check():
 
 def test_simple_prose_scores_low_grade():
     # 4th-grade-ish prose should score under the ceiling (6.0). FK is a rough
-    # metric — real 4th-grade-readable prose often scores 5-7 on FK.
+    # metric, real 4th-grade-readable prose often scores 5-7 on FK.
     text = (
         "Your sleep was good last night. You got seven hours in bed. "
         "Your heart rate was steady. Keep up the good work today."

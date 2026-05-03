@@ -150,7 +150,7 @@ jobs:
               # Post-merge fan-out for push-triggered workflows.
               #
               # GitHub deliberately suppresses workflow runs for push events
-              # authored by GITHUB_TOKEN — see
+              # authored by GITHUB_TOKEN, see
               # https://docs.github.com/en/actions/security-for-github-actions/security-guides/automatic-token-authentication#using-the-github_token-in-a-workflow
               # ("events triggered by the GITHUB_TOKEN ... will not create a
               # new workflow run"). That means auto-merged PRs never fire
@@ -169,11 +169,11 @@ jobs:
               echo "Checking whether to fan out TestFlight Release."
               CHANGED=$(gh pr view "$PR_NUM" --json files --jq '.files[].path')
               if echo "$CHANGED" | grep -qE '^(Meld/|Meld\.xcodeproj/|MeldNotificationServiceExtension/|project\.yml$|\.github/workflows/testflight\.yml$)'; then
-                echo "iOS sources touched — dispatching TestFlight Release."
+                echo "iOS sources touched, dispatching TestFlight Release."
                 gh workflow run "TestFlight Release" --ref main \
                   || echo "WARN: failed to dispatch TestFlight Release; check manually."
               else
-                echo "No iOS-source changes — skipping TestFlight dispatch."
+                echo "No iOS-source changes, skipping TestFlight dispatch."
               fi
               exit 0
             fi

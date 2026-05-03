@@ -63,7 +63,7 @@ struct CoachChatView: View {
                 }
             }
 
-            // Quick action chips — use opacity instead of if/else to prevent layout jitter
+            // Quick action chips, use opacity instead of if/else to prevent layout jitter
             DSChipRow(chips: viewModel.quickActions.map(\.title)) { title in
                 if let action = viewModel.quickActions.first(where: { $0.title == title }) {
                     viewModel.sendQuickAction(action)

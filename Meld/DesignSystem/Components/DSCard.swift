@@ -5,13 +5,13 @@ import SwiftUI
 // Variant-driven: each style maps to specific design tokens.
 
 enum DSCardStyle {
-    /// White background, medium elevation, lg radius — for health metrics
+    /// White background, medium elevation, lg radius, for health metrics
     case metric
-    /// Purple-100 background, no shadow, xl radius — for coach insights
+    /// Purple-100 background, no shadow, xl radius, for coach insights
     case insight
-    /// Glass material background — for elevated/overlay content
+    /// Glass material background, for elevated/overlay content
     case glass
-    /// Subtle surface background — for data visualization cards
+    /// Subtle surface background, for data visualization cards
     case data
 }
 

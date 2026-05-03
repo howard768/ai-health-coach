@@ -10,7 +10,7 @@ as zero-test:
     negatives = a user in distress gets a routine response. False positives
     = users get an unwanted disclaimer for benign messages.
 
-Both are pure functions on a dataclass — easy to unit test without DB or
+Both are pure functions on a dataclass, easy to unit test without DB or
 AI mocks.
 
 Run: cd backend && uv run pytest tests/test_safety_check.py -v

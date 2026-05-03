@@ -10,7 +10,7 @@ onboarding. The iOS app reads this on first-launch after reinstall and
 hydrates the local `hasCompletedOnboarding` AppStorage flag from it,
 preventing a second onboarding pass for returning users.
 
-Existing rows default to False — they will be set to True the next time
+Existing rows default to False, they will be set to True the next time
 the user's client calls PUT /api/user/profile with onboarding_complete=true
 (which happens at the end of the FirstSync step).
 """

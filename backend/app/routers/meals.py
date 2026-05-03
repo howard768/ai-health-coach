@@ -291,11 +291,11 @@ async def recognize_food(
 ):
     """Recognize food items from a photo using Claude Vision.
 
-    Rate-limited to 20/min per IP — Claude Vision is the most expensive
+    Rate-limited to 20/min per IP, Claude Vision is the most expensive
     endpoint per request. Auth-gating + rate limit together cap exposure.
     """
     import asyncio
-    # food_recognition uses the synchronous Anthropic SDK — must offload
+    # food_recognition uses the synchronous Anthropic SDK, must offload
     # to a thread to avoid blocking the event loop for the full API call.
     items = await asyncio.to_thread(
         food_recognition.recognize_from_photo,

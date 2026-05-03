@@ -1,4 +1,4 @@
-# Deploy guide — heymeld.com
+# Deploy guide, heymeld.com
 
 The Meld marketing site deploys to Cloudflare Pages via `wrangler pages deploy`.
 
@@ -35,7 +35,7 @@ npx wrangler pages dev dist  # Emulates Pages Functions + D1 locally
    npx wrangler whoami
    # Should show: Howard.768@gmail.com's Account (9660df22e259a1dd1fb76d66cb42a706)
    ```
-2. `PUBLIC_TELEMETRYDECK_APP_ID` set in your shell (optional — falls back to no analytics if unset).
+2. `PUBLIC_TELEMETRYDECK_APP_ID` set in your shell (optional, falls back to no analytics if unset).
 3. `CLOUDFLARE_ACCOUNT_ID` exported because wrangler sometimes falls back to a stale cached account ID from a previous login:
    ```bash
    export CLOUDFLARE_ACCOUNT_ID=9660df22e259a1dd1fb76d66cb42a706

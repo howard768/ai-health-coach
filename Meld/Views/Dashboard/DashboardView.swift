@@ -127,7 +127,7 @@ struct DashboardView: View {
                 .foregroundStyle(DSColor.Text.primary)
                 .accessibilityAddTraits(.isHeader)
 
-            // 2x2 Metric Grid — each card tappable
+            // 2x2 Metric Grid, each card tappable
             LazyVGrid(
                 columns: [
                     GridItem(.flexible(), spacing: DSSpacing.md),
@@ -143,7 +143,7 @@ struct DashboardView: View {
                 }
             }
 
-            // Full-width Recovery Readiness — tappable
+            // Full-width Recovery Readiness, tappable
             NavigationLink(value: viewModel.dashboardData.recoveryReadiness) {
                 RecoveryReadinessCard(
                     readiness: viewModel.dashboardData.recoveryReadiness

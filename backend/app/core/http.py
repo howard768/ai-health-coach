@@ -21,6 +21,6 @@ import httpx
 # either down or routing pathologically. 15s read: enough for slow APIs to
 # return paginated responses; bounded so a hung connection doesn't block
 # our worker. 10s write: covers POST bodies up to a few MB. 5s pool: do
-# not wait long for a free connection from a saturated pool — fail fast
+# not wait long for a free connection from a saturated pool, fail fast
 # and let the caller retry or report.
 DEFAULT_TIMEOUT = httpx.Timeout(connect=5.0, read=15.0, write=10.0, pool=5.0)

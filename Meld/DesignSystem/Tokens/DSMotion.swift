@@ -37,15 +37,15 @@ enum DSMotion {
     // MARK: - Duration Constants
 
     enum Duration {
-        /// 0.15s — Instant feedback
+        /// 0.15s, Instant feedback
         static let instant: Double = 0.15
-        /// 0.25s — Quick transitions
+        /// 0.25s, Quick transitions
         static let quick: Double = 0.25
-        /// 0.35s — Standard transitions
+        /// 0.35s, Standard transitions
         static let standard: Double = 0.35
-        /// 0.5s — Emphasis transitions
+        /// 0.5s, Emphasis transitions
         static let emphasis: Double = 0.5
-        /// 1.0s — Slow reveals
+        /// 1.0s, Slow reveals
         static let slow: Double = 1.0
     }
 }

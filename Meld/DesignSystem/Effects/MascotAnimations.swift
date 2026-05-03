@@ -5,12 +5,12 @@ import SwiftUI
 // All animations respect Reduce Motion accessibility setting.
 
 enum MascotState: String, CaseIterable {
-    case idle        // Default — subtle breathing bob
-    case thinking    // AI processing — gentle rock + pulse
-    case celebrating // Milestone hit — bounce + scale pop
-    case concerned   // Warning/attention — slight shrink
-    case greeting    // App launch — wave/scale up
-    case error       // Something wrong — shake
+    case idle        // Default, subtle breathing bob
+    case thinking    // AI processing, gentle rock + pulse
+    case celebrating // Milestone hit, bounce + scale pop
+    case concerned   // Warning/attention, slight shrink
+    case greeting    // App launch, wave/scale up
+    case error       // Something wrong, shake
 
     var accessibilityLabel: String {
         switch self {

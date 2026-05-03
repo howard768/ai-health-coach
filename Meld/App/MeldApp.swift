@@ -66,7 +66,7 @@ struct MeldApp: App {
                     // Auth bypass: show the tab bar immediately, then try to
                     // get a real API token in the background. Blocking on
                     // dev-login makes CI tests hang because the runner has
-                    // no backend at 127.0.0.1:8000 — URLSession takes up to
+                    // no backend at 127.0.0.1:8000, URLSession takes up to
                     // 45s to time out, and XCUITest times out first.
                     // Unblocking devLoginReady lets the tab bar render for
                     // the UI smoke test; API calls that need a token will
@@ -93,7 +93,7 @@ struct MeldApp: App {
                 #endif
                 // First-launch Keychain wipe (prevents refurbished-device token inheritance)
                 await KeychainStore.wipeKeychainOnFirstLaunchIfNeeded()
-                // Bootstrap auth state — if a token is stored, mark session active
+                // Bootstrap auth state, if a token is stored, mark session active
                 await AuthManager.shared.bootstrapSession()
                 // After reinstall, AppStorage resets to false. If the backend says the
                 // user already completed onboarding, skip it without showing any UI.

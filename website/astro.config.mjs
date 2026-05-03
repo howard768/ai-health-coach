@@ -15,7 +15,7 @@ export default defineConfig({
     }),
   ],
   build: {
-    // Clean URLs — /privacy not /privacy.html
+    // Clean URLs, /privacy not /privacy.html
     format: 'file',
     inlineStylesheets: 'auto',
   },
@@ -23,6 +23,6 @@ export default defineConfig({
   prefetch: {
     defaultStrategy: 'viewport',
   },
-  // Default Vite CSS handling (esbuild minifier). Keeps deps small — no
+  // Default Vite CSS handling (esbuild minifier). Keeps deps small, no
   // lightningcss requirement.
 });

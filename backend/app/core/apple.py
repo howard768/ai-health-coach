@@ -1,9 +1,9 @@
-"""Sign in with Apple — token verification + client secret generation.
+"""Sign in with Apple, token verification + client secret generation.
 
 Design decisions (see ultraplan):
 - Verify Apple's identity token using `PyJWKClient` which fetches and caches
   JWKS from https://appleid.apple.com/auth/keys with automatic `kid` rotation.
-- Explicit `algorithms=["RS256"]` — Apple always signs with RS256.
+- Explicit `algorithms=["RS256"]`, Apple always signs with RS256.
 - Audience must equal our iOS bundle ID (NOT Team ID; NOT a web Services ID).
 - Issuer must equal `https://appleid.apple.com` exactly.
 - Use `claims["sub"]` as the source of truth for user identity. The
@@ -65,19 +65,19 @@ def verify_apple_identity_token(identity_token: str, raw_nonce: str | None) -> d
 
     Returns:
         dict of verified JWT claims. `claims["sub"]` is the stable Apple user
-        identifier — use this as the source of truth for user identity.
+        identifier, use this as the source of truth for user identity.
     """
     signing_key = _jwks_client.get_signing_key_from_jwt(identity_token)
     claims = jwt.decode(
         identity_token,
         signing_key.key,
-        algorithms=["RS256"],  # explicit — blocks algorithm confusion
+        algorithms=["RS256"],  # explicit, blocks algorithm confusion
         audience=settings.apple_bundle_id,
         issuer=APPLE_ISSUER,
         options={"require": ["exp", "iat", "sub", "aud", "iss"]},
     )
 
-    # Nonce verification (manual — PyJWT doesn't validate custom claims).
+    # Nonce verification (manual, PyJWT doesn't validate custom claims).
     # Apple embeds the SHA256 hash of whatever we sent as `request.nonce`.
     if raw_nonce is not None:
         expected = hashlib.sha256(raw_nonce.encode("utf-8")).hexdigest()
@@ -114,12 +114,12 @@ def verify_apple_server_notification(signed_payload: str) -> dict:
             - ``event_time``: int milliseconds since epoch
             - ``email`` (optional): for email-* events
     """
-    # Outer JWT — same signing infrastructure as identity tokens.
+    # Outer JWT, same signing infrastructure as identity tokens.
     outer_signing_key = _jwks_client.get_signing_key_from_jwt(signed_payload)
     outer_claims = jwt.decode(
         signed_payload,
         outer_signing_key.key,
-        algorithms=["RS256"],  # explicit — blocks algorithm confusion
+        algorithms=["RS256"],  # explicit, blocks algorithm confusion
         audience=settings.apple_bundle_id,
         issuer=APPLE_ISSUER,
         options={"require": ["exp", "iat", "aud", "iss", "events"]},
@@ -129,7 +129,7 @@ def verify_apple_server_notification(signed_payload: str) -> dict:
     if not isinstance(events_jwt, str) or not events_jwt:
         raise jwt.InvalidTokenError("Apple server notification missing events JWT")
 
-    # Inner events JWT — same JWKS, same algorithm, same audience/issuer.
+    # Inner events JWT, same JWKS, same algorithm, same audience/issuer.
     inner_signing_key = _jwks_client.get_signing_key_from_jwt(events_jwt)
     inner_claims = jwt.decode(
         events_jwt,
@@ -145,7 +145,7 @@ def verify_apple_server_notification(signed_payload: str) -> dict:
 def is_private_relay_email(email: str | None) -> bool:
     """Return True if the email is an Apple private relay address.
 
-    These are real and routable via Apple's relay — don't reject them.
+    These are real and routable via Apple's relay, don't reject them.
     Just flag so we know this is a private email for compliance/display.
     """
     return bool(email) and email.lower().endswith(APPLE_PRIVATE_RELAY_SUFFIX)
@@ -158,10 +158,10 @@ def _load_siwa_private_key() -> str:
     """Load the Sign in with Apple private key for client secret signing.
 
     Priority:
-    1. `SIWA_KEY_CONTENT` env var — raw .p8 contents (production via Railway)
-    2. `SIWA_KEY_PATH` env var — on-disk .p8 file (local development)
+    1. `SIWA_KEY_CONTENT` env var, raw .p8 contents (production via Railway)
+    2. `SIWA_KEY_PATH` env var, on-disk .p8 file (local development)
 
-    Normalizes CRLF and literal ``\\n`` sequences via ``normalize_pem`` —
+    Normalizes CRLF and literal ``\\n`` sequences via ``normalize_pem`` ,
     same env-var-mangling failure modes as APNs (see core/pem.py).
     """
     from app.core.pem import normalize_pem
@@ -177,7 +177,7 @@ def _load_siwa_private_key() -> str:
             raise FileNotFoundError(f"SIWA key not found at {key_path}")
         return normalize_pem(key_path.read_text())
     raise ValueError(
-        "Sign in with Apple key not configured — set SIWA_KEY_CONTENT (prod) "
+        "Sign in with Apple key not configured, set SIWA_KEY_CONTENT (prod) "
         "or SIWA_KEY_PATH (local)"
     )
 
@@ -188,7 +188,7 @@ def verify_siwa_configured() -> None:
     SIWA is opt-in (only the account-deletion webhook needs it). To distinguish
     "SIWA disabled" from "SIWA partially configured", look at SIWA-specific env
     vars only. APPLE_TEAM_ID and APPLE_BUNDLE_ID are shared with APNs and will
-    typically be set even when SIWA is not — counting them as SIWA indicators
+    typically be set even when SIWA is not, counting them as SIWA indicators
     is the bug fixed in PR #88.
 
     States:
@@ -202,7 +202,7 @@ def verify_siwa_configured() -> None:
       4. All four set, PEM malformed: log error.
       5. All four set, PEM valid: clean.
 
-    All error states log instead of raising — coupling deploy success to a
+    All error states log instead of raising, coupling deploy success to a
     corrupt env var means a multi-day Apple Developer revoke + recreate
     cycle for any single-shot rotation mistake (Apple .p8 files are
     downloadable exactly once at creation). Account-deletion endpoint
@@ -292,16 +292,16 @@ def generate_apple_client_secret() -> str:
 async def revoke_apple_token(refresh_token: str) -> None:
     """Call Apple's /auth/revoke endpoint to revoke a user's SIWA session.
 
-    Called during account deletion — required by App Store guideline 5.1.1(v)
+    Called during account deletion, required by App Store guideline 5.1.1(v)
     per Apple TN3194.
 
     Args:
         refresh_token: An Apple-issued refresh token from the original /auth/apple
             exchange. If we never captured one (older accounts), this becomes a
-            no-op — the user can manually revoke in Apple ID Settings.
+            no-op, the user can manually revoke in Apple ID Settings.
     """
     if not refresh_token:
-        return  # No Apple refresh token captured — nothing to revoke server-side
+        return  # No Apple refresh token captured, nothing to revoke server-side
 
     client_secret = generate_apple_client_secret()
     async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:

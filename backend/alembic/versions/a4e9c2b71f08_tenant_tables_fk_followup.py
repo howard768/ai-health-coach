@@ -7,7 +7,7 @@ Create Date: 2026-04-30 12:50:00
 Per audit_2026_04_29/alembic_audit.md (SHOULD-FIX): three tables have a
 ``user_id`` column but were not in the c0518b5194eb FK loop. Without an
 FK to ``users.apple_user_id``, deleting a user via /auth/delete leaves
-orphan rows on these tables — both a privacy concern (data leak after
+orphan rows on these tables, both a privacy concern (data leak after
 the user thinks they're gone) and a compliance one (GDPR right-to-erasure,
 HIPAA dispose-after-purpose).
 

@@ -1,5 +1,5 @@
 appId: com.heymeld.app
-name: "Onboarding — Welcome screen elements present"
+name: "Onboarding, Welcome screen elements present"
 ---
 # Launch WITHOUT auth bypass to see onboarding.
 # NOTE: Must run standalone (`maestro test maestro/flows/12_onboarding_welcome.yaml`)

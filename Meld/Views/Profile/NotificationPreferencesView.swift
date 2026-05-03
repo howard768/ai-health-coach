@@ -168,7 +168,7 @@ struct NotificationPreferencesView: View {
         .onChange(of: prefs.streak_alerts) { _, _ in savePreferences() }
         .onChange(of: prefs.weekly_review) { _, _ in savePreferences() }
         .onChange(of: prefs.health_alerts) { _, _ in savePreferences() }
-        // P3-1: workout_reminders has no UI toggle yet — value is round-tripped
+        // P3-1: workout_reminders has no UI toggle yet, value is round-tripped
         // through the API for forward compat but never user-modified, so the
         // onChange handler that used to live here was dead code.
         .onChange(of: prefs.nudge_frequency) { _, _ in savePreferences() }

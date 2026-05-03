@@ -1,4 +1,4 @@
-"""API contract tests — iOS client ↔ backend response shape validation.
+"""API contract tests, iOS client ↔ backend response shape validation.
 
 Verifies that backend API responses contain all keys the iOS client expects.
 If APIClient.swift adds a new field or a router drops one, these tests fail.

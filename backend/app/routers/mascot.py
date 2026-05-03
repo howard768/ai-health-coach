@@ -4,10 +4,10 @@ Tracks which accessories each user has unlocked + which they have equipped
 on the home-screen mascot. Backs the iOS `MascotAccessory` enum.
 
 Routes:
-  GET   /api/user/mascot          — current state (unlocked + equipped)
-  PATCH /api/user/mascot          — equip/unequip an already-unlocked accessory
-  POST  /api/user/mascot/unlock   — unlock an accessory for the current user
-                                    (idempotent — re-calling is a no-op)
+  GET   /api/user/mascot         , current state (unlocked + equipped)
+  PATCH /api/user/mascot         , equip/unequip an already-unlocked accessory
+  POST  /api/user/mascot/unlock  , unlock an accessory for the current user
+                                    (idempotent, re-calling is a no-op)
 
 The catalog of accessory IDs lives in the iOS `MascotAccessory` enum, NOT
 in the backend. The backend treats accessory_id as opaque. This means
@@ -111,7 +111,7 @@ async def update_mascot_equip(
     """Equip or unequip an accessory the user has already unlocked.
 
     Errors:
-      404 — accessory not unlocked for this user (can't equip what you
+      404, accessory not unlocked for this user (can't equip what you
             don't own)
     """
     user_id = current_user.apple_user_id
@@ -149,7 +149,7 @@ async def unlock_accessory(
     Subsequent calls with the same accessory_id: no-op, returns
     `newly_unlocked=False`. Safe to call from the wardrobe whenever.
 
-    Note: this endpoint does NOT enforce eligibility — the iOS wardrobe
+    Note: this endpoint does NOT enforce eligibility, the iOS wardrobe
     is currently the gatekeeper for which accessories can be unlocked
     when. When the achievement detection system ships, the eligibility
     check will move server-side and live in a service module that

@@ -13,9 +13,9 @@ Key anti-patterns avoided:
 - Max 1-3 new insights per week
 
 Sources:
-- Omnio (getomn.io) — proven spurious correlation prevention
-- Benjamini & Hochberg 1995 — FDR correction
-- Daza (PMC6087468) — APTE framework for n-of-1 causal inference
+- Omnio (getomn.io), proven spurious correlation prevention
+- Benjamini & Hochberg 1995, FDR correction
+- Daza (PMC6087468), APTE framework for n-of-1 causal inference
 """
 
 import logging

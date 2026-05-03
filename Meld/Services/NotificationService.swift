@@ -52,7 +52,7 @@ final class NotificationService {
     func registerToken(_ token: String) async {
         let stored = UserDefaults.standard.string(forKey: lastTokenKey)
         guard token != stored else {
-            Log.notifications.debug("Push token unchanged — skipping registration")
+            Log.notifications.debug("Push token unchanged, skipping registration")
             return
         }
         do {

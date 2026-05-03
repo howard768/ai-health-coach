@@ -6,10 +6,10 @@ import SwiftUI
 // Supports: image, initials fallback, mascot variant.
 
 enum DSAvatarSize {
-    case sm   // 24pt — inline with text
-    case md   // 32pt — chat messages, lists
-    case lg   // 48pt — profile header compact
-    case xl   // 64pt — profile hero, onboarding
+    case sm   // 24pt, inline with text
+    case md   // 32pt, chat messages, lists
+    case lg   // 48pt, profile header compact
+    case xl   // 64pt, profile hero, onboarding
 
     var points: CGFloat {
         switch self {
@@ -57,7 +57,7 @@ struct DSAvatar: View {
         .frame(width: size.points, height: size.points)
         .background(backgroundColor)
         .clipShape(Circle())
-        .accessibilityHidden(true) // Decorative — parent provides label
+        .accessibilityHidden(true) // Decorative, parent provides label
     }
 }
 

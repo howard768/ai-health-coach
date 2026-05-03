@@ -66,7 +66,7 @@ def _downsize_for_anthropic(image_base64: str, media_type: str) -> tuple[str, st
     No-ops when the input is already under the safety margin, so small
     images don't waste CPU on a re-encode round trip.
 
-    Raises ValueError on malformed base64 or undecodable image bytes —
+    Raises ValueError on malformed base64 or undecodable image bytes ,
     the caller surfaces that as a 400 to the iOS client.
     """
     try:
@@ -79,7 +79,7 @@ def _downsize_for_anthropic(image_base64: str, media_type: str) -> tuple[str, st
 
     try:
         img = Image.open(BytesIO(raw))
-        # Force eager decode — Image.open is lazy and won't surface a bad
+        # Force eager decode, Image.open is lazy and won't surface a bad
         # header until .load() is called (or a method that triggers it).
         img.load()
     except (OSError, Image.UnidentifiedImageError) as exc:
@@ -140,7 +140,7 @@ class FoodRecognitionService:
         Returns:
             List of food item dicts with name, serving_size, calories, macros, quality, confidence
         """
-        # Always run through the downsizer — it's a no-op for already-small
+        # Always run through the downsizer, it's a no-op for already-small
         # images and bullet-proofs us against any client (current iOS, future
         # Android, web) that uploads a too-large photo.
         try:

@@ -6,34 +6,34 @@ import SwiftUI
 
 enum DSSpacing {
 
-    /// 2pt — Icon-to-text micro gaps
+    /// 2pt, Icon-to-text micro gaps
     static let xxs: CGFloat = 2
 
-    /// 4pt — Tight padding, minimal gaps
+    /// 4pt, Tight padding, minimal gaps
     static let xs: CGFloat = 4
 
-    /// 8pt — Compact spacing, chip gaps
+    /// 8pt, Compact spacing, chip gaps
     static let sm: CGFloat = 8
 
-    /// 12pt — Standard inner padding
+    /// 12pt, Standard inner padding
     static let md: CGFloat = 12
 
-    /// 16pt — Default padding (matches SwiftUI default)
+    /// 16pt, Default padding (matches SwiftUI default)
     static let lg: CGFloat = 16
 
-    /// 20pt — Card inner padding
+    /// 20pt, Card inner padding
     static let xl: CGFloat = 20
 
-    /// 24pt — Section spacing
+    /// 24pt, Section spacing
     static let xxl: CGFloat = 24
 
-    /// 32pt — Large section gaps
+    /// 32pt, Large section gaps
     static let xxxl: CGFloat = 32
 
-    /// 40pt — Screen-level top padding
+    /// 40pt, Screen-level top padding
     static let huge: CGFloat = 40
 
-    /// 48pt — Hero spacing, display text areas
+    /// 48pt, Hero spacing, display text areas
     static let max: CGFloat = 48
 }
 

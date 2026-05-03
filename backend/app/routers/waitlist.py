@@ -59,7 +59,7 @@ def _hash_ip(ip: str | None) -> str | None:
 
 
 def _client_ip(request: Request) -> str | None:
-    """Best-effort client IP — respects X-Forwarded-For for Cloudflare + Railway."""
+    """Best-effort client IP, respects X-Forwarded-For for Cloudflare + Railway."""
     fwd = request.headers.get("x-forwarded-for")
     if fwd:
         return fwd.split(",")[0].strip()
@@ -83,7 +83,7 @@ async def subscribe(
     the row's `submissions` counter + `updated_at`. This keeps the API UX clean
     for users re-submitting the form (e.g. after a "did it work?" moment).
     """
-    # Apply rate limiting — wired via slowapi decorator on app.state.limiter.
+    # Apply rate limiting, wired via slowapi decorator on app.state.limiter.
     # slowapi reads request.state, so we apply the decorator via the app.state.limiter
     # at router registration time instead of here.
 

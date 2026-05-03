@@ -19,40 +19,40 @@ enum DSTypography {
 
     // MARK: - Type Scale
 
-    /// Hero text, taglines — 40pt Thin
+    /// Hero text, taglines, 40pt Thin
     static let display = Font.custom(FontName.thin, size: 40, relativeTo: .largeTitle)
 
-    /// Screen greeting — 28pt Light
+    /// Screen greeting, 28pt Light
     static let h1 = Font.custom(FontName.light, size: 28, relativeTo: .title)
 
-    /// Section headers — 22pt Regular
+    /// Section headers, 22pt Regular
     static let h2 = Font.custom(FontName.regular, size: 22, relativeTo: .title2)
 
-    /// Card titles — 18pt Medium
+    /// Card titles, 18pt Medium
     static let h3 = Font.custom(FontName.medium, size: 18, relativeTo: .title3)
 
-    /// Large score numbers — 48pt Thin
+    /// Large score numbers, 48pt Thin
     static let metricXL = Font.custom(FontName.thin, size: 48, relativeTo: .largeTitle)
 
-    /// Secondary metrics — 32pt Light
+    /// Secondary metrics, 32pt Light
     static let metricLG = Font.custom(FontName.light, size: 32, relativeTo: .title)
 
-    /// Main body text — 16pt Light
+    /// Main body text, 16pt Light
     static let body = Font.custom(FontName.light, size: 16, relativeTo: .body)
 
-    /// Supporting text — 14pt Regular
+    /// Supporting text, 14pt Regular
     static let bodySM = Font.custom(FontName.regular, size: 14, relativeTo: .subheadline)
 
-    /// Timestamps, sources — 12pt Regular
+    /// Timestamps, sources, 12pt Regular
     static let caption = Font.custom(FontName.regular, size: 12, relativeTo: .caption)
 
-    /// Category labels — 11pt Medium, uppercase
+    /// Category labels, 11pt Medium, uppercase
     static let label = Font.custom(FontName.medium, size: 11, relativeTo: .caption2)
 
-    /// Emphasis text — 16pt Medium
+    /// Emphasis text, 16pt Medium
     static let bodyEmphasis = Font.custom(FontName.medium, size: 16, relativeTo: .body)
 
-    /// Bold emphasis — 16pt Bold
+    /// Bold emphasis, 16pt Bold
     static let bodyBold = Font.custom(FontName.bold, size: 16, relativeTo: .body)
 }
 

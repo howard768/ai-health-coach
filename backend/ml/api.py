@@ -73,7 +73,7 @@ class RecentAnomaly:
     """An anomaly row recent enough to be worth surfacing to the coach prompt.
 
     Phase 5 pulls from ``ml_anomalies`` where ``observation_date`` is within
-    the last 7 days AND ``confirmed_by_bocpd`` is true (two-signal gate —
+    the last 7 days AND ``confirmed_by_bocpd`` is true (two-signal gate ,
     see plan "Forecasting and Anomaly Detection" section).
     """
 
@@ -112,7 +112,7 @@ class SignalContext:
     ``asyncio.to_thread``.
 
     Notification callers (``notification_engine``, ``notification_content``)
-    pass ``None`` — notifications do not need active patterns.
+    pass ``None``, notifications do not need active patterns.
     """
 
     active_patterns: list[ActivePattern] = field(default_factory=list)
@@ -147,7 +147,7 @@ class InsightCandidate:
     """Everything the ranker sees.
 
     Populated by ``ml.ranking.candidates.generate_candidates``. This is the
-    **public** shape — the internal builder uses a tuple for
+    **public** shape, the internal builder uses a tuple for
     ``subject_metrics`` for immutability, but at the boundary we normalize
     to a plain list so JSON serialization is clean.
     """
@@ -299,7 +299,7 @@ async def run_discovery_pipeline(
     detection). Phase 3 adds L2 associations, Phase 6 adds L3 Granger + L4
     DoWhy, Phase 9 adds L5 APTE.
 
-    Does NOT commit — caller owns the transaction.
+    Does NOT commit, caller owns the transaction.
     """
     from datetime import date, datetime, timezone
 
@@ -351,7 +351,7 @@ async def generate_insight_candidates(
     within the last 7 days, and (future) ``ml_n_of_1_results``. Persists
     to ``ml_insight_candidates`` (idempotent upsert).
 
-    Does NOT commit — caller owns the transaction.
+    Does NOT commit, caller owns the transaction.
     """
     from datetime import date as _date
 
@@ -475,7 +475,7 @@ async def run_daily_insights(
     Idempotent: if a slate already exists for today,
     ``materialize_daily_ranking`` returns empty and we read the existing
     rank=1 row so ``top_candidate_id`` still reflects today's top card.
-    Does NOT commit — caller owns the transaction.
+    Does NOT commit, caller owns the transaction.
     """
     from datetime import date as _date
 
@@ -855,7 +855,7 @@ async def load_coach_signal_context(
 
     try:
         patterns = await load_active_patterns(db, user_id)
-    except Exception as e:  # noqa: BLE001 — defensive at the public boundary
+    except Exception as e:  # noqa: BLE001, defensive at the public boundary
         _log.warning("load_active_patterns failed for %s: %s", user_id, e)
         patterns = []
 
@@ -871,7 +871,7 @@ async def load_coach_signal_context(
         _log.warning("load_personal_forecasts failed for %s: %s", user_id, e)
         forecasts = []
 
-    # Suppress unused-import warning for asyncio — retained for potential
+    # Suppress unused-import warning for asyncio, retained for potential
     # future parallelization via asyncio.gather if latency ever matters.
     _ = asyncio
 
@@ -1015,7 +1015,7 @@ async def run_associations(
     and ``target_metric`` strings so downstream code that reads those fields
     keeps working without a rename migration.
 
-    Does NOT commit — caller owns the transaction.
+    Does NOT commit, caller owns the transaction.
     """
     # Lazy import per boundary rules + cold-boot budget.
     from ml.discovery.associations import run_associations_for_user

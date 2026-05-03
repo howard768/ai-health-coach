@@ -228,7 +228,7 @@ async def test_materialize_daily_ranking_persists_top_n(db):
     rows = (await db.execute(select(MLRanking).where(MLRanking.user_id == USER))).scalars().all()
     # 3 ranks written.
     assert len(rows) == 3
-    # None shown yet — shadow log.
+    # None shown yet, shadow log.
     assert all(r.was_shown is False for r in rows)
 
 

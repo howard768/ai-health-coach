@@ -11,7 +11,7 @@ struct ChatMessage: Identifiable {
     let role: ChatRole
     let content: [ChatContent]
     let timestamp: Date
-    var messageId: Int?  // Backend DB ID — used for feedback
+    var messageId: Int?  // Backend DB ID, used for feedback
     var feedback: String?  // "up", "down", or nil
 
     init(id: UUID = UUID(), role: ChatRole, content: [ChatContent], timestamp: Date = Date(), messageId: Int? = nil) {
@@ -59,7 +59,7 @@ struct ChatDataCard: Identifiable {
     let subtitle: String
 
     /// Construct from a backend metric key. Backend emits keys like
-    /// "sleep_efficiency", "deep_sleep_minutes", "hrv", "steps" — broader
+    /// "sleep_efficiency", "deep_sleep_minutes", "hrv", "steps", broader
     /// than our 4-case MetricCategory enum. We derive a display title from
     /// the key rather than requiring the enum to know about every metric.
     init(metricKey: String, value: String, unit: String, subtitle: String) {

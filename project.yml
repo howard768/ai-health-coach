@@ -101,7 +101,7 @@ targets:
         NSHealthUpdateUsageDescription: Meld logs meals and workouts to keep your health records in sync.
         NSAppTransportSecurity:
           # NSAllowsArbitraryLoads alone covers all HTTP including Tailscale's
-          # CGNAT range (100.64.0.0/10). Don't add NSAllowsLocalNetworking —
+          # CGNAT range (100.64.0.0/10). Don't add NSAllowsLocalNetworking ,
           # when both are set, iOS ignores NSAllowsArbitraryLoads and only
           # allows RFC1918 ranges (10/172.16/192.168), which blocks Tailscale.
           NSAllowsArbitraryLoads: true
@@ -145,7 +145,7 @@ targets:
       - path: MeldSnapshotTests
         # __Snapshots__ directories hold reference PNGs that
         # swift-snapshot-testing reads from disk at test time. They must
-        # not be bundled as test resources — xcodegen's default flattens
+        # not be bundled as test resources, xcodegen's default flattens
         # them into the .xctest root, which collides when two subdirs
         # both contain e.g. fullWidth.1.png and breaks the build.
         excludes:

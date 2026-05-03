@@ -2,7 +2,7 @@
 
 SSO-based auth via garminconnect library (username/password flow). We exchange
 the credentials for a serialized garth session (OAuth1 + OAuth2 tokens) and
-store ONLY the session — never the password.
+store ONLY the session, never the password.
 
 P0-2 fix: previously stored `session_data=request.password` (literal plaintext),
 which was the worst security bug in the audit.
@@ -66,7 +66,7 @@ async def login_garmin(
     token = GarminToken(
         user_id=user_id,
         username=request.username,
-        session_data=session_data,  # Serialized garth OAuth tokens — NOT the password
+        session_data=session_data,  # Serialized garth OAuth tokens, NOT the password
     )
     db.add(token)
     await db.commit()

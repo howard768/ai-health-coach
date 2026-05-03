@@ -36,27 +36,27 @@ logger = logging.getLogger("meld.templates")
 # All follow the wiki rules: no raw metrics, no emoji, 4th grade reading level.
 
 SEED_TEMPLATES = [
-    # Morning Brief — recovery high
+    # Morning Brief, recovery high
     ("morning_brief", "recovery_high", "Good morning, {user_name}", "Recovery looks great today. Perfect day to challenge yourself."),
     ("morning_brief", "recovery_high", "Good morning, {user_name}", "Your body is well-rested. Time to make the most of it."),
     ("morning_brief", "recovery_high", "Good morning, {user_name}", "Strong recovery today. A hard workout would go well."),
 
-    # Morning Brief — recovery moderate
+    # Morning Brief, recovery moderate
     ("morning_brief", "recovery_moderate", "Good morning, {user_name}", "Recovery is fair today. A moderate session would be smart."),
     ("morning_brief", "recovery_moderate", "Good morning, {user_name}", "Not your best recovery. Listen to your body and adjust today."),
     ("morning_brief", "recovery_moderate", "Good morning, {user_name}", "Middle-of-the-road recovery. A lighter workout is a good call."),
 
-    # Morning Brief — recovery low
+    # Morning Brief, recovery low
     ("morning_brief", "recovery_low", "Good morning, {user_name}", "Your body needs extra rest today. Easy does it."),
     ("morning_brief", "recovery_low", "Good morning, {user_name}", "Sleep was rough. Focus on recovery today, not pushing hard."),
     ("morning_brief", "recovery_low", "Good morning, {user_name}", "Take it easy today. A walk and early dinner will help tonight."),
 
-    # Streak Saver — at risk
+    # Streak Saver, at risk
     ("streak_saver", "streak_at_risk", "Don't lose your streak", "You're at {streak_count} of {streak_goal} days this week. One more session keeps it alive."),
     ("streak_saver", "streak_at_risk", "Almost there", "Just one more day to hit your goal this week. You've got this."),
     ("streak_saver", "streak_at_risk", "Quick check-in", "Your streak is on the line. Even a short session counts."),
 
-    # Streak Saver — about to miss daily goal
+    # Streak Saver, about to miss daily goal
     ("streak_saver", "goal_at_risk", "Still time today", "You haven't logged anything today. A quick walk or stretch keeps the chain going."),
     ("streak_saver", "goal_at_risk", "End of day check", "Today's almost over. Even ten minutes counts toward your goal."),
 
@@ -68,7 +68,7 @@ SEED_TEMPLATES = [
     ("weekly_review", "tough_week", "Your week in review", "Tough week, but you showed up. Recovery matters as much as effort."),
     ("weekly_review", "tough_week", "Week wrapped up", "Not your strongest week. That's okay. Next week is a fresh start."),
 
-    # Bedtime Coaching — additional templates
+    # Bedtime Coaching, additional templates
     ("bedtime_coaching", "high_strain", "Time to wind down", "You pushed hard today. Your body earned some extra rest tonight."),
     ("bedtime_coaching", "high_strain", "Almost bedtime", "Big day behind you. Dim the lights and let your body recover."),
     ("bedtime_coaching", "normal_day", "Time to wind down", "Good day overall. A calm evening will set up tomorrow well."),

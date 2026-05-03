@@ -43,7 +43,7 @@ scheduler = AsyncIOScheduler()
 
 # ── User discovery ──────────────────────────────────────────
 #
-# Scheduler jobs run outside request context — they can't use Depends(current_user).
+# Scheduler jobs run outside request context, they can't use Depends(current_user).
 # Multi-user fan-out runs through `iter_active_users`. The single-user helper
 # below is retained only for `timing_refresh_job`, which reschedules a single
 # global cron trigger and so cannot meaningfully fan out per-user without a
@@ -125,7 +125,7 @@ async def _get_latest_health_data(db, user_id: str) -> dict:
 
     Delegates to the canonical health_data.get_latest_health_data() so that
     scheduler notifications use the same multi-source reconciled data as the
-    coach and dashboard — not stale SleepRecord-only data.
+    coach and dashboard, not stale SleepRecord-only data.
     """
     return await get_latest_health_data(db, user_id)
 
@@ -200,7 +200,7 @@ async def _send_notification(db, user_id: str, tokens: list, content: dict):
 #   2. Load the primary user (skip if none)
 #   3. Gate on can_send(category)
 #   4. Load active device tokens (skip if none)
-#   5. Build notification content (job-specific — provided via callback)
+#   5. Build notification content (job-specific, provided via callback)
 #   6. Send notification if content is non-None
 #
 # The old code duplicated steps 1-4 and 6 across all six jobs. Extracting
@@ -214,7 +214,7 @@ async def _run_notification_job(
 
     Args:
         job_name: Human-readable name for logging (e.g. "morning_brief_job").
-        category: Anti-fatigue category key — passed to `can_send()`.
+        category: Anti-fatigue category key, passed to `can_send()`.
         content_fn: async callable(db, user_id, user_name) -> dict | None.
             Return None to skip the notification (e.g. streak on track,
             no concerning health data, frequency preference says skip).
@@ -223,7 +223,7 @@ async def _run_notification_job(
     async with async_session() as db:
         users = await iter_active_users(db)
         if not users:
-            logger.info("No active users — skipping %s", job_name)
+            logger.info("No active users, skipping %s", job_name)
             return
 
         sent = 0
@@ -304,12 +304,12 @@ async def coaching_nudge_job():
 
         today = utcnow_naive().weekday()  # 0=Mon, 6=Sun
         if frequency == "weekly" and today != 0:
-            logger.info("Nudge frequency is weekly, today is not Monday — skipping")
+            logger.info("Nudge frequency is weekly, today is not Monday, skipping")
             return None
         if frequency == "2x_week" and today not in (0, 3):  # Mon, Thu
-            logger.info("Nudge frequency is 2x/week, today is not Mon/Thu — skipping")
+            logger.info("Nudge frequency is 2x/week, today is not Mon/Thu, skipping")
             return None
-        # "daily" sends every day — no skip
+        # "daily" sends every day, no skip
 
         health_data = await _get_latest_health_data(db, user_id)
         return content_generator.generate_coaching_nudge(health_data, user_name=user_name)
@@ -327,7 +327,7 @@ async def bedtime_coaching_job():
 
 
 async def streak_saver_job():
-    """Evening check — only fires when user is about to miss their streak."""
+    """Evening check, only fires when user is about to miss their streak."""
     async def build(db, user_id, user_name):
         # Calculate active days this week using readiness as proxy for workout days.
         from sqlalchemy import func as sqlfunc
@@ -348,7 +348,7 @@ async def streak_saver_job():
             active_days, streak_goal, user_name=user_name
         )
         if not content:
-            logger.info("Streak on track (%d/%d) — no alert needed", active_days, streak_goal)
+            logger.info("Streak on track (%d/%d), no alert needed", active_days, streak_goal)
             return None
 
         template = await pick_template(db, "streak_saver", "streak_at_risk", {
@@ -516,7 +516,7 @@ async def feature_refresh_job():
 
     Rebuilds the trailing 30 days of derived features so downstream ML jobs
     (correlation engine, forecasting, ranker) always read a fresh, consistent
-    frame. Idempotent — rerunning the same day is a no-op against the data
+    frame. Idempotent, rerunning the same day is a no-op against the data
     (values may change as new Oura webhook rows land, which is the point).
 
     Kept under the 60-second budget per the Phase 1 acceptance criteria in
@@ -526,7 +526,7 @@ async def feature_refresh_job():
     """
     from datetime import date
 
-    # Lazy import per boundary rules — the rest of app/ only reaches into
+    # Lazy import per boundary rules, the rest of app/ only reaches into
     # ``ml.api`` (see tests/ml/test_boundary.py).
     from ml import api as ml_api
 
@@ -985,12 +985,12 @@ async def timing_refresh_job():
     async with async_session() as db:
         user_id = await _get_primary_user_id(db)
         if user_id is None:
-            logger.info("No active user — skipping timing refresh")
+            logger.info("No active user, skipping timing refresh")
             return
         timing = await get_personalized_timing(db, user_id)
 
     # Reschedule in the user's local timezone (P1-18 fix). Without this,
-    # personalized timing fired in UTC — defeating the point of personalization.
+    # personalized timing fired in UTC, defeating the point of personalization.
     from app.config import settings as _settings
     user_tz = _settings.user_timezone
 
@@ -1126,7 +1126,7 @@ def start_scheduler():
     )
 
     # Oura sync: every 30 minutes. Backs up the on-demand sync in
-    # health.py's dashboard endpoint — if the user opens the app and has
+    # health.py's dashboard endpoint, if the user opens the app and has
     # stale data, dashboard sync kicks in; otherwise the scheduler keeps
     # things fresh in the background for webhook/notification jobs that
     # don't go through the dashboard path (e.g. morning_brief_job at 8am

@@ -163,7 +163,7 @@ async def post_insight_feedback(
 
     Rejects feedback on rankings that don't belong to the caller to prevent
     one user writing to another's ranking row. Idempotent re-submissions
-    are allowed (update in place) — the user can change their mind.
+    are allowed (update in place), the user can change their mind.
     """
     from app.models.ml_insights import MLRanking
 
@@ -362,7 +362,7 @@ async def rollback_model(
     target.rolled_back_at = utcnow_naive()
     await db.commit()
 
-    # Alert (best-effort) — capture to Sentry so a recurring alert outage
+    # Alert (best-effort), capture to Sentry so a recurring alert outage
     # doesn't go unnoticed even though the rollback itself succeeds.
     try:
         await ml_api.send_rollback_alert(req.model_type, from_version, req.to_version)

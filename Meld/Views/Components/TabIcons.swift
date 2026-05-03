@@ -4,7 +4,7 @@ import SwiftUI
 // Exact recreation from Figma node data (frame 25:2, B variant).
 // Grid: 10 columns x 7 rows of 14x14 rounded rectangles.
 // Corner radius: 2px (proportional ~14% of cell size).
-// Cells are edge-to-edge on a 14px grid — NO explicit gaps.
+// Cells are edge-to-edge on a 14px grid, NO explicit gaps.
 // Visual spacing comes solely from the rounded corners.
 // Body: #E5A84B (Warm Amber) | Eyes: #6B4B1A (Dark Brown)
 // Changed from green (#33BA99) to avoid Android mascot association.

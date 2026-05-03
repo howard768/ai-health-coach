@@ -2,7 +2,7 @@
 
 Oura uses a browser-redirect OAuth flow, so we can't use the normal bearer
 auth dependency. Instead we pass the Meld user's apple_user_id through the
-OAuth `state` parameter — Oura echoes it back on the callback, and we use
+OAuth `state` parameter, Oura echoes it back on the callback, and we use
 it to attach the resulting token to the right user.
 
 The state is validated against an existing user row on return. This means
@@ -52,7 +52,7 @@ async def oura_auth(
 # Deep-link scheme used by the iOS app (see `Meld/App/MeldApp.swift` onOpenURL).
 # Safari follows these on iPhone, which closes the browser tab and pops back
 # into the app. Without this, the user lands on the JSON response and has to
-# manually swipe back — bad UX.
+# manually swipe back, bad UX.
 _OURA_SUCCESS_DEEPLINK = "meld://oura/connected"
 
 
@@ -68,13 +68,13 @@ async def oura_callback(
     error: str | None = Query(None, description="OAuth error code per RFC 6749 §4.1.2.1 (e.g. access_denied)"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Handle Oura OAuth callback — exchange code for tokens, attach to user.
+    """Handle Oura OAuth callback, exchange code for tokens, attach to user.
 
     On success, redirects Safari to ``meld://oura/connected`` so the iOS app
     re-opens automatically. On failure (bad state, exchange error, user
     cancellation), redirects to ``meld://oura/error?reason=<code>`` so the
     iOS handler can show an appropriate alert. We never return a JSON body
-    here — Safari would just render it as text and strand the user on the web.
+    here, Safari would just render it as text and strand the user on the web.
 
     `code` is optional because Oura sends `?error=access_denied&state=...` (no
     code) when the user taps Cancel on the consent screen. FastAPI's default
@@ -88,12 +88,12 @@ async def oura_callback(
         return RedirectResponse(url=_oura_error_deeplink(error))
 
     # No code AND no error means a malformed redirect (shouldn't happen, but
-    # don't 422 the user out either — same deep-link failure path).
+    # don't 422 the user out either, same deep-link failure path).
     if not code:
         logger.warning("Oura callback: missing both code and error params for state=%s", state[:12] + "...")
         return RedirectResponse(url=_oura_error_deeplink("missing_code"))
 
-    # Validate state points to a real user. Don't 400 — Safari renders 4xx
+    # Validate state points to a real user. Don't 400, Safari renders 4xx
     # bodies as plain text on iPhone, stranding the user. Deep-link out so
     # the iOS app gets the failure signal and can show its own error UI.
     result = await db.execute(select(User).where(User.apple_user_id == state))
@@ -110,7 +110,7 @@ async def oura_callback(
         return RedirectResponse(url=_oura_error_deeplink("exchange_failed"))
 
     # MEL-45 part 2: capture Oura's user ID so the webhook receiver can route
-    # incoming events to the correct Meld user. Best-effort — if personal_info
+    # incoming events to the correct Meld user. Best-effort, if personal_info
     # fails (network, Oura down), store NULL and let sync_user_data backfill
     # on the next sync. Webhooks will fall back to the single-user path until
     # the column is populated.

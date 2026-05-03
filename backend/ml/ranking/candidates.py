@@ -299,7 +299,7 @@ async def generate_candidates(
     """Build every surfaceable candidate for a user on a given day.
 
     Persists to ``ml_insight_candidates`` (idempotent upsert). Does NOT
-    commit — caller owns the transaction. Returns the in-memory list so
+    commit, caller owns the transaction. Returns the in-memory list so
     the ranker can use it without re-reading.
     """
     from app.core.time import utcnow_naive

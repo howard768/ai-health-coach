@@ -4,7 +4,7 @@ import Charts
 // MARK: - Sparkline Visualizations (Swift Charts)
 // Compact trend visualizations using Apple's Charts framework.
 // Used inside metric cards and detail views.
-// No axes, no labels — pure data ink.
+// No axes, no labels, pure data ink.
 
 // MARK: - Bar Sparkline (7-day mini bars)
 

@@ -19,7 +19,7 @@ import Foundation
 ///
 /// `NSLock` is used (not `OSAllocatedUnfairLock`, which is iOS 16+ only and
 /// the project supports older targets) for cross-version safety. `consume()`
-/// is the read-and-clear primitive — atomic: a writer that fires *during*
+/// is the read-and-clear primitive, atomic: a writer that fires *during*
 /// consume waits for the lock, then sets the new value, and the next reader
 /// sees it cleanly.
 ///
@@ -32,7 +32,7 @@ final class PendingTabHolder: @unchecked Sendable {
 
     /// Set the pending tab. Subsequent `consume()` returns this value once,
     /// then the holder is empty again. If `set` is called multiple times
-    /// before `consume`, only the latest wins (overwrite semantics — the
+    /// before `consume`, only the latest wins (overwrite semantics, the
     /// most-recent tap takes priority).
     func set(_ tab: String) {
         lock.lock()

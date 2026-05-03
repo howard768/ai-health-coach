@@ -1,7 +1,7 @@
 """Phase 2 end-to-end: run_discovery_pipeline + forecast_metric via ml.api.
 
 Exercises the full L1 flow from the public API boundary. No direct imports
-from backend.ml.discovery or backend.ml.forecasting — tests the contract the
+from backend.ml.discovery or backend.ml.forecasting, tests the contract the
 scheduler / coach consume.
 
 Run: ``cd backend && uv run python -m pytest tests/ml/test_discovery_pipeline.py -v``

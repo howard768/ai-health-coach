@@ -15,7 +15,7 @@ struct MainTabView: View {
         // pattern caused the tab bar to render in the middle of the screen
         // (safe-area calculations changed under Liquid Glass). The blessed
         // SwiftUI pattern is `.safeAreaInset(edge: .bottom)` on the content
-        // itself — that pins the tab bar to the bottom safe area on every
+        // itself, that pins the tab bar to the bottom safe area on every
         // SDK from iOS 16 onward, including 26.
         Group {
             switch selectedTab {
@@ -60,7 +60,7 @@ struct MainTabView: View {
     }
 
     /// Check if a notification action set a pending tab to navigate to.
-    /// `consume()` is atomic (read + clear in one critical section) — a new
+    /// `consume()` is atomic (read + clear in one critical section), a new
     /// notification arriving during the consume call waits and is preserved
     /// for the next checkPendingTab() invocation.
     private func checkPendingTab() {

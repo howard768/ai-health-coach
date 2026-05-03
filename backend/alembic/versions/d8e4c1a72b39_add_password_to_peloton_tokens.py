@@ -39,7 +39,7 @@ Migration safety:
     no boolean defaults, no `sa.text("0/1")` traps. ADD COLUMN with
     `nullable=True` is dialect-neutral.
   - The underlying SQL column type is `TEXT` (or `VARCHAR(2000)` in
-    raw SQL terms) — `EncryptedString` is a SQLAlchemy TypeDecorator
+    raw SQL terms), `EncryptedString` is a SQLAlchemy TypeDecorator
     around String, not a custom DB type.
 
 Rollback: `op.drop_column`. Non-destructive in the sense that the
@@ -70,7 +70,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Nullable so existing rows don't need a backfill — they stay in
+    # Nullable so existing rows don't need a backfill, they stay in
     # `needs_reauth` short-circuit until the user reconnects (which
     # captures both username and password under the new flow).
     #

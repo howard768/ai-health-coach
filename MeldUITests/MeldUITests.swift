@@ -11,15 +11,15 @@ final class MeldUITests: XCTestCase {
     /// failure itself if the simulator cannot start the app; if the call
     /// returns normally we have verified the smoke invariant (app boots).
     ///
-    /// Everything richer — specific UI elements, navigation, state
-    /// transitions — is owned by Maestro (`maestro/flows/`). Maestro
+    /// Everything richer, specific UI elements, navigation, state
+    /// transitions, is owned by Maestro (`maestro/flows/`). Maestro
     /// uses the same `-uitesting-skip-auth` bypass, has a backend-less
     /// harness, and is much less flaky than XCUITest against a SwiftUI
     /// app whose rendering depends on network state.
     ///
     /// Prior attempts here used `app.wait(for: .runningForeground)` and
     /// `app.buttons["tab-home"].waitForExistence`, which failed on CI
-    /// with "Failed to get background assertion" — an XCUITest
+    /// with "Failed to get background assertion", an XCUITest
     /// infrastructure flake on macos-15 runners, not an app bug (the
     /// app was launching with a valid pid). Keeping this test minimal.
     func testAppLaunches() throws {

@@ -47,7 +47,7 @@ final class DashboardViewModel {
     }
 
     init() {
-        // Start with empty data — refresh() fills from API on appear
+        // Start with empty data, refresh() fills from API on appear
         self.dashboardData = DashboardData(
             date: Date(),
             greeting: "",
@@ -70,7 +70,7 @@ final class DashboardViewModel {
         // offline we surface a dedicated "offline" state instead of the
         // generic "network failure" so the banner can explain what the user
         // needs to do. URLSession.waitsForConnectivity will still queue the
-        // request once they're back — we just don't block the UI on it.
+        // request once they're back, we just don't block the UI on it.
         if !NetworkMonitor.shared.isOnline {
             if dashboardData.metrics.isEmpty {
                 self.error = .offline
@@ -85,14 +85,14 @@ final class DashboardViewModel {
             dashboardData = response.toDashboardData()
             viewState = dashboardData.metrics.isEmpty ? .empty : .loaded
         } catch APIError.networkError {
-            // URLError from transport layer — likely transient offline.
+            // URLError from transport layer, likely transient offline.
             if dashboardData.metrics.isEmpty {
                 self.error = .offline
                 viewState = .error(.offline)
             }
         } catch {
             if dashboardData.metrics.isEmpty {
-                // First load failed — show error state
+                // First load failed, show error state
                 self.error = .networkFailure
                 viewState = .error(.networkFailure)
             }
@@ -137,7 +137,7 @@ final class DashboardViewModel {
 
     /// Submit feedback on the currently-shown signal insight card. No-op
     /// if ``signalInsight`` is nil (defensive). Does not mutate local
-    /// state — the card view owns its own `submittedFeedback` marker.
+    /// state, the card view owns its own `submittedFeedback` marker.
     func submitInsightFeedback(_ feedback: SignalInsightFeedback) async {
         guard let insight = signalInsight else { return }
         do {

@@ -11,7 +11,7 @@ they hit usage milestones.
 
 One row per (user_id, accessory_id) pair. Unlock is permanent; equip is
 toggleable. Multiple accessories can be equipped at once. The `accessory_id`
-is an opaque client-side string — the iOS `MascotAccessory` enum is the
+is an opaque client-side string, the iOS `MascotAccessory` enum is the
 source of truth for the catalog, the backend just tracks state.
 """
 

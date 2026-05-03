@@ -1,5 +1,5 @@
 appId: com.heymeld.app
-name: "Profile — Data sources section visible"
+name: "Profile, Data sources section visible"
 ---
 - runFlow: ../helpers/auth_bypass.yaml
 

@@ -21,7 +21,7 @@ logger = logging.getLogger("meld.notifications")
 # Prompt templates for short-form notification content
 MORNING_BRIEF_PROMPT = """Generate a push notification for a morning health check-in.
 
-STRICT RULES — violating any of these is a failure:
+STRICT RULES, violating any of these is a failure:
 1. Title: max 40 chars. Warm, simple greeting. Example: "Good morning, Brock"
 2. Body: max 120 chars. Contextual language about recovery and ONE action for today.
 3. NEVER include numbers, percentages, scores, or raw metrics (e.g. "48%", "63", "68ms"). These are private health data visible on the lock screen. Instead use words like "great", "solid", "rough", "low", "high".

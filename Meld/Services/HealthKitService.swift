@@ -1,7 +1,7 @@
 import HealthKit
 import Foundation
 
-/// Manages all HealthKit interactions — authorization, queries, background delivery, and backend sync.
+/// Manages all HealthKit interactions, authorization, queries, background delivery, and backend sync.
 /// Uses iOS 17+ async/await query descriptors for Swift 6 concurrency safety.
 @Observable @MainActor
 final class HealthKitService {

@@ -118,7 +118,7 @@ struct WelcomeView: View {
                 return
             }
 
-            // Capture name/email — only arrive on first sign-in
+            // Capture name/email, only arrive on first sign-in
             let nameComponents = credential.fullName
             let fullName: String? = {
                 guard let nc = nameComponents else { return nil }
@@ -154,7 +154,7 @@ struct WelcomeView: View {
 
         case .failure(let error):
             if (error as NSError).code == ASAuthorizationError.canceled.rawValue {
-                // User cancelled — don't show an error
+                // User cancelled, don't show an error
                 return
             }
             signInError = "Sign in failed: \(error.localizedDescription)"

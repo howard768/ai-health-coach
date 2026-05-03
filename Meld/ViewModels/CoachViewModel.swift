@@ -12,7 +12,7 @@ final class CoachViewModel {
     var quickActions: [QuickAction] = QuickAction.defaults
 
     init() {
-        // Start empty — loadHistory() fills from API on appear
+        // Start empty, loadHistory() fills from API on appear
         messages = []
         Task { await loadHistory() }
     }
@@ -35,7 +35,7 @@ final class CoachViewModel {
                     )
                 }
             } else {
-                // No history — show a welcome message (not fake conversation)
+                // No history, show a welcome message (not fake conversation)
                 messages = [
                     ChatMessage(
                         role: .coach,
@@ -45,7 +45,7 @@ final class CoachViewModel {
                 ]
             }
         } catch {
-            // Backend unavailable — show welcome message
+            // Backend unavailable, show welcome message
             messages = [
                 ChatMessage(
                     role: .coach,
@@ -101,7 +101,7 @@ final class CoachViewModel {
     // MARK: - Coach Response
     //
     // IMPORTANT: No mock/fake fallback. If the backend is unreachable, we show
-    // an honest error — never fabricated health data. This is enforced by the
+    // an honest error, never fabricated health data. This is enforced by the
     // eval suite (evidence-bound coaching rule) and was fixed as P0-7 of the
     // 2026-04-10 audit.
 

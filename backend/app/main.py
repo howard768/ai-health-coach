@@ -23,7 +23,7 @@ def _real_remote_address(request: Request) -> str:
     The default `slowapi.util.get_remote_address` returns
     `request.client.host`, which on Railway behind Cloudflare is always
     the CF edge IP. That collapses every rate-limit bucket to one shared
-    counter — any single user can exhaust the limit for everyone.
+    counter, any single user can exhaust the limit for everyone.
 
     Trust order:
       1. `cf-connecting-ip` (Cloudflare-injected, only present when traffic
@@ -49,7 +49,7 @@ def _real_remote_address(request: Request) -> str:
     return "unknown"
 
 
-# Rate limiter — keyed by real client IP via _real_remote_address (above).
+# Rate limiter, keyed by real client IP via _real_remote_address (above).
 # Default limits apply to every endpoint unless overridden with
 # @limiter.limit("..."). Stricter limits applied to auth + AI endpoints to
 # prevent cost-exhaustion attacks (P1-4).
@@ -61,11 +61,11 @@ limiter = Limiter(
 
 _PHI_SCRUB_PATTERNS = [
     # apple_user_id: opaque numeric.numeric.string format. We log it routinely
-    # for forensics but it's still user-identifying — scrub before Sentry.
+    # for forensics but it's still user-identifying, scrub before Sentry.
     (re.compile(r"\b\d{6}\.[0-9a-f]{32}\.\d{4}\b"), "[apple_user_id]"),
-    # bare email — only common shapes; private-relay addresses caught here too.
+    # bare email, only common shapes; private-relay addresses caught here too.
     (re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"), "[email]"),
-    # bearer token — opaque ~200-char base64-ish JWT string after `Bearer`.
+    # bearer token, opaque ~200-char base64-ish JWT string after `Bearer`.
     (re.compile(r"(?i)bearer\s+[A-Za-z0-9._-]{20,}"), "Bearer [token]"),
 ]
 
@@ -110,7 +110,7 @@ def _init_sentry():
     from sentry_sdk.integrations.fastapi import FastApiIntegration
 
     # Release tag: Railway sets RAILWAY_GIT_COMMIT_SHA per deploy. Sentry
-    # uses this to attribute errors to specific releases — without it, every
+    # uses this to attribute errors to specific releases, without it, every
     # error in the dashboard says "release: unknown" and we can't tell
     # which deploy regressed what. The 2026-04-29 audit (sentry-side) said
     # this was the single missing knob preventing release-correlated
@@ -127,7 +127,7 @@ def _init_sentry():
         from sentry_sdk.integrations.apscheduler import ApschedulerIntegration
         integrations.append(ApschedulerIntegration())
     except ImportError:
-        # Older sentry-sdk without the integration — silently skip.
+        # Older sentry-sdk without the integration, silently skip.
         pass
 
     sentry_sdk.init(
@@ -149,7 +149,7 @@ async def lifespan(app: FastAPI):
     # so impact tools will report this as orphaned. It is the boot path:
     # any change here gates every deploy.
     # Startup: Sentry, secret validation, PEM verifiers, scheduler.
-    # Migrations are NOT run here — Railway's preDeployCommand owns
+    # Migrations are NOT run here, Railway's preDeployCommand owns
     # `alembic upgrade head` (see backend/railway.toml). See
     # ~/.claude/projects/.../memory/feedback_alembic_in_lifespan.md for
     # why: the 5-minute Railway healthcheck window is hostile to migrations,
@@ -157,12 +157,12 @@ async def lifespan(app: FastAPI):
     # preDeployCommand keeps the previous SUCCESS deploy serving instead.
     _init_sentry()
     # Production-grade secret validation. Fails fast (raises) in production
-    # when JWT_SECRET_KEY or ENCRYPTION_KEY are missing — those have
+    # when JWT_SECRET_KEY or ENCRYPTION_KEY are missing, those have
     # seconds-to-recover profiles so coupling deploy success to them is
     # correct. Non-critical secrets (Anthropic API key, app_secret_key,
     # apns_environment) log + continue. See app/core/secrets.py.
     verify_secrets_configured()
-    # PEM startup validation — APNs and SIWA private keys parse correctly,
+    # PEM startup validation, APNs and SIWA private keys parse correctly,
     # so a corrupt/CRLF-mangled env value surfaces here instead of
     # surfacing as a JWSError on the next scheduled morning brief (see
     # scheduler_audit.md, the 6 recurring Sentry JWSError issues from
@@ -178,17 +178,17 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Meld Health Coach API",
-    description="Backend for Meld — AI-powered health coaching",
+    description="Backend for Meld, AI-powered health coaching",
     version="0.1.0",
     lifespan=lifespan,
 )
 
-# Wire up rate limiter — slowapi attaches `request.app.state.limiter` and
+# Wire up rate limiter, slowapi attaches `request.app.state.limiter` and
 # auto-returns 429 with Retry-After when limits are exceeded.
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# CORS — restrict to known origins. P3-3: read public URL from settings
+# CORS, restrict to known origins. P3-3: read public URL from settings
 # so changing the deploy URL is one config change, not a grep job.
 app.add_middleware(
     CORSMiddleware,
@@ -236,7 +236,7 @@ app.include_router(ml_ops.router)      # Read-only ML ops endpoints for Phase 5 
 
 @app.get("/")
 async def health_check():
-    """Public root endpoint — no DB ping. Marketing/curiosity check only."""
+    """Public root endpoint, no DB ping. Marketing/curiosity check only."""
     return {
         "status": "healthy",
         "app": "Meld Health Coach API",
@@ -247,13 +247,13 @@ async def health_check():
 
 @app.get("/healthz")
 async def healthz():
-    """Liveness probe — process is up. No DB check (cheap, fast)."""
+    """Liveness probe, process is up. No DB check (cheap, fast)."""
     return {"status": "ok"}
 
 
 @app.get("/readyz")
 async def readyz():
-    """Readiness probe — verifies DB *and schema* are healthy.
+    """Readiness probe, verifies DB *and schema* are healthy.
 
     Querying alembic_version (rather than SELECT 1) ensures the schema
     chain has run. SELECT 1 succeeds against an empty Postgres, which

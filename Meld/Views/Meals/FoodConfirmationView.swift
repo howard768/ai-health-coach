@@ -108,7 +108,7 @@ struct FoodConfirmationView: View {
             // Editing mode
             editableItemRow(index: index)
         } else {
-            // Display mode — tap to edit
+            // Display mode, tap to edit
             Button {
                 editingIndex = index
             } label: {

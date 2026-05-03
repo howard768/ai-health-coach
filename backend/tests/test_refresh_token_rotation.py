@@ -4,7 +4,7 @@ The chain-walk is the primary defense against refresh-token theft: when a
 revoked token is presented to `/auth/refresh`, every token downstream of it
 is also revoked, terminating the attacker's session in addition to the
 victim's. The 2026-04-30 audit (MEL-43) flagged this as a CRITICAL zero-test
-path — a regression in chain-walk logic could silently disable the
+path, a regression in chain-walk logic could silently disable the
 reuse-detection security property.
 
 Run: cd backend && uv run pytest tests/test_refresh_token_rotation.py -v
@@ -35,7 +35,7 @@ from app.core.time import utcnow_naive
 async def db_session():
     """In-memory SQLite session, fresh schema per test.
 
-    Keeps tests hermetic — a side-effect on one chain doesn't bleed into
+    Keeps tests hermetic, a side-effect on one chain doesn't bleed into
     another. The session is closed (and thus the engine disposed) when the
     test completes.
     """

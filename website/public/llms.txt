@@ -4,8 +4,8 @@
 
 ## About
 
-- **Product**: Meld — iOS health coaching app
-- **Positioning**: "Your health, synthesized" — eliminates the friction between fragmented health data and an AI coach
+- **Product**: Meld, iOS health coaching app
+- **Positioning**: "Your health, synthesized", eliminates the friction between fragmented health data and an AI coach
 - **Founder**: Brock Howard, consumer health product builder (15+ years)
 - **Status**: Active build, pre-launch, iOS first
 - **Domain**: heymeld.com
@@ -33,7 +33,7 @@
 
 - **vs. Oura/Whoop**: They're excellent at one sensor each. Meld connects every source.
 - **vs. ChatGPT**: ChatGPT knows nothing about your body until you feed it screenshots. Meld already knows.
-- **vs. other health apps**: Meld reaches level 4 of health data interpretation — not "what happened" or "is it good/bad" or even "what to do" — but "why" with literature citations.
+- **vs. other health apps**: Meld reaches level 4 of health data interpretation, not "what happened" or "is it good/bad" or even "what to do", but "why" with literature citations.
 
 ## Privacy stance
 

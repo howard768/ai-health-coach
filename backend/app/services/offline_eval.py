@@ -24,7 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 # part of the Signal Engine ML stack), nltk eagerly imports them at load time
 # via textstat's dependency chain. That cascade was adding ~2.5s to FastAPI
 # cold boot and blowing the 4s Railway budget. The cold-boot test in
-# backend/tests/ml/test_cold_boot.py guards this invariant — if you move the
+# backend/tests/ml/test_cold_boot.py guards this invariant, if you move the
 # import back to module level, that test will fail.
 
 from app.models.chat import ChatMessageRecord
@@ -37,14 +37,14 @@ async def run_offline_eval(db: AsyncSession, days: int = 7) -> dict:
     """Evaluate recent coach responses for quality regressions.
 
     Checks:
-    1. Reading level — Flesch-Kincaid grade should be <= 8.0
+    1. Reading level, Flesch-Kincaid grade should be <= 8.0
        (allows headroom for technical health terms; the eval suite uses
        7.0 as the strict bar for golden tests, but production responses
        sometimes hit 7.5 with words like "circadian" or "cardiovascular")
-    2. Data grounding — responses with health_context should cite numbers from it
-    3. Feedback correlation — thumbs-down responses flagged for review
+    2. Data grounding, responses with health_context should cite numbers from it
+    3. Feedback correlation, thumbs-down responses flagged for review
     """
-    import textstat  # lazy — see module header for why
+    import textstat  # lazy, see module header for why
 
     cutoff = utcnow_naive() - timedelta(days=days)
 
@@ -73,7 +73,7 @@ async def run_offline_eval(db: AsyncSession, days: int = 7) -> dict:
             "pass": grade <= 8.0,
         })
 
-        # 2. Data grounding — check if response cites numbers from context
+        # 2. Data grounding, check if response cites numbers from context
         if msg.health_context:
             try:
                 context = json.loads(msg.health_context)

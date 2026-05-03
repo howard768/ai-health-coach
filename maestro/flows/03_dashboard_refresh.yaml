@@ -1,5 +1,5 @@
 appId: com.heymeld.app
-name: "Dashboard — Pull to refresh does not crash"
+name: "Dashboard, Pull to refresh does not crash"
 ---
 - runFlow: ../helpers/auth_bypass.yaml
 
@@ -12,7 +12,7 @@ name: "Dashboard — Pull to refresh does not crash"
     direction: DOWN
     duration: 1000
 
-# App should still be alive — verify tabs still present
+# App should still be alive, verify tabs still present
 - assertVisible:
     id: "tab-home"
 - assertVisible:

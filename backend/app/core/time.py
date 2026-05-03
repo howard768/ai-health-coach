@@ -4,14 +4,14 @@ P2-5 fix: `datetime.utcnow()` is deprecated in Python 3.12 and removed in
 3.13. It also returned naive datetimes, which silently broke timezone math.
 
 All code that used to call `datetime.utcnow()` should call `utcnow_naive()`
-(for columns that still store naive UTC — most of our DB) or `now_utc()`
+(for columns that still store naive UTC, most of our DB) or `now_utc()`
 (for timezone-aware comparisons).
 
 User-facing time helpers (`user_now`, `user_today_iso`, `user_hour`) bind
 to `settings.user_timezone` so user-visible logic (meal classification,
 date assignment) renders in the user's wall-clock time instead of the
 container's UTC. Pre-PR-G, several call sites used `datetime.now()` (naive
-local) which is UTC on Railway — every EST user's 8pm dinner was logged
+local) which is UTC on Railway, every EST user's 8pm dinner was logged
 as the next day, and "breakfast" auto-classified at the wrong hour.
 """
 
@@ -27,7 +27,7 @@ def now_utc() -> datetime:
 def utcnow_naive() -> datetime:
     """Return the current UTC time as a naive datetime.
 
-    Use for SQLAlchemy columns that store naive UTC timestamps — all of
+    Use for SQLAlchemy columns that store naive UTC timestamps, all of
     ours do, because SQLite doesn't support timezone-aware columns and
     we want consistent behavior across SQLite (dev) and Postgres (prod).
 

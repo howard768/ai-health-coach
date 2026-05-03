@@ -8,7 +8,7 @@ Schema for L1 baselines (STL + BOCPD), forecasting (seasonal-naive + Prophet
 ensemble), and residual-anomaly detection. Shadow mode only; nothing reads
 these tables yet outside ``backend/ml/``.
 
-Hand-trimmed to just the new tables — autogenerate flagged the usual SQLite
+Hand-trimmed to just the new tables, autogenerate flagged the usual SQLite
 quirks (foreign-key constraints on existing tables, EncryptedString vs
 TEXT type drift) that are not this migration's concern.
 """

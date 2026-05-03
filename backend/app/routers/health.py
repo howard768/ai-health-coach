@@ -40,7 +40,7 @@ async def _maybe_refresh_oura(db: AsyncSession, user_id: str) -> None:
 
     Gated by `OuraToken.last_synced_at`, which sync_user_data bumps on
     every successful call. If it's within the refresh threshold, no-op.
-    Otherwise do a foreground sync — the Oura API is fast enough (~1-2s)
+    Otherwise do a foreground sync, the Oura API is fast enough (~1-2s)
     that blocking the dashboard response is imperceptible, and the user
     gets fresh data in the same round trip.
 
@@ -74,12 +74,12 @@ async def _maybe_refresh_oura(db: AsyncSession, user_id: str) -> None:
         if age < _OURA_REFRESH_THRESHOLD:
             return
 
-    # Stale or never synced — kick off a foreground sync.
+    # Stale or never synced, kick off a foreground sync.
     try:
         result = await sync_user_data(db, user_id)
         logger.info("On-demand Oura sync: %s", result)
-    except Exception as e:  # noqa: BLE001  — intentionally broad
-        # This is the dashboard endpoint — it MUST render from cached data
+    except Exception as e:  # noqa: BLE001 , intentionally broad
+        # This is the dashboard endpoint, it MUST render from cached data
         # when Oura is broken, regardless of which exception sync_user_data
         # surfaces. P2-6 narrowed exceptions everywhere else; this single
         # call is kept broad because the safety net is the whole point.
@@ -289,7 +289,7 @@ async def get_trend_patterns(
             drop = round(avg_first - avg_second, 1)
             patterns.append({
                 "pattern_text": (
-                    f"Your resting heart rate dropped {drop} bpm over the last 30 days — "
+                    f"Your resting heart rate dropped {drop} bpm over the last 30 days, "
                     "a sign your cardiovascular fitness is improving."
                 ),
                 "confidence": 0.88,
@@ -361,7 +361,7 @@ async def health_canary(
 ):
     """Synthetic health check: is the data pipeline producing fresh data?
 
-    No auth required — designed for uptime monitoring and CI canary checks.
+    No auth required, designed for uptime monitoring and CI canary checks.
 
     MEL-45 part 2: returns AGGREGATE counts only, NEVER per-user data.
     Pre-PR-MEL-45 this endpoint returned the first active user's reconciled
@@ -386,7 +386,7 @@ async def health_canary(
     active_user_count = user_count_result.scalar() or 0
 
     # Users who wrote a sleep record in the last 24h (cheap freshness check).
-    # Pass a real datetime, not isoformat() — `synced_at` is a DateTime column
+    # Pass a real datetime, not isoformat(), `synced_at` is a DateTime column
     # and Postgres rejects implicit string-to-timestamp coercion (SQLite is
     # lenient and would let a string compare slip through).
     twenty_four_hrs_ago = utcnow_naive() - timedelta(hours=24)
@@ -424,7 +424,7 @@ async def get_dashboard(
     current_user: CurrentUser,
     db: AsyncSession = Depends(get_db),
 ):
-    """Dashboard data — reads from reconciled multi-source health data.
+    """Dashboard data, reads from reconciled multi-source health data.
 
     On-demand sync: if OuraToken.last_synced_at is older than the refresh
     threshold (30 min), trigger a foreground Oura pull before rendering.
@@ -442,7 +442,7 @@ async def get_dashboard(
     # Auto-sync if data is stale. Staleness check uses the most recent
     # SleepRecord's synced_at; if older than 30 min (or no record at all),
     # pull fresh Oura data before rendering. This is the only place we do
-    # on-demand sync — meals, workouts, etc. stay on the scheduler.
+    # on-demand sync, meals, workouts, etc. stay on the scheduler.
     await _maybe_refresh_oura(db, current_user.apple_user_id)
 
     # Load reconciled data (multi-source: Oura + Apple Health + Garmin + Peloton)
@@ -494,7 +494,7 @@ async def get_dashboard(
         if abs(rhr_diff) >= 1 else "Stable"
     )
 
-    # Source attribution — pretty labels we reuse in every metric subtitle
+    # Source attribution, pretty labels we reuse in every metric subtitle
     def _pretty_source(raw: str) -> str:
         return raw.replace("_", " ").title() if raw else ""
 

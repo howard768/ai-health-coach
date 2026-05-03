@@ -10,7 +10,7 @@ import SwiftUI
 // - Uses our subtle warning color from the design system
 // - Fixed 36pt height so it doesn't reflow content
 // - Animated via default .easeInOut transition on opacity + offset
-// - Does NOT block interaction — the underlying request still queues via
+// - Does NOT block interaction, the underlying request still queues via
 //   URLSession.waitsForConnectivity when the network returns
 //
 // Why a modifier and not a standalone view: we want this banner to attach

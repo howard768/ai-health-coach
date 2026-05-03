@@ -10,7 +10,7 @@ Dispatches by candidate kind:
   the behavioral deltas most likely to have driven the anomaly. Full
   XGBoost + SHAP is a Phase 5.1 follow-up; this heuristic is honest for
   the data scale we have.
-- ``forecast_warning`` -> same shape as anomaly (not yet wired — Phase 2
+- ``forecast_warning`` -> same shape as anomaly (not yet wired, Phase 2
   forecasts don't emit warning candidates in v1).
 - Other kinds -> generic note directing the user to the insight card
   payload. Phase 9+ fills these in.
@@ -193,7 +193,7 @@ async def _explain_anomaly(
     On the observation date, compute ``(observed - rolling_28d_mean) /
     rolling_28d_std`` for each context feature and return the top-N by
     absolute value. These are the features whose personal-baseline-scaled
-    distance from normal is largest on the anomaly day — the most likely
+    distance from normal is largest on the anomaly day, the most likely
     behavioral drivers.
 
     Not a true causal attribution, but a useful narrative primitive for
@@ -231,7 +231,7 @@ async def _explain_anomaly(
 
     # Compute z-score of observation_date against the 28-day window.
     import numpy as np
-    import pandas as pd  # noqa: F401 — pulled transitively by get_feature_frame
+    import pandas as pd  # noqa: F401, pulled transitively by get_feature_frame
 
     obs_row = frame.loc[obs_dt.isoformat()] if obs_dt.isoformat() in frame.index else None
     if obs_row is None:
@@ -241,7 +241,7 @@ async def _explain_anomaly(
 
     contributions: list[Contribution] = []
     for feature in _CONTEXT_FEATURES:
-        # Skip the metric that triggered the anomaly itself — not useful
+        # Skip the metric that triggered the anomaly itself, not useful
         # to tell the user "your HRV was low because your HRV was low".
         if feature == metric_key:
             continue

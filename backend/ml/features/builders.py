@@ -308,7 +308,7 @@ async def build_activity(
             for key in ("steps", "active_calories", "workout_count", "workout_duration_sum_minutes"):
                 out.append(MaterializedValue(key, ds, None, False))
 
-        # days_since_last_workout — look at workout_dates up to and including this day.
+        # days_since_last_workout, look at workout_dates up to and including this day.
         prior_workouts = [wd for wd in workout_dates if wd <= ds]
         if prior_workouts:
             last = prior_workouts[-1]
@@ -318,7 +318,7 @@ async def build_activity(
             # No workouts yet. Mark not observed rather than guessing infinity.
             out.append(MaterializedValue("days_since_last_workout", ds, None, False))
 
-        # training_load_7d — exp-weighted sum of workout minutes over last 7 days.
+        # training_load_7d, exp-weighted sum of workout minutes over last 7 days.
         # alpha = 0.3 approximates a half-life of ~2 days, biases toward recent training.
         alpha = 0.3
         load = 0.0
@@ -628,7 +628,7 @@ def build_derived(frame: "pd.DataFrame", requested_keys: set[str]) -> list[Mater
                 std_28 = series.rolling(window=28, min_periods=7).std()
                 computed = (series - mean_28) / std_28
             else:
-                # Unknown suffix — defensive default.
+                # Unknown suffix, defensive default.
                 continue
 
             for idx, val in computed.items():

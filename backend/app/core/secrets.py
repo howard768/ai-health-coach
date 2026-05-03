@@ -21,7 +21,7 @@ Secrets validated:
   - `apns_environment`: must be "sandbox" or "production"; a typo
     silently sends pushes to the wrong APNs cluster. Log + continue.
 
-In development, all checks log info but never raise — local dev with
+In development, all checks log info but never raise, local dev with
 a SQLite DB and no real secrets is the expected state.
 
 This complements the PEM verifiers; lifespan calls this first so a
@@ -108,7 +108,7 @@ def verify_secrets_configured() -> None:
 
     if settings.apns_environment not in _VALID_APNS_ENVIRONMENTS:
         # Typo means push goes to the wrong APNs cluster (e.g. "prod" vs
-        # "production"). Don't crash startup — push is already non-fatal —
+        # "production"). Don't crash startup, push is already non-fatal ,
         # but log loudly.
         logger.error(
             "APNS_ENVIRONMENT='%s' is invalid. Must be one of %s. "

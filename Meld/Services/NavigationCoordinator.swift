@@ -11,7 +11,7 @@ enum OuraConnectOutcome: Equatable {
 
 /// Handles deep link navigation from push notifications.
 /// Uses ObservableObject + @Published so the value is retained for cold-launch
-/// scenarios — when MainTabView subscribes via .onReceive after the delegate
+/// scenarios, when MainTabView subscribes via .onReceive after the delegate
 /// has already set the value, it immediately receives the pending tab.
 @MainActor
 final class NotificationNavigator: ObservableObject {

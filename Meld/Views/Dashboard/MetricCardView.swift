@@ -52,7 +52,7 @@ struct MetricCardView: View {
     private var miniVisualization: some View {
         switch metric.category {
         case .sleepEfficiency:
-            // Mini arc gauge — compact version
+            // Mini arc gauge, compact version
             HStack(alignment: .bottom, spacing: DSSpacing.sm) {
                 // Value
                 HStack(alignment: .firstTextBaseline, spacing: DSSpacing.xxs) {

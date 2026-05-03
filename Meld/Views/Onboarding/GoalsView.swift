@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 // MARK: - Screen 2: Goals (Multi-select)
-// User picks health goals. Cannot skip — critical path.
+// User picks health goals. Cannot skip, critical path.
 // Chips animate on selection. Mascot micro-celebrates.
 // 4th grade reading level. 20pt margins, 8pt grid.
 
@@ -37,7 +37,7 @@ struct GoalsView: View {
 
                     Spacer().frame(height: DSSpacing.xxl)
 
-                    // Goal chips — wrapping grid
+                    // Goal chips, wrapping grid
                     FlowLayout(spacing: DSSpacing.sm) {
                         ForEach(HealthGoal.allCases) { goal in
                             DSChip(

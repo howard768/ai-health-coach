@@ -74,11 +74,11 @@ async def oura_webhook_receiver(request: Request, db: AsyncSession = Depends(get
 
     Oura POSTs here when new data is available (sleep, readiness, activity, etc.).
     Oura does not send bearer auth, so we validate via:
-      1. Body shape — must have `event_type`, `data_type`, and `user_id`
-      2. The handler does NOT trust webhook body content for health data — it
+      1. Body shape, must have `event_type`, `data_type`, and `user_id`
+      2. The handler does NOT trust webhook body content for health data, it
          re-fetches everything from Oura's API using our OAuth token. A forged
          webhook can only cause an unnecessary sync, not poison data.
-      3. Per-user-per-minute throttle — caps the damage of a webhook flood.
+      3. Per-user-per-minute throttle, caps the damage of a webhook flood.
 
     TODO (multi-user): add `oura_user_id` column to OuraToken and match on
     `body["user_id"]` to route events to the correct Meld user.
@@ -94,7 +94,7 @@ async def oura_webhook_receiver(request: Request, db: AsyncSession = Depends(get
     user_oura_id = body.get("user_id")
     timestamp = body.get("timestamp")
 
-    # Body shape validation — Oura always sends these fields
+    # Body shape validation, Oura always sends these fields
     if not event_type or not data_type or not user_oura_id:
         logger.warning(
             "Oura webhook missing required fields: event=%s data=%s user=%s",
@@ -134,7 +134,7 @@ async def oura_webhook_receiver(request: Request, db: AsyncSession = Depends(get
     #    user's token has NULL `oura_user_id` until backfilled, so the lookup
     #    won't match. The fallback keeps webhooks working during the gap.
     # 3. If no match AND multiple tokens exist, return 200 + Sentry capture.
-    #    Don't 4xx — Apple's retry budget is scarce, and a missing user is a
+    #    Don't 4xx, Apple's retry budget is scarce, and a missing user is a
     #    legitimate state (we may have just deleted them locally).
     from app.models.health import OuraToken
     from sqlalchemy import select, func as sql_func
@@ -150,7 +150,7 @@ async def oura_webhook_receiver(request: Request, db: AsyncSession = Depends(get
         count_result = await db.execute(select(sql_func.count(OuraToken.id)))
         total_tokens = count_result.scalar() or 0
         if total_tokens == 0:
-            logger.warning("Oura webhook received but no users have connected Oura — ignoring")
+            logger.warning("Oura webhook received but no users have connected Oura, ignoring")
             return {"status": "no_user"}
         if total_tokens == 1:
             single = await db.execute(select(OuraToken).limit(1))
@@ -162,7 +162,7 @@ async def oura_webhook_receiver(request: Request, db: AsyncSession = Depends(get
                     user_oura_id,
                 )
 
-    # Step 3: still no match in multi-user mode — log + Sentry, return 200
+    # Step 3: still no match in multi-user mode, log + Sentry, return 200
     if token is None:
         logger.warning(
             "Oura webhook user_id=%s did not match any OuraToken.oura_user_id; "
@@ -185,7 +185,7 @@ async def oura_webhook_receiver(request: Request, db: AsyncSession = Depends(get
     meld_user_id = token.user_id
 
     # Trigger sync to pull latest data. Return 200 even on sync failure so
-    # Oura doesn't retry — their retry budget is scarce and a failed sync
+    # Oura doesn't retry, their retry budget is scarce and a failed sync
     # will be picked up by the scheduled job within 6 hours. P2-16.
     try:
         result = await sync_user_data(db, meld_user_id)
@@ -275,7 +275,7 @@ async def register_webhooks(
 
     Auth-gated to prevent attackers redirecting your webhooks to their servers (P1-3).
     """
-    # Validate base_url's host is one of our known hosts. Prevents SSRF —
+    # Validate base_url's host is one of our known hosts. Prevents SSRF ,
     # the prior `base_url.startswith("http://localhost")` accepted
     # `http://localhost.attacker.com/` and let an attacker register webhooks
     # pointing at their server. Use proper URL parsing + exact host match.

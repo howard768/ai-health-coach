@@ -50,7 +50,7 @@ enum MealType: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    /// Auto-assign meal type by time of day — no unnecessary decisions
+    /// Auto-assign meal type by time of day, no unnecessary decisions
     static func fromTime(_ date: Date) -> MealType {
         let hour = Calendar.current.component(.hour, from: date)
         switch hour {
@@ -102,7 +102,7 @@ struct FoodItem: Identifiable {
 }
 
 /// Food quality framing: whole / mixed / processed
-/// NOT "good/bad" — avoids food moralizing
+/// NOT "good/bad", avoids food moralizing
 /// Based on NOVA classification research
 enum FoodQuality: String {
     case whole = "Whole"          // Nutrient-dense, minimally processed
@@ -120,7 +120,7 @@ enum FoodQuality: String {
 
 import SwiftUI
 
-/// Where the nutrition data came from — transparency for the user
+/// Where the nutrition data came from, transparency for the user
 enum FoodDataSource: String {
     case usda = "USDA"             // Lab-analyzed, highest confidence
     case usdaBranded = "Label"    // Manufacturer-reported label data

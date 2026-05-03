@@ -2,7 +2,7 @@
 
 Registers and handles webhook subscriptions for near-real-time data delivery.
 Oura pushes data to our callback URL when new sleep/readiness/activity data
-is available — eliminating the need for frequent polling.
+is available, eliminating the need for frequent polling.
 
 API: https://api.ouraring.com/v2/webhook/subscription
 Auth: x-client-id + x-client-secret headers (app-level credentials)
@@ -28,7 +28,7 @@ logger = logging.getLogger("meld.oura_webhooks")
 
 OURA_WEBHOOK_URL = "https://api.ouraring.com/v2/webhook/subscription"
 
-# Verification token — Oura sends this back during the GET handshake to
+# Verification token, Oura sends this back during the GET handshake to
 # prove the registrar owns this endpoint. Source-of-truth is the
 # OURA_WEBHOOK_VERIFICATION_TOKEN env var (Settings.oura_webhook_verification_token).
 # Empty = handshake rejected (dev default). The 2026-04-29 audit found a

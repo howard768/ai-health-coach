@@ -2,11 +2,11 @@
 
 Flow overview:
 
-1. POST /auth/apple         — verify Apple identity token, upsert user, issue tokens
-2. POST /auth/refresh       — rotate refresh token, issue new access token
-3. POST /auth/logout        — revoke the caller's refresh token
-4. POST /auth/delete        — call Apple /auth/revoke, delete user + all data
-5. POST /auth/apple/revoked — Apple server-to-server notification endpoint
+1. POST /auth/apple        , verify Apple identity token, upsert user, issue tokens
+2. POST /auth/refresh      , rotate refresh token, issue new access token
+3. POST /auth/logout       , revoke the caller's refresh token
+4. POST /auth/delete       , call Apple /auth/revoke, delete user + all data
+5. POST /auth/apple/revoked, Apple server-to-server notification endpoint
 
 All endpoints are unauthenticated EXCEPT /auth/logout and /auth/delete, which
 require a valid access token via `CurrentUser`.
@@ -49,7 +49,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger("meld.auth")
 
 # Per-IP rate limiter shared across auth endpoints. Tighter than the
-# global default — auth endpoints are the highest-value attack surface
+# global default, auth endpoints are the highest-value attack surface
 # (brute force, token enumeration, cost exhaustion via Apple JWT verify).
 limiter = Limiter(key_func=get_remote_address)
 
@@ -83,7 +83,7 @@ class RefreshRequest(BaseModel):
 
 
 class DeleteRequest(BaseModel):
-    # Optional confirmation string — iOS client can send the user's email or
+    # Optional confirmation string, iOS client can send the user's email or
     # a UI-generated challenge to prevent accidental deletions.
     confirmation: str | None = None
 
@@ -130,7 +130,7 @@ async def _issue_token_pair(
 
 async def _revoke_chain(db: AsyncSession, start_hash: str) -> None:
     """Walk the `replaced_by` chain starting at `start_hash` and revoke every
-    token. Used when a revoked token is presented for refresh — indicates the
+    token. Used when a revoked token is presented for refresh, indicates the
     refresh token was stolen and replayed after rotation.
     """
     now = utcnow_naive()
@@ -159,7 +159,7 @@ async def sign_in_with_apple(
 ) -> TokenPair:
     """Verify an Apple identity token, upsert the user, and issue our tokens.
 
-    Rate-limited to 10/min per IP — protects against Apple JWKS verification
+    Rate-limited to 10/min per IP, protects against Apple JWKS verification
     cost exhaustion and brute-force enumeration.
     """
     try:
@@ -171,7 +171,7 @@ async def sign_in_with_apple(
             detail=f"Invalid Apple identity token: {e}",
         )
 
-    apple_sub = claims["sub"]  # source of truth — NOT request.user_identifier
+    apple_sub = claims["sub"]  # source of truth, NOT request.user_identifier
     claim_email = claims.get("email")  # Apple puts email in claims on first sign-in
     # The iOS client may also provide full_name/email directly (first time only).
 
@@ -218,10 +218,10 @@ async def refresh_token(
 
     Reuse detection: if a revoked token is presented, we walk the replacement
     chain and revoke every descendant for the user. This is the primary
-    defense against refresh token theft — once the attacker uses a stolen
+    defense against refresh token theft, once the attacker uses a stolen
     token, the legitimate client's next refresh will be rejected.
 
-    Rate-limited to 30/min per IP — generous enough for legitimate token
+    Rate-limited to 30/min per IP, generous enough for legitimate token
     refresh on app launches, tight enough to flag enumeration attempts.
     """
     token_hash = hash_refresh_token(body.refresh_token)
@@ -251,7 +251,7 @@ async def refresh_token(
         await db.commit()
         raise HTTPException(
             status.HTTP_401_UNAUTHORIZED,
-            "Refresh token reuse detected — please sign in again",
+            "Refresh token reuse detected, please sign in again",
         )
 
     # Expiry check (accept both naive UTC and aware for legacy rows)
@@ -329,14 +329,14 @@ async def delete_account(
     Steps:
     1. Call Apple's /auth/revoke with the user's Apple refresh token (if we
        have one captured from the original sign-in).
-    2. DELETE the user row — CASCADE removes all tenant data across the 13
+    2. DELETE the user row, CASCADE removes all tenant data across the 13
        tables per the FK migration in c0518b5194eb.
     """
     apple_id = user.apple_user_id
     apple_refresh = user.apple_refresh_token
 
     # Best-effort: call Apple's revoke endpoint. If this fails we still
-    # delete local data — the user can manually revoke in Apple ID Settings.
+    # delete local data, the user can manually revoke in Apple ID Settings.
     if apple_refresh:
         try:
             await revoke_apple_token(apple_refresh)
@@ -354,7 +354,7 @@ async def delete_account(
             except Exception:  # noqa: BLE001 -- delete continues regardless
                 logger.debug("Sentry capture failed (non-fatal)", exc_info=True)
 
-    # Delete the user — CASCADE handles all tenant data + refresh tokens.
+    # Delete the user, CASCADE handles all tenant data + refresh tokens.
     await db.delete(user)
     await db.commit()
     logger.info("Deleted user account: %s", apple_id[:12] + "...")
