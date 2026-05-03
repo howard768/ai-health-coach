@@ -1,0 +1,40 @@
+name: Feature Scoping
+
+# Triggered by linear-label-router.yml when an issue gets the `needs-spec`
+# label. Drafts a lightweight spec via Anthropic API + posts as a comment,
+# then marks `spec-drafted`. Refuses Tier 3 work outright and labels
+# `auto/refused-safety` instead.
+#
+# Replaces the meld-feature-scoping scheduled task.
+
+on:
+  workflow_dispatch:
+    inputs:
+      linear_issue_id:
+        description: 'Linear issue identifier (e.g. MEL-NN)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: feature-scoping-${{ inputs.linear_issue_id }}
+  cancel-in-progress: false
+
+jobs:
+  draft-spec:
+    name: Draft spec for ${{ inputs.linear_issue_id }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Draft spec
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python3 scripts/feature_scoping.py "${{ inputs.linear_issue_id }}"

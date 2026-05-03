@@ -1,0 +1,39 @@
+name: Incident Response
+
+# Triggered by linear-label-router.yml when a P0 Linear issue lacks the
+# `incident-playbook-initialized` label. Posts the playbook + adds the
+# marker label so the issue is not processed twice.
+#
+# Replaces the meld-incident-response scheduled task.
+
+on:
+  workflow_dispatch:
+    inputs:
+      linear_issue_id:
+        description: 'Linear issue identifier (e.g. MEL-39)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: incident-response-${{ inputs.linear_issue_id }}
+  cancel-in-progress: false
+
+jobs:
+  init-playbook:
+    name: Initialize playbook for ${{ inputs.linear_issue_id }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Initialize incident playbook
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/incident_response.py "${{ inputs.linear_issue_id }}"
