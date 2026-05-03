@@ -1,5 +1,5 @@
 """
-Meld Coach Engine — Research-Informed AI Architecture
+Meld Coach Engine, Research-Informed AI Architecture
 
 Implements 7 architectural principles from the AI research corpus:
 1. Evidence-bound coaching (EviBound: 0% hallucination)
@@ -37,7 +37,7 @@ logger = logging.getLogger("meld.coach")
 # ============================================================
 
 class ModelTier(Enum):
-    RULES = "rules"          # No AI needed — deterministic answer
+    RULES = "rules"          # No AI needed, deterministic answer
     HAIKU = "haiku"          # Simple formatting/summarization
     SONNET = "sonnet"        # Routine coaching, daily insights
     OPUS = "opus"            # Deep analysis, safety-critical, cross-domain
@@ -104,7 +104,7 @@ class SafetyCheck:
             concerning = True
 
         # Sudden large changes (> 30% deviation from baseline)
-        # Skip when baseline_days < 3 — too little history for meaningful comparison
+        # Skip when baseline_days < 3, too little history for meaningful comparison
         baseline_hrv = data.get("baseline_hrv")
         baseline_days = data.get("baseline_days", 0)
         if (hrv is not None and baseline_hrv is not None and baseline_hrv > 0
@@ -150,7 +150,7 @@ class SafetyCheck:
         return SafetyCheck(
             is_concerning=is_crisis,
             reasons=reasons,
-            # Don't add health-metric disclaimer for emotional crisis —
+            # Don't add health-metric disclaimer for emotional crisis ,
             # the prompt's Rule 8 handles the response tone.
             requires_disclaimer=False,
             requires_opus=is_crisis,
@@ -158,7 +158,7 @@ class SafetyCheck:
 
 
 # ============================================================
-# 3. HIERARCHICAL MEMORY (deferred — see UserCorrelation for now)
+# 3. HIERARCHICAL MEMORY (deferred, see UserCorrelation for now)
 # ============================================================
 #
 # UserMemory was a TODO scaffold for per-user pattern memory. Removed in
@@ -170,7 +170,7 @@ class SafetyCheck:
 
 
 # ============================================================
-# 4. KNOWLEDGE GRAPH — DELETED in Phase 5 (Signal Engine).
+# 4. KNOWLEDGE GRAPH, DELETED in Phase 5 (Signal Engine).
 #
 # The hardcoded KnowledgeGraph seeded with three literature connections was a
 # Phase 0 placeholder for "personalized cross-domain relationships". It has
@@ -215,7 +215,7 @@ class Deliberator:
 
         query_lower = query.lower()
 
-        # Resting heart rate, HRV, sleep — these need AI with real data, not canned rules.
+        # Resting heart rate, HRV, sleep, these need AI with real data, not canned rules.
         # The user wants their actual numbers with context, not generic advice.
         if any(w in query_lower for w in ["resting heart rate", "resting hr", "rhr", "heart rate"]):
             return False, None  # Route to AI with full health data context
@@ -243,7 +243,7 @@ class Deliberator:
             elif hrv < baseline_hrv * 0.95:
                 return True, Deliberator.RULES["hrv_below_baseline"]
 
-        # Can't answer from rules — needs AI
+        # Can't answer from rules, needs AI
         return False, None
 
     @staticmethod
@@ -521,7 +521,7 @@ class CoachEngine:
             }
 
         # Step 4: Build evidence-bound prompt with Signal Engine context.
-        # (Memory context removed in P2-7 cleanup — was always empty.)
+        # (Memory context removed in P2-7 cleanup, was always empty.)
         memory_context = ""
 
         # Phase 5: signal_context (active patterns, recent anomalies, personal
@@ -583,7 +583,7 @@ class CoachEngine:
             logger.error("Claude API call failed: %s", e)
 
             # P1 safety: if the user sent crisis language but the API is down,
-            # we MUST still surface crisis resources — not a generic retry message.
+            # we MUST still surface crisis resources, not a generic retry message.
             if message_safety.is_concerning:
                 fallback_text = (
                     "I'm having trouble connecting right now, but I want to make sure you're safe.\n\n"
@@ -599,7 +599,7 @@ class CoachEngine:
             return {
                 "response": fallback_text,
                 "routing": routing.to_dict(),
-                # Preserve the real safety check — data can still be concerning
+                # Preserve the real safety check, data can still be concerning
                 # even when the Claude call fails. Monitoring depends on this.
                 "safety": {
                     "is_concerning": safety.is_concerning,
