@@ -15,13 +15,14 @@ Hardened against abuse with:
 import hashlib
 import logging
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.waitlist import WaitlistSignup
+from app.services.waitlist_notifier import send_new_signup_alert
 
 logger = logging.getLogger("meld.waitlist")
 
@@ -73,6 +74,7 @@ def _client_ip(request: Request) -> str | None:
 async def subscribe(
     payload: WaitlistSubscribeRequest,
     request: Request,
+    background_tasks: BackgroundTasks,
     user_agent: str | None = Header(default=None, alias="User-Agent"),
     referer: str | None = Header(default=None, alias="Referer"),
     db: AsyncSession = Depends(get_db),
@@ -111,7 +113,11 @@ async def subscribe(
         if payload.utm_content:
             existing.utm_content = payload.utm_content[:128]
         await db.commit()
-        logger.info("waitlist re-submission email=%s submissions=%d", normalized_email, existing.submissions)
+        logger.info(
+            "waitlist re-submission email=%s submissions=%d",
+            normalized_email,
+            existing.submissions,
+        )
         return WaitlistSubscribeResponse(
             status="ok",
             message="You're already on the list. We'll be in touch.",
@@ -138,9 +144,19 @@ async def subscribe(
         await db.rollback()
         # If a race created the row between our SELECT and INSERT, treat as success.
         logger.warning("waitlist insert race or error: %s", exc)
-        raise HTTPException(status_code=500, detail="Could not save your email. Please try again.") from exc
+        raise HTTPException(
+            status_code=500, detail="Could not save your email. Please try again."
+        ) from exc
 
-    logger.info("waitlist new signup email=%s source=%s", normalized_email, payload.source)
+    logger.info(
+        "waitlist new signup email=%s source=%s", normalized_email, payload.source
+    )
+
+    # Fire-and-forget admin alert via Resend. Runs after the response is sent
+    # so signup latency is unaffected. Swallows its own errors; if Resend is
+    # down or RESEND_API_KEY is unset, the signup still succeeds.
+    background_tasks.add_task(send_new_signup_alert, signup.id)
+
     return WaitlistSubscribeResponse(
         status="ok",
         message="You're on the list. We'll be in touch.",
