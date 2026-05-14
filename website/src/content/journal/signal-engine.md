@@ -2,7 +2,7 @@
 title: "How Meld finds patterns in your data"
 description: "Most AI health apps read your data and guess. Meld runs actual statistical tests. Here's how the pattern discovery engine works under the hood."
 pubDate: 2026-04-15
-author: "Brock Howard"
+author: "Meld"
 excerpt: "When Meld says your deep sleep improves on high-protein days, that's not a hunch. Here's the pipeline that produces it."
 ---
 
