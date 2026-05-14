@@ -7,7 +7,7 @@ const journal = defineCollection({
     title: z.string(),
     description: z.string(),
     pubDate: z.coerce.date(),
-    author: z.string().default('Brock Howard'),
+    author: z.string().default('Meld'),
     excerpt: z.string().optional(),
   }),
 });

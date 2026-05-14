@@ -2,7 +2,7 @@
 title: "Why we're building Meld"
 description: "The origin story: why we stopped screenshotting six apps a day into ChatGPT and started building Meld."
 pubDate: 2026-04-11
-author: "Brock Howard"
+author: "Meld"
 excerpt: "Last year, I was screenshotting six health apps into ChatGPT every morning to get advice. It worked. The friction didn't."
 ---
 
